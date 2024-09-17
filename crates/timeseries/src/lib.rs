@@ -1,8 +1,10 @@
 use num_traits::Num;
 use resolution::{TimeRange, TimeResolution};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
-use std::{collections::BTreeMap, fmt, num::NonZeroU32};
+use std::{collections::BTreeMap, fmt, num::NonZeroU64};
 
+// consider either forcing T to be a decimal, or having a trait that allows conversion
+// alternatively, store it as a decimal and pass converters at runtime
 // could later invesigate compression, etc, here.
 #[derive(Serialize, Deserialize, Clone)]
 #[serde(bound(deserialize = "T: DeserializeOwned + Serialize"))]
@@ -10,14 +12,19 @@ enum TimeseriesData<T> {
     Plain(Vec<T>),
 }
 
-impl<T> TimeseriesData<T> {
-    fn ref_inner(&self) -> &[T] {
-        let TimeseriesData::Plain(s) = self;
-        &s
-    }
-    fn into_inner(self) -> Vec<T> {
+impl<T> TimeseriesData<T>
+where
+    T: Copy,
+{
+    fn _into_inner(self) -> Vec<T> {
         let TimeseriesData::Plain(s) = self;
         s
+    }
+
+    fn get(&self, idx: usize) -> Option<T> {
+        match self {
+            TimeseriesData::Plain(vec) => vec.get(idx).copied(),
+        }
     }
 }
 
@@ -47,21 +54,22 @@ where
     pub fn end(&self) -> R {
         self.range.end()
     }
-    pub fn len(&self) -> NonZeroU32 {
+    pub fn len(&self) -> NonZeroU64 {
         self.range.len()
     }
+    // consider TrustedLen here
     pub fn iter(&self) -> impl Iterator<Item = (R, T)> + '_ {
         self.range
             .iter()
             .enumerate()
-            .map(|(idx, t)| (t, self.data.ref_inner()[idx]))
+            .filter_map(|(idx, t)| Some((t, self.data.get(idx)?)))
     }
     pub fn to_map(&self) -> BTreeMap<R, T> {
         self.iter().collect()
     }
     pub fn get(&self, time: R) -> Option<T> {
         let idx = self.range.index_of(time)?;
-        self.data.ref_inner().get(idx).copied()
+        self.data.get(idx)
     }
     pub fn range(&self) -> TimeRange<R> {
         self.range
@@ -84,7 +92,7 @@ where
             }
         }
         Ok(Timeseries {
-            range: TimeRange::new(start, NonZeroU32::new(len).ok_or(Error::Empty)?),
+            range: TimeRange::new(start, NonZeroU64::new(len).ok_or(Error::Empty)?),
             data: TimeseriesData::Plain(data),
         })
     }
@@ -113,8 +121,8 @@ where
     ) -> std::result::Result<Timeseries<R, T>, MergeFailure<R, T>> {
         let mut differences = BTreeMap::new();
         let (intersection, merged) = match (
-            self.range.intersect(&rhs.range),
-            self.range.merge(&rhs.range),
+            self.range.intersection(&rhs.range),
+            self.range.union(&rhs.range),
         ) {
             (Some(intersection), Some(merged)) => (intersection, merged),
 
@@ -183,7 +191,7 @@ type Result<T> = std::result::Result<T, Error>;
 
 #[derive(Debug)]
 pub enum Error {
-    NonMatchingLength { range: NonZeroU32, data: usize },
+    NonMatchingLength { range: NonZeroU64, data: usize },
     Empty,
     NonContigious { prev: String, next: String },
 }

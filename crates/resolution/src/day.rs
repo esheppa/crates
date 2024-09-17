@@ -3,8 +3,8 @@ use alloc::{
     fmt, str,
     string::{String, ToString},
 };
-use core::result;
 use chrono::{DateTime, Datelike, NaiveDate, NaiveTime, Utc};
+use core::result;
 #[cfg(feature = "serde")]
 use serde::de;
 

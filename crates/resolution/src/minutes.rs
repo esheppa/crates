@@ -210,9 +210,6 @@ impl<const N: u32> FromMonotonic for Minutes<N> {
     }
 }
 
-
-
-
 impl<const N: u32> Minutes<N> {}
 
 impl<const N: u32> SubDateResolution for Minutes<N> {

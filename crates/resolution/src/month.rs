@@ -4,7 +4,7 @@ use alloc::{
     string::{String, ToString},
 };
 use chrono::{DateTime, Datelike, NaiveDate, NaiveTime, Utc};
-use core::{result, convert::TryFrom};
+use core::{convert::TryFrom, result};
 #[cfg(feature = "serde")]
 use serde::de;
 

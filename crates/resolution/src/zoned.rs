@@ -200,23 +200,23 @@ where
     }
 }
 
-impl<R1, R2, Z> LongerThan<Zoned<R2, Z>> for Zoned<R1, Z>
-where
-    R1: TimeResolution,
-    R2: TimeResolution,
-    Z: TimeZone + Copy + fmt::Debug,
-    R1: LongerThan<R2>,
-{
-}
+// impl<R1, R2, Z> LongerThan<Zoned<R2, Z>> for Zoned<R1, Z>
+// where
+//     R1: TimeResolution,
+//     R2: TimeResolution,
+//     Z: TimeZone + Copy + fmt::Debug,
+//     R1: LongerThan<R2>,
+// {
+// }
 
-impl<R1, R2, Z> LongerThanOrEqual<Zoned<R2, Z>> for Zoned<R1, Z>
-where
-    R1: TimeResolution,
-    R2: TimeResolution,
-    Z: TimeZone + Copy + fmt::Debug,
-    R1: LongerThanOrEqual<R2>,
-{
-}
+// impl<R1, R2, Z> LongerThanOrEqual<Zoned<R2, Z>> for Zoned<R1, Z>
+// where
+//     R1: TimeResolution,
+//     R2: TimeResolution,
+//     Z: TimeZone + Copy + fmt::Debug,
+//     R1: LongerThanOrEqual<R2>,
+// {
+// }
 
 impl<R, Z> SubDateResolution for Zoned<R, Z>
 where

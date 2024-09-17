@@ -42,6 +42,8 @@ pub trait LongerThan<T>: LongerThanOrEqual<T> {}
 
 pub trait LongerThanOrEqual<T> {}
 
+impl<T> LongerThanOrEqual<T> for T {}
+
 pub trait ShorterThan<T>: ShorterThanOrEqual<T> {}
 
 impl<Long, Short> ShorterThan<Long> for Short where
@@ -55,7 +57,6 @@ impl<Long, Short> ShorterThanOrEqual<Long> for Short where Long: LongerThan<Shor
 
 // TODO: use macro for this
 
-impl LongerThanOrEqual<Minute> for Minute {}
 impl LongerThanOrEqual<Minute> for FiveMinute {}
 impl LongerThanOrEqual<Minute> for HalfHour {}
 impl LongerThanOrEqual<Minute> for Hour {}
@@ -74,7 +75,6 @@ impl LongerThan<Minute> for Month {}
 impl LongerThan<Minute> for Quarter {}
 impl LongerThan<Minute> for Year {}
 
-impl LongerThanOrEqual<FiveMinute> for FiveMinute {}
 impl LongerThanOrEqual<FiveMinute> for HalfHour {}
 impl LongerThanOrEqual<FiveMinute> for Hour {}
 impl LongerThanOrEqual<FiveMinute> for Day {}
@@ -91,7 +91,6 @@ impl LongerThan<FiveMinute> for Month {}
 impl LongerThan<FiveMinute> for Quarter {}
 impl LongerThan<FiveMinute> for Year {}
 
-impl LongerThanOrEqual<HalfHour> for HalfHour {}
 impl LongerThanOrEqual<HalfHour> for Hour {}
 impl LongerThanOrEqual<HalfHour> for Day {}
 impl<D> LongerThanOrEqual<HalfHour> for Week<D> where D: StartDay {}
@@ -106,7 +105,6 @@ impl LongerThan<HalfHour> for Month {}
 impl LongerThan<HalfHour> for Quarter {}
 impl LongerThan<HalfHour> for Year {}
 
-impl LongerThanOrEqual<Hour> for Hour {}
 impl LongerThanOrEqual<Hour> for Day {}
 impl<D> LongerThanOrEqual<Hour> for Week<D> where D: StartDay {}
 impl LongerThanOrEqual<Hour> for Month {}
@@ -119,7 +117,6 @@ impl LongerThan<Hour> for Month {}
 impl LongerThan<Hour> for Quarter {}
 impl LongerThan<Hour> for Year {}
 
-impl LongerThanOrEqual<Day> for Day {}
 impl<D> LongerThanOrEqual<Day> for Week<D> where D: StartDay {}
 impl LongerThanOrEqual<Day> for Month {}
 impl LongerThanOrEqual<Day> for Quarter {}
@@ -130,12 +127,6 @@ impl LongerThan<Day> for Month {}
 impl LongerThan<Day> for Quarter {}
 impl LongerThan<Day> for Year {}
 
-impl<D0, D> LongerThanOrEqual<Week<D0>> for Week<D>
-where
-    D: StartDay,
-    D0: StartDay,
-{
-}
 impl<D0> LongerThanOrEqual<Week<D0>> for Quarter where D0: StartDay {}
 impl<D0> LongerThanOrEqual<Week<D0>> for Month where D0: StartDay {}
 impl<D0> LongerThanOrEqual<Week<D0>> for Year where D0: StartDay {}
@@ -144,19 +135,15 @@ impl<D0> LongerThan<Week<D0>> for Month where D0: StartDay {}
 impl<D0> LongerThan<Week<D0>> for Quarter where D0: StartDay {}
 impl<D0> LongerThan<Week<D0>> for Year where D0: StartDay {}
 
-impl LongerThanOrEqual<Month> for Month {}
 impl LongerThanOrEqual<Month> for Quarter {}
 impl LongerThanOrEqual<Month> for Year {}
 
 impl LongerThan<Month> for Quarter {}
 impl LongerThan<Month> for Year {}
 
-impl LongerThanOrEqual<Quarter> for Quarter {}
 impl LongerThanOrEqual<Quarter> for Year {}
 
 impl LongerThan<Quarter> for Year {}
-
-impl LongerThanOrEqual<Year> for Year {}
 
 /// This function is useful for formatting types implementing `Monotonic` when they are stored
 /// in their `i64` form instead of their `TimeResolution` form. Provided you have the `TypeId` handy

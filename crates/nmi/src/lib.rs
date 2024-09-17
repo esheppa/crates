@@ -21,7 +21,6 @@ impl NmiChar {
     }
 }
 
-
 #[derive(Debug, Clone, Copy)]
 pub struct NmiAlpha(u8);
 
