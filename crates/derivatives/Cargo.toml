@@ -1,0 +1,30 @@
+[package]
+name = "derivatives"
+version = "0.1.0"
+authors = ["Eric Sheppard"]
+edition = "2018"
+
+[dependencies.async-trait]
+version = "0.1.58"
+
+[dependencies.num-traits]
+workspace = true
+
+[dependencies.rust_decimal]
+features = ["serde", "std"]
+workspace = true
+
+[dependencies.resolution]
+path = "../resolution"
+
+[dependencies.serde]
+workspace = true
+features = ["derive"]
+
+[dependencies.chrono]
+workspace = true
+features = ["std", "serde"]
+
+[dev-dependencies]
+anyhow = "1"
+serde_json = "1"

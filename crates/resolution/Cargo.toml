@@ -1,0 +1,21 @@
+[package]
+name = "resolution"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies.serde]
+workspace = true
+features = ["derive"]
+optional = true
+
+[dependencies.chrono]
+workspace = true
+default-features = false
+
+[dev-dependencies]
+serde_json = "1.0.115"
+chrono-tz = "0.10.0"
+
+[features]
+serde = ["dep:serde","chrono/serde"]
+std = ["chrono/std"]
