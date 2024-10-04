@@ -1,4 +1,4 @@
-use crate::DateResolution;
+use crate::{day::DayOfMonth, DateResolution, DateResolutionExt, Day};
 use alloc::{
     fmt, format, str,
     string::{String, ToString},
@@ -156,6 +156,18 @@ impl From<DateTime<Utc>> for Month {
 }
 
 impl Month {
+    pub fn first_day(self) -> Day {
+        self.start().into()
+    }
+    pub fn last_day(self) -> Day {
+        self.end().into()
+    }
+    pub fn and_day(self, d: DayOfMonth) -> Day {
+        self.first_day().with_day(d)
+    }
+    pub fn from_year_month(y: i16, month: chrono::Month) -> Self {
+        Month(i64::from(month as u32) + i64::from(y) * 12)
+    }
     pub fn year(&self) -> super::Year {
         self.start().into()
     }

@@ -426,3 +426,56 @@ pub trait DateResolutionExt: DateResolution {
 }
 
 impl<T> DateResolutionExt for T where T: DateResolution {}
+
+trait DateResolutionBuilder: Into<i16> {
+    fn q1(self) -> Quarter {
+        Quarter::from_parts(<Self as Into<i16>>::into(self).into(), quarter::QuarterNumber::Q1)
+    }
+    fn q2(self) -> Quarter {
+        Quarter::from_parts(<Self as Into<i16>>::into(self).into(), quarter::QuarterNumber::Q2)
+    }
+    fn q3(self) -> Quarter {
+        Quarter::from_parts(<Self as Into<i16>>::into(self).into(), quarter::QuarterNumber::Q3)
+    }
+    fn q4(self) -> Quarter {
+        Quarter::from_parts(<Self as Into<i16>>::into(self).into(), quarter::QuarterNumber::Q4)
+    }
+    fn jan(self) -> Month {
+        Month::from_year_month(self.into(), chrono::Month::January)
+    }
+    fn feb(self) -> Month {
+        Month::from_year_month(self.into(), chrono::Month::February)
+    }
+    fn mar(self) -> Month {
+        Month::from_year_month(self.into(), chrono::Month::March)
+    }
+    fn apr(self) -> Month {
+        Month::from_year_month(self.into(), chrono::Month::April)
+    }
+    fn may(self) -> Month {
+        Month::from_year_month(self.into(), chrono::Month::May)
+    }
+    fn jun(self) -> Month {
+        Month::from_year_month(self.into(), chrono::Month::June)
+    }
+    fn jul(self) -> Month {
+        Month::from_year_month(self.into(), chrono::Month::July)
+    }
+    fn aug(self) -> Month {
+        Month::from_year_month(self.into(), chrono::Month::August)
+    }
+    fn sep(self) -> Month {
+        Month::from_year_month(self.into(), chrono::Month::September)
+    }
+    fn oct(self) -> Month {
+        Month::from_year_month(self.into(), chrono::Month::October)
+    }
+    fn nov(self) -> Month {
+        Month::from_year_month(self.into(), chrono::Month::November)
+    }
+    fn dec(self) -> Month {
+        Month::from_year_month(self.into(), chrono::Month::December)
+    }
+}
+impl<T> DateResolutionBuilder for T where T: Into<i16> {
+}
