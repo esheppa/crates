@@ -1,4 +1,4 @@
-use crate::{month, DateResolution, DateResolutionExt};
+use crate::{month, DateResolution, DateResolutionExt, Quarter};
 use alloc::string::{String, ToString};
 use chrono::{DateTime, Datelike, NaiveDate, NaiveTime, Utc};
 use core::{convert::TryFrom, fmt, str};
@@ -10,7 +10,7 @@ pub struct Year(i64);
 
 impl crate::DateResolution for Year {
     fn start(&self) -> chrono::NaiveDate {
-        chrono::NaiveDate::from_ymd_opt(self.year_num(), 1, 1).expect("valid time")
+        chrono::NaiveDate::from_ymd_opt(self.year_num().into(), 1, 1).expect("valid time")
     }
     type Params = ();
 
@@ -68,19 +68,19 @@ impl Year {
     pub fn first_month(&self) -> month::Month {
         self.start().into()
     }
-    pub fn first_quarter(&self) -> month::Month {
+    pub fn first_quarter(&self) -> Quarter {
         self.start().into()
     }
     pub fn last_month(&self) -> month::Month {
         self.end().into()
     }
-    pub fn last_quarter(&self) -> month::Month {
+    pub fn last_quarter(&self) -> Quarter {
         self.end().into()
     }
-    pub fn year_num(&self) -> i32 {
-        i32::try_from(self.0).expect("Not pre/post historic")
+    pub fn year_num(&self) -> i16 {
+        i16::try_from(self.0).expect("Not pre/post historic")
     }
-    pub fn new(year: i32) -> Self {
+    pub fn new(year: i16) -> Self {
         Year(i64::from(year))
     }
 }

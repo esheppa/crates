@@ -427,18 +427,48 @@ pub trait DateResolutionExt: DateResolution {
 
 impl<T> DateResolutionExt for T where T: DateResolution {}
 
-trait DateResolutionBuilder: Into<i16> {
+trait DateResolutionBuilder {
+    fn q1(self) -> Quarter;
+    fn q2(self) -> Quarter;
+    fn q3(self) -> Quarter;
+    fn q4(self) -> Quarter;
+    fn jan(self) -> Month;
+    fn feb(self) -> Month;
+    fn mar(self) -> Month;
+    fn apr(self) -> Month;
+    fn may(self) -> Month;
+    fn jun(self) -> Month;
+    fn jul(self) -> Month;
+    fn aug(self) -> Month;
+    fn sep(self) -> Month;
+    fn oct(self) -> Month;
+    fn nov(self) -> Month;
+    fn dec(self) -> Month;
+}
+impl DateResolutionBuilder for i16 {
     fn q1(self) -> Quarter {
-        Quarter::from_parts(<Self as Into<i16>>::into(self).into(), quarter::QuarterNumber::Q1)
+        Quarter::from_parts(
+            <Self as Into<i16>>::into(self).into(),
+            quarter::QuarterNumber::Q1,
+        )
     }
     fn q2(self) -> Quarter {
-        Quarter::from_parts(<Self as Into<i16>>::into(self).into(), quarter::QuarterNumber::Q2)
+        Quarter::from_parts(
+            <Self as Into<i16>>::into(self).into(),
+            quarter::QuarterNumber::Q2,
+        )
     }
     fn q3(self) -> Quarter {
-        Quarter::from_parts(<Self as Into<i16>>::into(self).into(), quarter::QuarterNumber::Q3)
+        Quarter::from_parts(
+            <Self as Into<i16>>::into(self).into(),
+            quarter::QuarterNumber::Q3,
+        )
     }
     fn q4(self) -> Quarter {
-        Quarter::from_parts(<Self as Into<i16>>::into(self).into(), quarter::QuarterNumber::Q4)
+        Quarter::from_parts(
+            <Self as Into<i16>>::into(self).into(),
+            quarter::QuarterNumber::Q4,
+        )
     }
     fn jan(self) -> Month {
         Month::from_year_month(self.into(), chrono::Month::January)
@@ -477,5 +507,68 @@ trait DateResolutionBuilder: Into<i16> {
         Month::from_year_month(self.into(), chrono::Month::December)
     }
 }
-impl<T> DateResolutionBuilder for T where T: Into<i16> {
+
+impl DateResolutionBuilder for Year {
+    fn q1(self) -> Quarter {
+        Quarter::from_parts(self.year_num(), quarter::QuarterNumber::Q1)
+    }
+    fn q2(self) -> Quarter {
+        Quarter::from_parts(self.year_num(), quarter::QuarterNumber::Q2)
+    }
+    fn q3(self) -> Quarter {
+        Quarter::from_parts(self.year_num(), quarter::QuarterNumber::Q3)
+    }
+    fn q4(self) -> Quarter {
+        Quarter::from_parts(self.year_num(), quarter::QuarterNumber::Q4)
+    }
+    fn jan(self) -> Month {
+        Month::from_year_month(self.year_num(), chrono::Month::January)
+    }
+    fn feb(self) -> Month {
+        Month::from_year_month(self.year_num(), chrono::Month::February)
+    }
+    fn mar(self) -> Month {
+        Month::from_year_month(self.year_num(), chrono::Month::March)
+    }
+    fn apr(self) -> Month {
+        Month::from_year_month(self.year_num(), chrono::Month::April)
+    }
+    fn may(self) -> Month {
+        Month::from_year_month(self.year_num(), chrono::Month::May)
+    }
+    fn jun(self) -> Month {
+        Month::from_year_month(self.year_num(), chrono::Month::June)
+    }
+    fn jul(self) -> Month {
+        Month::from_year_month(self.year_num(), chrono::Month::July)
+    }
+    fn aug(self) -> Month {
+        Month::from_year_month(self.year_num(), chrono::Month::August)
+    }
+    fn sep(self) -> Month {
+        Month::from_year_month(self.year_num(), chrono::Month::September)
+    }
+    fn oct(self) -> Month {
+        Month::from_year_month(self.year_num(), chrono::Month::October)
+    }
+    fn nov(self) -> Month {
+        Month::from_year_month(self.year_num(), chrono::Month::November)
+    }
+    fn dec(self) -> Month {
+        Month::from_year_month(self.year_num(), chrono::Month::December)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use quarter::QuarterNumber;
+
+    use super::*;
+
+    #[test]
+    fn test_builder() {
+        assert_eq!(2024.q1(), Quarter::from_parts(2024, QuarterNumber::Q1));
+        assert_eq!(2024.q1(), Year::new(2024).first_quarter());
+        assert_eq!(Year::new(2024).q1(), Year::new(2024).first_quarter());
+    }
 }

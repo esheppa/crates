@@ -1,4 +1,4 @@
-use crate::{month, year, DateResolution, DateResolutionExt};
+use crate::{month, year, DateResolution, DateResolutionExt, Year};
 use alloc::{
     fmt, str,
     string::{String, ToString},
@@ -84,8 +84,8 @@ impl Quarter {
     pub fn year(&self) -> year::Year {
         super::Year::new(self.year_num())
     }
-    pub fn year_num(&self) -> i32 {
-        self.start().year()
+    pub fn year_num(&self) -> i16 {
+        Year::from(self.start()).year_num()
     }
     pub fn quarter_num(&self) -> u32 {
         u32::try_from(1 + self.0.rem_euclid(4)).expect("Range of 1-4")
@@ -93,8 +93,8 @@ impl Quarter {
     pub fn new(date: NaiveDate) -> Self {
         date.into()
     }
-    pub fn from_parts(year: i32, quarter: QuarterNumber) -> Self {
-        crate::FromMonotonic::from_monotonic(i64::from(year) + quarter.offset())
+    pub fn from_parts(year: i16, quarter: QuarterNumber) -> Self {
+        crate::FromMonotonic::from_monotonic(i64::from(year) * 4 + quarter.offset())
     }
 }
 
