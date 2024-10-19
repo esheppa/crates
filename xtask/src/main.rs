@@ -107,3 +107,43 @@ fn help() {
 "
     );
 }
+
+// fn main() -> Result<(), String> {
+//     if let Some(arg) = env::args().nth(1) {
+//         match arg.as_str() {
+//             "make" => {
+//                 check!("mkdir", "-p", "wasm-module")?;
+//                 check!(
+//                     "cargo",
+//                     "build",
+//                     "--release",
+//                     "--target",
+//                     "wasm32-unknown-unknown",
+//                     "--package",
+//                     "basic",
+//                 )?;
+//                 check!(
+//                     "wasm-bindgen",
+//                     "--target",
+//                     "web",
+//                     "./target/wasm32-unknown-unknown/release/basic.wasm",
+//                     "--out-dir",
+//                     "wasm-dist/basic",
+//                 )?;
+//             }
+//             _ => help(),
+//         }
+//     } else {
+//         help()
+//     };
+//     Ok(())
+// }
+
+// fn help() {
+//     println!(
+//         "available options are:
+
+//     `cargo xtask make`
+// "
+//     );
+// }

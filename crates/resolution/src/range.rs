@@ -4,10 +4,12 @@ use crate::{
 };
 use alloc::{collections, fmt, vec::Vec};
 use chrono::{DateTime, Utc};
-use core::{mem, num};
+use core::{iter::FusedIterator, mem, num};
 #[cfg(feature = "serde")]
 use serde::de;
 
+// the `Step` trait may be interesting later
+// https://doc.rust-lang.org/std/iter/trait.Step.html
 /// `TimeRange` stores a contigious sequence of underlying periods of a given `TimeResolution`.
 ///
 /// This is useful to represent the time axis of a timeseries.
@@ -211,7 +213,7 @@ impl<P: TimeResolution> TimeRange<P> {
     }
     pub fn iter(&self) -> TimeRangeIter<P> {
         TimeRangeIter {
-            current: self.start(),
+            start: self.start(),
             end: self.end(),
         }
     }
@@ -232,16 +234,40 @@ impl<P: TimeResolution> TimeRange<P> {
 }
 
 pub struct TimeRangeIter<P: TimeResolution> {
-    current: P,
+    start: P,
     end: P,
 }
 
 impl<P: TimeResolution> Iterator for TimeRangeIter<P> {
     type Item = P;
     fn next(&mut self) -> Option<Self::Item> {
-        if self.current <= self.end {
-            let ret = self.current;
-            self.current = self.current.succ();
+        if self.start <= self.end {
+            let ret = self.start;
+            self.start = self.start.succ();
+            Some(ret)
+        } else {
+            None
+        }
+    }
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let range = TimeRange::from_bounds(self.start, self.end);
+
+        match range.len().get().try_into() {
+            Ok(len) => (len, Some(len)),
+            Err(_) => (0, None),
+        }
+    }
+}
+
+impl<P: TimeResolution> FusedIterator for TimeRangeIter<P> {}
+
+impl<P: TimeResolution> ExactSizeIterator for TimeRangeIter<P> {}
+
+impl<P: TimeResolution> DoubleEndedIterator for TimeRangeIter<P> {
+    fn next_back(&mut self) -> Option<Self::Item> {
+        if self.start <= self.end {
+            let ret = self.end;
+            self.end = self.end.pred();
             Some(ret)
         } else {
             None
@@ -346,6 +372,23 @@ mod tests {
     use crate::{Day, FiveMinute, Hour, Minutes, Month, Year};
 
     use super::*;
+
+    #[test]
+    fn test_iter() {
+        let mth = Month::from_parts(2024, chrono::Month::January).unwrap();
+
+        let day_range = mth.rescale::<Day>();
+
+        let mut iter = day_range.iter();
+
+        assert_eq!(iter.len(), 31);
+        assert_eq!(iter.next(), Some(mth.start().into()));
+        assert_eq!(iter.next_back(), Some(mth.end().into()));
+        assert_eq!(iter.len(), 29);
+        let mut iter = iter.skip(29);
+        assert_eq!(iter.next(), None);
+        assert_eq!(iter.next(), None);
+    }
 
     #[test]
     fn test_missing_pieces() {
