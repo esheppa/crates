@@ -10,6 +10,9 @@ features = ["derive"]
 [dependencies.num-traits]
 workspace = true
 
+[dependencies.rust_decimal]
+workspace = true
+
 
 [dependencies.resolution]
 path = "../resolution"

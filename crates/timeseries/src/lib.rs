@@ -1,43 +1,73 @@
+use compressed::Compressed;
 use num_traits::Num;
 use resolution::{TimeRange, TimeResolution};
+use rust_decimal::Decimal;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
-use std::{collections::BTreeMap, fmt, num::NonZeroU64};
+use std::{collections::BTreeMap, fmt, num::{NonZeroU64, NonZeroUsize}};
+
+mod compressed;
+
+// nullable? consider later?
 
 // consider either forcing T to be a decimal, or having a trait that allows conversion
 // alternatively, store it as a decimal and pass converters at runtime
 // could later invesigate compression, etc, here.
-#[derive(Serialize, Deserialize, Clone)]
-#[serde(bound(deserialize = "T: DeserializeOwned + Serialize"))]
-enum TimeseriesData<T> {
-    Plain(Vec<T>),
+#[derive(Clone)]
+enum TimeseriesData {
+    Plain(Vec<Decimal>),
+    // RunLenghEncoded(RunLengthEncoded),
+    Compressed(Compressed),
+
+    // TBC:
+    // map + u8 indexes
+    // compressed + outliers 
+    // Shape + compressed
+    // deltas + compressed
+    // composition of compression layers
 }
 
-impl<T> TimeseriesData<T>
-where
-    T: Copy,
-{
-    fn _into_inner(self) -> Vec<T> {
-        let TimeseriesData::Plain(s) = self;
-        s
-    }
+// #[derive(Clone)]
+// struct RunLengthEncoded {
+//     data: Vec<(NonZeroUsize, Decimal)>,
+// }
 
-    fn get(&self, idx: usize) -> Option<T> {
+
+impl TimeseriesData
+{
+    // fn _into_inner(self) -> Vec<Decimal> {
+    //     let TimeseriesData::Plain(s) = self;
+    //     s
+    // }
+
+
+
+    fn get(&self, idx: usize) -> Option<Decimal> {
         match self {
             TimeseriesData::Plain(vec) => vec.get(idx).copied(),
         }
     }
 }
 
+// consider:
+// - what about integer fields?
+// - what about non-numeric fields?
+
+
 // just the raw data
-#[derive(Serialize, Deserialize, Clone)]
-#[serde(bound(deserialize = "T: DeserializeOwned + Serialize, R: DeserializeOwned + Serialize"))]
+#[derive(Clone)]
+// #[derive(Serialize, Deserialize, Clone)]
+// #[serde(bound(deserialize = "T: DeserializeOwned + Serialize, R: DeserializeOwned + Serialize"))]
 pub struct Timeseries<R, T>
 where
     R: TimeResolution,
     T: Num + Copy + DeserializeOwned,
 {
     range: TimeRange<R>,
-    data: TimeseriesData<T>,
+    // include mapperfn to get from Decimal to T 
+    data: TimeseriesData,
+    // render the data units to a string on serialization?
+    conv_out: fn(Decimal) -> T,
+    conv_in: fn(T) -> Decimal,
 }
 
 impl<R, T> Timeseries<R, T>
