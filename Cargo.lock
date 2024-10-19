@@ -737,6 +737,19 @@ dependencies = [
 ]
 
 [[package]]
+<<<<<<< HEAD
+=======
+name = "rust_decimal"
+version = "1.36.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b082d80e3e3cc52b2ed634388d436fe1f4de6af5786cc2de9ba9737527bdf555"
+dependencies = [
+ "arrayvec",
+ "num-traits",
+]
+
+[[package]]
+>>>>>>> b253e74 (basic compression)
 name = "rustc-demangle"
 version = "0.1.24"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -893,9 +906,12 @@ dependencies = [
 name = "timeseries"
 version = "0.1.0"
 dependencies = [
- "num-traits",
  "resolution",
+<<<<<<< HEAD
  "serde",
+=======
+ "rust_decimal",
+>>>>>>> b253e74 (basic compression)
 ]
 
 [[package]]
