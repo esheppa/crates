@@ -2,8 +2,7 @@ use compressed::Compressed;
 use num_traits::Num;
 use resolution::{TimeRange, TimeResolution};
 use rust_decimal::Decimal;
-use serde::{de::DeserializeOwned, Deserialize, Serialize};
-use std::{collections::BTreeMap, fmt, num::{NonZeroU64, NonZeroUsize}};
+use std::{collections::BTreeMap, fmt, num::NonZeroU64};
 
 mod compressed;
 
@@ -17,10 +16,9 @@ enum TimeseriesData {
     Plain(Vec<Decimal>),
     // RunLenghEncoded(RunLengthEncoded),
     Compressed(Compressed),
-
     // TBC:
     // map + u8 indexes
-    // compressed + outliers 
+    // compressed + outliers
     // Shape + compressed
     // deltas + compressed
     // composition of compression layers
@@ -31,19 +29,16 @@ enum TimeseriesData {
 //     data: Vec<(NonZeroUsize, Decimal)>,
 // }
 
-
-impl TimeseriesData
-{
+impl TimeseriesData {
     // fn _into_inner(self) -> Vec<Decimal> {
     //     let TimeseriesData::Plain(s) = self;
     //     s
     // }
 
-
-
     fn get(&self, idx: usize) -> Option<Decimal> {
         match self {
             TimeseriesData::Plain(vec) => vec.get(idx).copied(),
+            TimeseriesData::Compressed(compressed) => compressed.get(idx),
         }
     }
 }
@@ -52,29 +47,57 @@ impl TimeseriesData
 // - what about integer fields?
 // - what about non-numeric fields?
 
-
 // just the raw data
 #[derive(Clone)]
-// #[derive(Serialize, Deserialize, Clone)]
-// #[serde(bound(deserialize = "T: DeserializeOwned + Serialize, R: DeserializeOwned + Serialize"))]
 pub struct Timeseries<R, T>
 where
     R: TimeResolution,
-    T: Num + Copy + DeserializeOwned,
+    T: Num + Copy,
 {
     range: TimeRange<R>,
-    // include mapperfn to get from Decimal to T 
+    // include mapperfn to get from Decimal to T
     data: TimeseriesData,
+
     // render the data units to a string on serialization?
+    // should this come via a Trait that T must implement instead?
+    // disadvantage is that it means the trait will definitely not be
+    // object safe...
     conv_out: fn(Decimal) -> T,
     conv_in: fn(T) -> Decimal,
+}
+
+impl<R> Timeseries<R, Decimal>
+where
+    R: TimeResolution + fmt::Display,
+{
+    pub fn new_decimal(iter: impl Iterator<Item = (R, Decimal)>) -> Result<Self> {
+        Timeseries::new(iter, |i| i, |i| i)
+    }
+    pub fn from_parts_decimal(range: TimeRange<R>, data: Vec<Decimal>) -> Result<Self> {
+        Timeseries::from_parts(range, data, |i| i, |i| i)
+    }
 }
 
 impl<R, T> Timeseries<R, T>
 where
     R: TimeResolution + fmt::Display,
-    T: Num + Copy + DeserializeOwned,
+    T: Num + Copy,
 {
+    pub fn compress(&mut self) -> Result<()> {
+        match &self.data {
+            TimeseriesData::Plain(vec) => {
+                // compress the data
+
+                let compressed = Compressed::new(&vec).ok_or_else(|| Error::CompressionFailure)?;
+
+                self.data = TimeseriesData::Compressed(compressed);
+
+                Ok(())
+            }
+            // already compresed
+            TimeseriesData::Compressed(_) => Ok(()),
+        }
+    }
     pub fn contains(&self, time: R) -> bool {
         self.range.contains(time)
     }
@@ -92,28 +115,32 @@ where
         self.range
             .iter()
             .enumerate()
-            .filter_map(|(idx, t)| Some((t, self.data.get(idx)?)))
+            .filter_map(|(idx, t)| Some((t, (self.conv_out)(self.data.get(idx)?))))
     }
     pub fn to_map(&self) -> BTreeMap<R, T> {
         self.iter().collect()
     }
     pub fn get(&self, time: R) -> Option<T> {
         let idx = self.range.index_of(time)?;
-        self.data.get(idx)
+        self.data.get(idx).map(self.conv_out)
     }
     pub fn range(&self) -> TimeRange<R> {
         self.range
     }
 
-    pub fn new(mut iter: impl Iterator<Item = (R, T)>) -> Result<Timeseries<R, T>> {
+    pub fn new(
+        mut iter: impl Iterator<Item = (R, T)>,
+        conv_out: fn(Decimal) -> T,
+        conv_in: fn(T) -> Decimal,
+    ) -> Result<Timeseries<R, T>> {
         let mut data = Vec::with_capacity(iter.size_hint().0);
         let (start, data_start) = iter.next().ok_or(Error::Empty)?;
         let mut len = 1;
-        data.push(data_start);
+        data.push(conv_in(data_start));
         for (time, obs) in iter {
             if time == start.succ_n(len).succ() {
                 len += 1;
-                data.push(obs);
+                data.push(conv_in(obs));
             } else {
                 return Err(Error::NonContigious {
                     prev: start.succ_n(len).to_string(),
@@ -124,25 +151,41 @@ where
         Ok(Timeseries {
             range: TimeRange::new(start, NonZeroU64::new(len).ok_or(Error::Empty)?),
             data: TimeseriesData::Plain(data),
+            conv_in,
+            conv_out,
         })
     }
 
-    pub fn from_parts(range: TimeRange<R>, data: Vec<T>) -> Result<Timeseries<R, T>> {
-        if u64::from(range.len().get()) != u64::try_from(data.len()).unwrap() {
+    pub fn from_parts(
+        range: TimeRange<R>,
+        input_data: Vec<T>,
+        conv_out: fn(Decimal) -> T,
+        conv_in: fn(T) -> Decimal,
+    ) -> Result<Timeseries<R, T>> {
+        if u64::from(range.len().get()) != u64::try_from(input_data.len()).unwrap() {
             return Err(Error::NonMatchingLength {
                 range: range.len(),
-                data: data.len(),
+                data: input_data.len(),
             });
         }
+
+        let mut data = Vec::with_capacity(input_data.len());
+        data.extend(input_data.into_iter().map(conv_in));
 
         Ok(Timeseries {
             range,
             data: TimeseriesData::Plain(data),
+            conv_in,
+            conv_out,
         })
     }
 
-    pub fn from_map(map: &BTreeMap<R, T>) -> Result<Timeseries<R, T>> {
-        Timeseries::new(map.iter().map(|(a, b)| (*a, *b)))
+    pub fn from_map(
+        map: &BTreeMap<R, T>,
+        conv_out: fn(Decimal) -> T,
+        conv_in: fn(T) -> Decimal,
+    ) -> Result<Timeseries<R, T>> {
+        Timeseries::new(map.iter().map(|(a, b)| (*a, *b)), conv_out, conv_in)
     }
 
     pub fn merge(
@@ -183,10 +226,10 @@ where
         for t in merged.iter() {
             match (self.get(t), rhs.get(t)) {
                 (Some(l), _) => {
-                    new_data.push(l);
+                    new_data.push((self.conv_in)(l));
                 }
                 (_, Some(r)) => {
-                    new_data.push(r);
+                    new_data.push((self.conv_in)(r));
                 }
                 _ => {
                     return Err(MergeFailure::NoIntersection { lhs: self, rhs });
@@ -197,6 +240,8 @@ where
         Ok(Timeseries {
             range: merged,
             data: TimeseriesData::Plain(new_data),
+            conv_in: self.conv_in,
+            conv_out: self.conv_out,
         })
     }
 }
@@ -204,7 +249,7 @@ where
 pub enum MergeFailure<R, T>
 where
     R: TimeResolution,
-    T: Num + Copy + DeserializeOwned,
+    T: Num + Copy,
 {
     NoIntersection {
         lhs: Timeseries<R, T>,
@@ -224,6 +269,7 @@ pub enum Error {
     NonMatchingLength { range: NonZeroU64, data: usize },
     Empty,
     NonContigious { prev: String, next: String },
+    CompressionFailure,
 }
 
 impl fmt::Display for Error {
@@ -232,6 +278,7 @@ impl fmt::Display for Error {
             Error::NonMatchingLength { range, data }=> write!(f, "Range and data should match but got range length of {range} and data length of {data}"),
             Error::Empty => write!(f, "Cannot create a Timeseries from an empty iterator"),
             Error::NonContigious { prev, next } => write!(f, "Cannot create a Timeseries from non-contigious data, but had a gap from {prev} to {next}"),
+            Error::CompressionFailure => write!(f, "Unable to compress timeseries"),
         }
     }
 }

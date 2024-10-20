@@ -2833,7 +2833,6 @@ dependencies = [
  "num-traits",
  "resolution",
  "rust_decimal",
- "serde",
 ]
 
 [[package]]
