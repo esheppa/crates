@@ -1,4 +1,4 @@
-use crate::DateResolution;
+use crate::{DateResolution, Month, TimeResolution};
 use alloc::{
     fmt, str,
     string::{String, ToString},
@@ -36,6 +36,72 @@ impl serde::Serialize for Day {
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub struct Day(i64);
+
+pub enum DayOfMonth {
+    D1,
+    D2,
+    D3,
+    D4,
+    D5,
+    D6,
+    D7,
+    D8,
+    D9,
+    D10,
+    D11,
+    D12,
+    D13,
+    D14,
+    D15,
+    D16,
+    D17,
+    D18,
+    D19,
+    D20,
+    D21,
+    D22,
+    D23,
+    D24,
+    D25,
+    D26,
+    D27,
+    D28,
+}
+
+impl DayOfMonth {
+    pub fn number(&self) -> u32 {
+        match self {
+            DayOfMonth::D1 => 1,
+            DayOfMonth::D2 => 2,
+            DayOfMonth::D3 => 3,
+            DayOfMonth::D4 => 4,
+            DayOfMonth::D5 => 5,
+            DayOfMonth::D6 => 6,
+            DayOfMonth::D7 => 7,
+            DayOfMonth::D8 => 8,
+            DayOfMonth::D9 => 9,
+            DayOfMonth::D10 => 10,
+            DayOfMonth::D11 => 11,
+            DayOfMonth::D12 => 12,
+            DayOfMonth::D13 => 13,
+            DayOfMonth::D14 => 14,
+            DayOfMonth::D15 => 15,
+            DayOfMonth::D16 => 16,
+            DayOfMonth::D17 => 17,
+            DayOfMonth::D18 => 18,
+            DayOfMonth::D19 => 19,
+            DayOfMonth::D20 => 20,
+            DayOfMonth::D21 => 21,
+            DayOfMonth::D22 => 22,
+            DayOfMonth::D23 => 23,
+            DayOfMonth::D24 => 24,
+            DayOfMonth::D25 => 25,
+            DayOfMonth::D26 => 26,
+            DayOfMonth::D27 => 27,
+            DayOfMonth::D28 => 28,
+        }
+    }
+}
 
 fn base() -> chrono::NaiveDate {
     chrono::NaiveDate::from_ymd_opt(0, 1, 1).expect("valid date")
@@ -115,6 +181,9 @@ impl crate::FromMonotonic for Day {
 }
 
 impl Day {
+    pub fn with_day(self, d: DayOfMonth) -> Day {
+        self.month().first_day().pred().succ_n(d.number().into())
+    }
     pub fn year(&self) -> super::Year {
         self.start().into()
     }
