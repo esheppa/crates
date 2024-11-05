@@ -1,10 +1,12 @@
-use crate::{day::DayOfMonth, DateResolution, DateResolutionExt, Day};
+use crate::{DateResolution, DateResolutionExt, Day, TimeResolution};
 use alloc::{
     fmt, format, str,
     string::{String, ToString},
 };
+#[cfg(feature = "chrono")]
 use chrono::{DateTime, Datelike, NaiveDate, NaiveTime, Utc};
 use core::{convert::TryFrom, result};
+use date_impl::MonthOfYear;
 #[cfg(feature = "serde")]
 use serde::de;
 
@@ -31,47 +33,7 @@ impl serde::Serialize for Month {
     }
 }
 
-fn month_num_from_name(name: &str) -> Result<u32, crate::Error> {
-    let num = match name {
-        "Jan" => 1,
-        "Feb" => 2,
-        "Mar" => 3,
-        "Apr" => 4,
-        "May" => 5,
-        "Jun" => 6,
-        "Jul" => 7,
-        "Aug" => 8,
-        "Sep" => 9,
-        "Oct" => 10,
-        "Nov" => 11,
-        "Dec" => 12,
-        n => {
-            return Err(crate::Error::ParseCustom {
-                ty_name: "Month",
-                input: format!("Unknown month name `{}`", n),
-            })
-        }
-    };
-    Ok(num)
-}
-
-fn month_name_from_num(month: chrono::Month) -> &'static str {
-    match month {
-        chrono::Month::January => "Jan",
-        chrono::Month::February => "Feb",
-        chrono::Month::March => "Mar",
-        chrono::Month::April => "Apr",
-        chrono::Month::May => "May",
-        chrono::Month::June => "Jun",
-        chrono::Month::July => "Jul",
-        chrono::Month::August => "Aug",
-        chrono::Month::September => "Sep",
-        chrono::Month::October => "Oct",
-        chrono::Month::November => "Nov",
-        chrono::Month::December => "Dec",
-    }
-}
-
+#[cfg(feature = "chrono")]
 impl str::FromStr for Month {
     type Err = crate::Error;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
@@ -97,12 +59,13 @@ impl str::FromStr for Month {
 pub struct Month(i64); // number of months +- since 0AD
 
 impl crate::TimeResolution for Month {
-    fn succ_n(&self, n: u64) -> Self {
+    fn succ_n(&self, n: u16) -> Self {
         Month(self.0 + i64::try_from(n).unwrap())
     }
-    fn pred_n(&self, n: u64) -> Self {
+    fn pred_n(&self, n: u16) -> Self {
         Month(self.0 - i64::try_from(n).unwrap())
     }
+    #[cfg(feature = "chrono")]
     fn start_datetime(&self) -> DateTime<Utc> {
         self.start().and_time(NaiveTime::MIN).and_utc()
     }
@@ -138,17 +101,19 @@ impl crate::DateResolution for Month {
 
     fn params(&self) -> Self::Params {}
 
-    fn from_date(d: NaiveDate, _params: Self::Params) -> Self {
+    fn from_day(d: NaiveDate, _params: Self::Params) -> Self {
         Month(i64::from(d.month0()) + i64::from(d.year()) * 12)
     }
 }
 
+#[cfg(feature = "chrono")]
 impl From<NaiveDate> for Month {
     fn from(value: NaiveDate) -> Month {
-        Month::from_date(value, ())
+        Month::from_day(value, ())
     }
 }
 
+#[cfg(feature = "chrono")]
 impl From<DateTime<Utc>> for Month {
     fn from(d: DateTime<Utc>) -> Self {
         d.date_naive().into()
@@ -156,63 +121,61 @@ impl From<DateTime<Utc>> for Month {
 }
 
 impl Month {
-    pub fn first_day(self) -> Day {
+    pub const fn first_day(self) -> Day {
         self.start().into()
     }
-    pub fn last_day(self) -> Day {
+    pub const fn last_day(self) -> Day {
         self.end().into()
     }
-    pub fn and_day(self, d: DayOfMonth) -> Day {
+    pub const fn with_day(self, day: DayOfMonth) -> Day {
+        self.start().succ_n(u64::from(day.number()) - 1)
+    }
+    pub const fn and_day(self, d: DayOfMonth) -> Day {
         self.first_day().with_day(d)
     }
-    pub fn from_year_month(y: i16, month: chrono::Month) -> Self {
+    pub const fn from_year_month(y: i32, month: MonthOfYear) -> Self {
         Month(i64::from(month as u32) + i64::from(y) * 12)
     }
-    pub fn year(&self) -> super::Year {
-        self.start().into()
+    pub const fn year(&self) -> super::Year {
+        self.start().date().into()
     }
-    pub fn quarter(&self) -> super::Quarter {
-        self.start().into()
+    pub const fn quarter(&self) -> super::Quarter {
+        self.start().date().into()
     }
-    pub fn year_num(&self) -> i32 {
-        self.start().year()
+    pub const fn year_num(&self) -> i32 {
+        self.start().date().year()
     }
-    pub fn month_num(&self) -> u32 {
-        self.start().month()
+    pub const fn month_num(&self) -> u32 {
+        self.start().date().month()
     }
-    pub fn month(&self) -> chrono::Month {
+    pub const fn month(&self) -> MonthOfYear {
         match self.month_num() {
-            1 => chrono::Month::January,
-            2 => chrono::Month::February,
-            3 => chrono::Month::March,
-            4 => chrono::Month::April,
-            5 => chrono::Month::May,
-            6 => chrono::Month::June,
-            7 => chrono::Month::July,
-            8 => chrono::Month::August,
-            9 => chrono::Month::September,
-            10 => chrono::Month::October,
-            11 => chrono::Month::November,
-            12 => chrono::Month::December,
+            1 => MonthOfYear::Jan,
+            2 => MonthOfYear::Feb,
+            3 => MonthOfYear::Mar,
+            4 => MonthOfYear::Apr,
+            5 => MonthOfYear::May,
+            6 => MonthOfYear::Jun,
+            7 => MonthOfYear::Jul,
+            8 => MonthOfYear::Aug,
+            9 => MonthOfYear::Sep,
+            10 => MonthOfYear::Oct,
+            11 => MonthOfYear::Nov,
+            12 => MonthOfYear::Dec,
             _ => unreachable!(),
         }
     }
-    pub fn new(date: NaiveDate) -> Self {
+    pub const fn new(date: NaiveDate) -> Self {
         date.into()
     }
-    pub fn from_parts(year: i32, month: chrono::Month) -> Option<Self> {
+    pub const fn from_parts(year: i32, month: MonthOfYear) -> Option<Self> {
         NaiveDate::from_ymd_opt(year, month.number_from_month(), 1).map(Into::into)
     }
 }
 
 impl fmt::Display for Month {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "{}-{}",
-            month_name_from_num(self.month()),
-            self.start().year()
-        )
+        write!(f, "{}-{}", self.month().name(), self.year(),)
     }
 }
 

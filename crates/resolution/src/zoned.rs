@@ -94,13 +94,13 @@ where
     R: TimeResolution,
     Z: FixedTimeZone,
 {
-    fn succ_n(&self, n: u64) -> Self {
+    fn succ_n(&self, n: u32) -> Self {
         Zoned {
             local_resolution: self.local_resolution.succ_n(n),
             ..*self
         }
     }
-    fn pred_n(&self, n: u64) -> Self {
+    fn pred_n(&self, n: u32) -> Self {
         Zoned {
             local_resolution: self.local_resolution.pred_n(n),
             ..*self
@@ -227,7 +227,7 @@ where
     fn params(&self) -> Self::Params {
         self.zone()
     }
-    fn occurs_on_date(&self) -> chrono::NaiveDate {
+    fn occurs_on_day(&self) -> chrono::NaiveDate {
         self.local_start_datetime().date_naive()
     }
 
@@ -262,7 +262,7 @@ where
         self.local_resolution.start()
     }
 
-    fn from_date(date: NaiveDate, params: Self::Params) -> Self {
+    fn from_day(date: NaiveDate, params: Self::Params) -> Self {
         Zoned::from_date(date, params)
     }
 }
@@ -280,7 +280,7 @@ where
     }
     pub fn from_date(date: NaiveDate, zone: Z) -> Self {
         Zoned {
-            local_resolution: R::from_date(date, ()),
+            local_resolution: R::from_day(date, ()),
             // for DateResolution this is the offset of the start time
             current_offset: local_offset_at_start_of_date(date, zone),
             zone,

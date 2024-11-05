@@ -30,7 +30,31 @@ pub trait StartDay:
     + Ord
 {
     const NAME: &'static str;
-    fn weekday() -> chrono::Weekday;
+    fn weekday() -> Weekday;
+}
+
+pub enum Weekday {
+    Mon,
+    Tue,
+    Wed,
+    Thu,
+    Fri,
+    Sat,
+    Sun,
+}
+
+impl Weekday {
+    fn name(&self) -> &'static str {
+        match self {
+            Weekday::Mon => "Monday",
+            Weekday::Tue => "Tuesday",
+            Weekday::Wed => "Wednesday",
+            Weekday::Thu => "Thursday",
+            Weekday::Fri => "Friday",
+            Weekday::Sat => "Saturday",
+            Weekday::Sun => "Sunday",
+        }
+    }
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
@@ -50,44 +74,44 @@ pub struct Sunday;
 
 impl StartDay for Monday {
     const NAME: &'static str = "Monday";
-    fn weekday() -> chrono::Weekday {
-        chrono::Weekday::Mon
+    fn weekday() -> Weekday {
+        Weekday::Mon
     }
 }
 impl StartDay for Tuesday {
     const NAME: &'static str = "Tuesday";
-    fn weekday() -> chrono::Weekday {
-        chrono::Weekday::Tue
+    fn weekday() -> Weekday {
+        Weekday::Tue
     }
 }
 impl StartDay for Wednesday {
     const NAME: &'static str = "Wednesday";
-    fn weekday() -> chrono::Weekday {
-        chrono::Weekday::Wed
+    fn weekday() -> Weekday {
+        Weekday::Wed
     }
 }
 impl StartDay for Thursday {
     const NAME: &'static str = "Thursday";
-    fn weekday() -> chrono::Weekday {
-        chrono::Weekday::Thu
+    fn weekday() -> Weekday {
+        Weekday::Thu
     }
 }
 impl StartDay for Friday {
     const NAME: &'static str = "Friday";
-    fn weekday() -> chrono::Weekday {
-        chrono::Weekday::Fri
+    fn weekday() -> Weekday {
+        Weekday::Fri
     }
 }
 impl StartDay for Saturday {
     const NAME: &'static str = "Saturday";
-    fn weekday() -> chrono::Weekday {
-        chrono::Weekday::Sat
+    fn weekday() -> Weekday {
+        Weekday::Sat
     }
 }
 impl StartDay for Sunday {
     const NAME: &'static str = "Sunday";
-    fn weekday() -> chrono::Weekday {
-        chrono::Weekday::Sun
+    fn weekday() -> Weekday {
+        Weekday::Sun
     }
 }
 
@@ -152,7 +176,7 @@ impl<D: StartDay> Week<D> {
 
 impl<D: StartDay> From<NaiveDate> for Week<D> {
     fn from(value: NaiveDate) -> Week<D> {
-        Week::<D>::from_date(value, ())
+        Week::<D>::from_day(value, ())
     }
 }
 
@@ -189,7 +213,7 @@ impl<D: StartDay> DateResolution for Week<D> {
 
     fn params(&self) -> Self::Params {}
 
-    fn from_date(date: NaiveDate, _params: Self::Params) -> Self {
+    fn from_day(date: NaiveDate, _params: Self::Params) -> Self {
         let week_num = (date - base(D::weekday())).num_days() / 7;
 
         Week::from_monotonic(week_num)
@@ -197,10 +221,10 @@ impl<D: StartDay> DateResolution for Week<D> {
 }
 
 impl<D: StartDay> crate::TimeResolution for Week<D> {
-    fn succ_n(&self, n: u64) -> Week<D> {
+    fn succ_n(&self, n: u32) -> Week<D> {
         Week::from_monotonic(self.n + i64::try_from(n).unwrap())
     }
-    fn pred_n(&self, n: u64) -> Week<D> {
+    fn pred_n(&self, n: u32) -> Week<D> {
         Week::from_monotonic(self.n - i64::try_from(n).unwrap())
     }
     fn start_datetime(&self) -> DateTime<Utc> {

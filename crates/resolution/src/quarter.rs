@@ -1,4 +1,4 @@
-use crate::{month, year, DateResolution, DateResolutionExt, Year};
+use crate::{month, year, DateResolution, DateResolutionExt, Day, Monotonic, Year};
 use alloc::{
     fmt, str,
     string::{String, ToString},
@@ -13,54 +13,52 @@ use serde::de;
 pub struct Quarter(i64);
 
 impl crate::TimeResolution for Quarter {
-    fn succ_n(&self, n: u64) -> Self {
-        Quarter(self.0 + i64::try_from(n).unwrap())
+    fn succ_n(&self, n: u32) -> Self {
+        self.succ_n(n)
     }
-    fn pred_n(&self, n: u64) -> Self {
-        Quarter(self.0 - i64::try_from(n).unwrap())
+    fn pred_n(&self, n: u32) -> Self {
+        self.pred_n(n)
     }
     fn start_datetime(&self) -> DateTime<Utc> {
-        self.start().and_time(NaiveTime::MIN).and_utc()
+        self.start_datetime()
     }
 
-    fn name(&self) -> String {
-        "Quarter".to_string()
-    }
+    const NAME: &str = "Quarter";
 }
 
 impl crate::Monotonic for Quarter {
     fn to_monotonic(&self) -> i64 {
-        self.0
+        self.to_monotonic()
     }
     fn between(&self, other: Self) -> i64 {
-        other.0 - self.0
+        self.between(other)
     }
 }
 
 impl crate::FromMonotonic for Quarter {
     fn from_monotonic(idx: i64) -> Self {
-        Quarter(idx)
+        Quarter::from_monotonic(idx)
     }
 }
 
 impl crate::DateResolution for Quarter {
-    fn start(&self) -> chrono::NaiveDate {
+    fn start(&self) -> Day {
         let years = i32::try_from(self.0.div_euclid(4)).expect("Not pre/post historic");
         let qtr = self.quarter_num();
-        chrono::NaiveDate::from_ymd_opt(years, qtr * 3 - 2, 1).expect("valid time")
+        Day::new(chrono::NaiveDate::from_ymd_opt(years, qtr * 3 - 2, 1).expect("valid time"))
     }
 
     type Params = ();
 
     fn params(&self) -> Self::Params {}
 
-    fn from_date(d: NaiveDate, _params: Self::Params) -> Self {
-        Quarter(quarter_num(d) - 1 + i64::from(d.year()) * 4)
+    fn from_day(d: Day, _params: Self::Params) -> Self {
+        Quarter::from_day(d, _params)
     }
 }
 impl From<NaiveDate> for Quarter {
     fn from(value: NaiveDate) -> Quarter {
-        Quarter::from_date(value, ())
+        Quarter::from_day(value, ())
     }
 }
 
@@ -75,26 +73,53 @@ fn quarter_num(d: chrono::NaiveDate) -> i64 {
 }
 
 impl Quarter {
-    pub fn first_month(&self) -> month::Month {
+    pub const fn succ_n(&self, n: u32) -> Self {
+        Quarter(self.0 + n as i64)
+    }
+    pub const fn pred_n(&self, n: u32) -> Self {
+        Quarter(self.0 - n as i64)
+    }
+    pub const fn start_datetime(&self) -> DateTime<Utc> {
+        self.start().date().and_time(NaiveTime::MIN).and_utc()
+    }
+    pub const fn to_monotonic(&self) -> i64 {
+        self.0
+    }
+    pub const fn between(&self, other: Self) -> i64 {
+        other.0 - self.0
+    }
+    pub const fn from_monotonic(idx: i64) -> Self {
+        Quarter(idx)
+    }
+    pub const fn start(&self) -> Day {
+        let years = i32::try_from(self.0.div_euclid(4)).expect("Not pre/post historic");
+        let qtr = self.quarter_num();
+        Day::new(chrono::NaiveDate::from_ymd_opt(years, qtr * 3 - 2, 1).expect("valid time"))
+    }
+    pub const fn from_day(d: Day, _params: Self::Params) -> Self {
+        Quarter(quarter_num(d) - 1 + i64::from(d.year()) * 4)
+    }
+
+    pub const fn first_month(&self) -> month::Month {
         self.start().into()
     }
-    pub fn last_month(&self) -> month::Month {
+    pub const fn last_month(&self) -> month::Month {
         self.end().into()
     }
-    pub fn year(&self) -> year::Year {
+    pub const fn year(&self) -> year::Year {
         super::Year::new(self.year_num())
     }
-    pub fn year_num(&self) -> i16 {
+    pub const fn year_num(&self) -> i16 {
         Year::from(self.start()).year_num()
     }
-    pub fn quarter_num(&self) -> u32 {
+    pub const fn quarter_num(&self) -> u32 {
         u32::try_from(1 + self.0.rem_euclid(4)).expect("Range of 1-4")
     }
-    pub fn new(date: NaiveDate) -> Self {
+    pub const fn new(date: NaiveDate) -> Self {
         date.into()
     }
-    pub fn from_parts(year: i16, quarter: QuarterNumber) -> Self {
-        crate::FromMonotonic::from_monotonic(i64::from(year) * 4 + quarter.offset())
+    pub const fn from_parts(year: impl Into<Year>, quarter: QuarterNumber) -> Self {
+        crate::FromMonotonic::from_monotonic(year.into().to_monotonic() * 4 + quarter.offset())
     }
 }
 

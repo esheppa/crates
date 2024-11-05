@@ -1,14 +1,17 @@
 use core::fmt::Debug;
 use core::num::NonZeroU64;
 
-use crate::{Error, FromMonotonic, Monotonic, SubDateResolution, TimeResolution};
-use alloc::{
-    fmt, format, str,
-    string::{String, ToString},
+use crate::{
+    Convert, Day, FromMonotonic, Monotonic, Month, SubDateResolution, TimeResolution, Year,
 };
+use alloc::{fmt, format, str, string::String};
+#[cfg(feature = "chrono")]
 use chrono::{DateTime, Datelike, Duration, NaiveDate, NaiveTime, Timelike, Utc};
+use date_impl::Date;
 
-const NUM_SECS: i64 = 60;
+const NUM_SECS: i32 = 60;
+
+const MINUTES_PER_DAY: i32 = 24 * 60;
 
 /// Note that for sensible behaviour, the N chosen should be a number that either:
 /// 1. divides into an hour with no remainder (1, 2, 3, 4, 5, 6, 10, 12, 15, 20, 30, 60)
@@ -18,14 +21,8 @@ const NUM_SECS: i64 = 60;
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "serde", serde(try_from = "Minutes_", into = "Minutes_"))]
 pub struct Minutes<const N: u32> {
-    index: i64,
+    index: i32,
 }
-
-// #[cfg(not(serde))]
-// #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
-// pub struct Minutes<const N: u32> {
-//     index: i64,
-// }
 
 impl<const N: u32> TryFrom<Minutes_> for Minutes<N> {
     type Error = String;
@@ -52,18 +49,20 @@ impl<const N: u32> From<Minutes<N>> for Minutes_ {
 
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 pub(crate) struct Minutes_ {
-    index: i64,
+    index: i32,
     pub(crate) length: u32,
 }
 
+#[cfg(feature = "chrono")]
 impl<const N: u32> From<DateTime<Utc>> for Minutes<N> {
     fn from(d: DateTime<Utc>) -> Self {
         Minutes {
-            index: d.timestamp().div_euclid(60 * i64::from(N)),
+            index: d.timestamp().div_euclid(60 * i32::from(N)),
         }
     }
 }
 
+#[cfg(feature = "chrono")]
 impl<const N: u32> str::FromStr for Minutes<N> {
     type Err = crate::Error;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
@@ -100,7 +99,7 @@ impl<const N: u32> str::FromStr for Minutes<N> {
             }
             let end = parse_datetime(end)?;
 
-            if start + Duration::minutes(i64::from(N)) != end {
+            if start + chrono::Duration::minutes(i64::from(N)) != end {
                 return Err(crate::Error::ParseCustom {
                     ty_name: "Minutes",
                     input: format!(
@@ -115,6 +114,7 @@ impl<const N: u32> str::FromStr for Minutes<N> {
     }
 }
 
+#[cfg(feature = "chrono")]
 // TODO: make this more efficient
 fn format_datetime(n: DateTime<Utc>, f: &mut fmt::Formatter<'_>) -> fmt::Result {
     write!(
@@ -127,8 +127,8 @@ fn format_datetime(n: DateTime<Utc>, f: &mut fmt::Formatter<'_>) -> fmt::Result 
         n.minute()
     )
 }
-
-fn parse_datetime(input: &str) -> Result<DateTime<Utc>, Error> {
+#[cfg(feature = "chrono")]
+const fn parse_datetime(input: &str) -> Result<DateTime<Utc>, Error> {
     let year = input[0..=3]
         .parse()
         .map_err(|e| Error::ParseIntDetailed(e, input[0..=3].to_string()))?;
@@ -162,6 +162,7 @@ fn parse_datetime(input: &str) -> Result<DateTime<Utc>, Error> {
     Ok(date.and_time(time).and_utc())
 }
 
+#[cfg(feature = "chrono")]
 impl<const N: u32> fmt::Display for Minutes<N> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         if N == 1 {
@@ -176,62 +177,174 @@ impl<const N: u32> fmt::Display for Minutes<N> {
 }
 
 impl<const N: u32> crate::TimeResolution for Minutes<N> {
-    fn succ_n(&self, n: u64) -> Minutes<N> {
+    fn succ_n(&self, n: u16) -> Minutes<N> {
         Minutes {
-            index: self.index + i64::try_from(n).unwrap(),
+            index: self.index + n as i32,
         }
     }
-    fn pred_n(&self, n: u64) -> Minutes<N> {
+    fn pred_n(&self, n: u16) -> Minutes<N> {
         Minutes {
-            index: self.index - i64::try_from(n).unwrap(),
+            index: self.index - n as i32,
         }
     }
+    #[cfg(feature = "chrono")]
     fn start_datetime(&self) -> DateTime<Utc> {
         DateTime::<Utc>::from_timestamp(self.index * NUM_SECS * i64::from(N), 0)
             .expect("valid timestamp")
     }
-    fn name(&self) -> String {
-        format!("Minutes[Length:{}]", N)
+
+    const NAME: &str = match N {
+        1 => "Minutes[Length:1]",
+        2 => "Minutes[Length:2]",
+        3 => "Minutes[Length:3]",
+        4 => "Minutes[Length:4]",
+        5 => "Minutes[Length:5]",
+        6 => "Minutes[Length:6]",
+        10 => "Minutes[Length:10]",
+        15 => "Minutes[Length:15]",
+        20 => "Minutes[Length:20]",
+        30 => "Minutes[Length:30]",
+        60 => "Minutes[Length:60]",
+        120 => "Minutes[Length:120]",
+        180 => "Minutes[Length:180]",
+        240 => "Minutes[Length:240]",
+        360 => "Minutes[Length:360]",
+        720 => "Minutes[Length:720]",
+        _ => panic!("uh-oh"),
+    };
+
+    fn start_minute(&self) -> crate::Minute {
+        todo!()
+    }
+
+    fn succ(&self) -> Self {
+        self.succ_n(1)
+    }
+
+    fn pred(&self) -> Self {
+        self.pred_n(1)
+    }
+
+    fn convert<Out>(&self) -> Out
+    where
+        Out: TimeResolution + From<crate::Minute>,
+    {
+        Out::from(self.start_minute())
+    }
+
+    fn five_minute(self) -> crate::FiveMinute {
+        Convert::convert(self)
+    }
+
+    fn half_hour(self) -> crate::HalfHour {
+        Convert::convert(self)
+    }
+
+    fn hour(self) -> crate::Hour {
+        Convert::convert(self)
+    }
+
+    fn day(self) -> crate::Day {
+        Convert::convert(self)
+    }
+
+    fn month(self) -> crate::Month {
+        Convert::convert(self)
+    }
+
+    fn year(self) -> crate::Year {
+        Convert::convert(self)
     }
 }
 
 impl<const N: u32> Monotonic for Minutes<N> {
-    fn to_monotonic(&self) -> i64 {
+    fn to_monotonic(&self) -> i32 {
         self.index
     }
-    fn between(&self, other: Self) -> i64 {
+    fn between(&self, other: Self) -> i32 {
         other.index - self.index
     }
 }
 
 impl<const N: u32> FromMonotonic for Minutes<N> {
-    fn from_monotonic(index: i64) -> Self {
+    fn from_monotonic(index: i32) -> Self {
         Minutes { index }
     }
 }
 
-impl<const N: u32> Minutes<N> {}
+impl<const N: u32, const N1: u32> Convert<Minutes<N1>> for Minutes<N> {
+    fn convert(self) -> Minutes<N1> {
+        todo!()
+    }
+}
+
+impl<const N: u32> Convert<Day> for Minutes<N> {
+    fn convert(self) -> Day {
+        todo!()
+    }
+}
+impl<const N: u32> Convert<Month> for Minutes<N> {
+    fn convert(self) -> Month {
+        todo!()
+    }
+}
+
+impl<const N: u32> Convert<Year> for Minutes<N> {
+    fn convert(self) -> Year {
+        todo!()
+    }
+}
+
+impl<const N: u32> Minutes<N> {
+    const PERIODS_PER_DAY: i32 = MINUTES_PER_DAY / N as i32;
+
+    const fn change_resolution<const N2: u32>(self) -> Minutes<N2> {
+        if N2 == N {
+            Minutes { index: self.index }
+        } else if N2 > N {
+            // long day subdivions to short
+            // clean scaling
+            if N2 % N == 0 {
+                Minutes {
+                    index: self.index / Self::PERIODS_PER_DAY * Minutes::<N2>::PERIODS_PER_DAY,
+                }
+            } else {
+                // non matched scaling, default earlier
+                todo!()
+            }
+        } else {
+            // short day subdivision to long
+            if N % N2 == 0 {
+                Minutes {
+                    index: self.index / Minutes::<N2>::PERIODS_PER_DAY * Self::PERIODS_PER_DAY,
+                }
+            } else {
+                // non matched scaling, default earlier
+                todo!()
+            }
+        }
+    }
+}
 
 impl<const N: u32> SubDateResolution for Minutes<N> {
-    fn occurs_on_date(&self) -> chrono::NaiveDate {
-        self.start_datetime().date_naive()
+    fn occurs_on_day(&self) -> Day {
+        Day::new(Date::new(self.index / Self::PERIODS_PER_DAY))
     }
-    fn first_on_day(day: chrono::NaiveDate, _params: Self::Params) -> Self {
-        Self::from_monotonic(
-            day.and_hms_opt(0, 0, 0)
-                .expect("valid time")
-                .and_utc()
-                .timestamp()
-                / (i64::from(N) * NUM_SECS),
-        )
+    fn first_on_day(day: Day, _params: Self::Params) -> Self {
+        Self::from_monotonic(day.to_monotonic() * Self::PERIODS_PER_DAY)
     }
 
     type Params = ();
 
     fn params(&self) -> Self::Params {}
 
+    #[cfg(feature = "chrono")]
     fn from_utc_datetime(datetime: DateTime<Utc>, _params: Self::Params) -> Self {
         datetime.into()
+    }
+
+    fn from_minute(minute: crate::Minute, params: Self::Params) -> Self {
+        minute.change_resolution()
     }
 }
 
@@ -240,7 +353,7 @@ macro_rules! minutes_impl {
         impl Minutes<$i> {
             pub fn relative(&self) -> DaySubdivison<$i> {
                 DaySubdivison {
-                    index: Minutes::<$i>::first_on_day(self.occurs_on_date(), ()).between(*self),
+                    index: Minutes::<$i>::first_on_day(self.occurs_on_day(), ()).between(*self),
                 }
             }
         }
@@ -262,19 +375,19 @@ macro_rules! day_subdivision_impl {
 
         // 2
         impl DaySubdivison<$i> {
-            pub const PERIODS: u32 = 1440 / $i;
-            pub fn on_date(&self, date: NaiveDate) -> Minutes<$i> {
+            pub const PERIODS: u16 = 1440 / $i;
+            pub fn on_date(&self, date: Day) -> Minutes<$i> {
                 Minutes::<$i>::from_monotonic(
                     self.index + Minutes::<$i>::first_on_day(date, ()).to_monotonic(),
                 )
             }
             pub fn new(period_no: NonZeroU64) -> Option<DaySubdivison<$i>> {
-                if i64::try_from(period_no.get()).ok()? > i64::from(Self::PERIODS) {
+                if i32::try_from(period_no.get()).ok()? > i32::from(Self::PERIODS) {
                     return None;
                 }
 
                 Some(DaySubdivison {
-                    index: i64::try_from(period_no.get()).ok()? - 1,
+                    index: i32::try_from(period_no.get()).ok()? - 1,
                 })
             }
             pub fn index(&self) -> NonZeroU64 {
@@ -320,7 +433,7 @@ day_subdivision_impl!(720);
 
 #[derive(Clone, Copy, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub struct DaySubdivison<const N: u32> {
-    index: i64,
+    index: i32,
 }
 
 #[cfg(test)]
