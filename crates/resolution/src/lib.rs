@@ -282,6 +282,8 @@ impl fmt::Display for Error {
     }
 }
 
+impl core::error::Error for Error {}
+
 #[cfg(feature = "std")]
 pub type Result<T> = std::result::Result<T, Error>;
 
