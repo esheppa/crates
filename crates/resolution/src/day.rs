@@ -1,4 +1,4 @@
-use crate::{DateResolution, FromMonotonic, Monotonic, TimeResolution};
+use crate::{DateResolution, FromMonotonic, Monotonic, Month, Quarter, TimeResolution};
 use alloc::{fmt, str};
 #[cfg(feature = "chrono")]
 use chrono::{DateTime, Datelike, NaiveDate, NaiveTime, Utc};
@@ -92,6 +92,34 @@ impl TimeResolution for Day {
         self.start_datetime()
     }
     const NAME: &str = "Day";
+
+    fn start_minute(&self) -> crate::Minute {
+        todo!()
+    }
+
+    fn five_minute(self) -> crate::FiveMinute {
+        todo!()
+    }
+
+    fn half_hour(self) -> crate::HalfHour {
+        todo!()
+    }
+
+    fn hour(self) -> crate::Hour {
+        todo!()
+    }
+
+    fn day(self) -> Day {
+        todo!()
+    }
+
+    fn month(self) -> crate::Month {
+        todo!()
+    }
+
+    fn year(self) -> crate::Year {
+        todo!()
+    }
 }
 
 impl Monotonic for Day {
@@ -124,6 +152,12 @@ impl Day {
         Day(self.0 - n as i32)
     }
 
+    pub const fn succ(&self) -> Day {
+        self.succ_n(1)
+    }
+    pub const fn pred(&self) -> Day {
+        self.pred_n(1)
+    }
     // pub const fn start_datetime(&self) -> DateTime<Utc> {
     //     self.date().and_time(NaiveTime::MIN).and_utc()
     // }
@@ -135,19 +169,45 @@ impl Day {
         super::Year::new(self.date().year())
     }
     pub const fn quarter(&self) -> super::Quarter {
-        self.date().into()
+        Quarter::from_day(*self, ())
     }
-    pub const fn month(&self) -> super::Month {
-        self.date().into()
-    }
+
     pub const fn week<D: super::StartDay>(&self) -> super::Week<D> {
         self.date().into()
     }
     pub const fn year_num(&self) -> i32 {
         self.date().year()
     }
-    pub const fn month_num(&self) -> u32 {
+    pub const fn month_num(&self) -> u8 {
         self.date().month()
+    }
+
+    pub const fn start_minute(&self) -> crate::Minute {
+        todo!()
+    }
+
+    pub const fn five_minute(self) -> crate::FiveMinute {
+        todo!()
+    }
+
+    pub const fn half_hour(self) -> crate::HalfHour {
+        todo!()
+    }
+
+    pub const fn hour(self) -> crate::Hour {
+        todo!()
+    }
+
+    pub const fn day(self) -> Day {
+        todo!()
+    }
+
+    pub const fn month(self) -> crate::Month {
+        Month::from_day(self)
+    }
+
+    pub const fn year(self) -> crate::Year {
+        todo!()
     }
 }
 

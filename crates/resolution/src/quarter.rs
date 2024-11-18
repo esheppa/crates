@@ -73,6 +73,12 @@ fn quarter_num(d: chrono::NaiveDate) -> i64 {
 }
 
 impl Quarter {
+    pub const fn succ(&self) -> Quarter {
+        self.succ_n(1)
+    }
+    pub const fn pred(&self) -> Quarter {
+        self.pred_n(1)
+    }
     pub const fn succ_n(&self, n: u32) -> Self {
         Quarter(self.0 + n as i64)
     }

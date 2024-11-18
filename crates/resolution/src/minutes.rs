@@ -114,18 +114,21 @@ impl<const N: u32> str::FromStr for Minutes<N> {
     }
 }
 
-#[cfg(feature = "chrono")]
 // TODO: make this more efficient
-fn format_datetime(n: DateTime<Utc>, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-    write!(
-        f,
-        "{}-{:02}-{:02} {:02}:{:02}",
-        n.year(),
-        n.month(),
-        n.day(),
-        n.hour(),
-        n.minute()
-    )
+const fn format_datetime<const N: u32>(n: Minutes<N>) -> [char; 16] {
+    let day = n.day();
+    let sub = n.relative();
+
+    todo!()
+    // write!(
+    //     f,
+    //     "{}-{:02}-{:02} {:02}:{:02}",
+    //     n.year(),
+    //     n.month(),
+    //     n.day(),
+    //     n.hour(),
+    //     n.minute()
+    // )
 }
 #[cfg(feature = "chrono")]
 const fn parse_datetime(input: &str) -> Result<DateTime<Utc>, Error> {
@@ -162,7 +165,6 @@ const fn parse_datetime(input: &str) -> Result<DateTime<Utc>, Error> {
     Ok(date.and_time(time).and_utc())
 }
 
-#[cfg(feature = "chrono")]
 impl<const N: u32> fmt::Display for Minutes<N> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         if N == 1 {
@@ -178,14 +180,10 @@ impl<const N: u32> fmt::Display for Minutes<N> {
 
 impl<const N: u32> crate::TimeResolution for Minutes<N> {
     fn succ_n(&self, n: u16) -> Minutes<N> {
-        Minutes {
-            index: self.index + n as i32,
-        }
+        self.succ_n(n)
     }
     fn pred_n(&self, n: u16) -> Minutes<N> {
-        Minutes {
-            index: self.index - n as i32,
-        }
+        self.pred_n(n)
     }
     #[cfg(feature = "chrono")]
     fn start_datetime(&self) -> DateTime<Utc> {
@@ -259,16 +257,16 @@ impl<const N: u32> crate::TimeResolution for Minutes<N> {
 
 impl<const N: u32> Monotonic for Minutes<N> {
     fn to_monotonic(&self) -> i32 {
-        self.index
+        self.to_monotonic()
     }
     fn between(&self, other: Self) -> i32 {
-        other.index - self.index
+        self.between(other)
     }
 }
 
 impl<const N: u32> FromMonotonic for Minutes<N> {
     fn from_monotonic(index: i32) -> Self {
-        Minutes { index }
+        Minutes::from_monotonic(index)
     }
 }
 
@@ -324,14 +322,54 @@ impl<const N: u32> Minutes<N> {
             }
         }
     }
+    pub const fn succ_n(&self, n: u16) -> Minutes<N> {
+        Minutes {
+            index: self.index + n as i32,
+        }
+    }
+    pub const fn pred_n(&self, n: u16) -> Minutes<N> {
+        Minutes {
+            index: self.index - n as i32,
+        }
+    }
+    pub const fn succ(&self) -> Minutes<N> {
+        self.succ_n(1)
+    }
+    pub const fn pred(&self) -> Minutes<N> {
+        self.pred_n(1)
+    }
+    pub const fn to_monotonic(&self) -> i32 {
+        self.index
+    }
+    pub const fn between(&self, other: Self) -> i32 {
+        other.index - self.index
+    }
+    pub const fn from_monotonic(index: i32) -> Self {
+        Minutes { index }
+    }
+    pub const fn occurs_on_day(&self) -> Day {
+        Day::new(Date::new(self.index / Self::PERIODS_PER_DAY))
+    }
+    pub const fn first_on_day(day: Day) -> Self {
+        Self::from_monotonic(day.to_monotonic() * Self::PERIODS_PER_DAY)
+    }
+
+    #[cfg(feature = "chrono")]
+    pub const fn from_utc_datetime(datetime: DateTime<Utc>) -> Self {
+        datetime.into()
+    }
+
+    pub const fn from_minute(minute: crate::Minute) -> Self {
+        minute.change_resolution()
+    }
 }
 
 impl<const N: u32> SubDateResolution for Minutes<N> {
     fn occurs_on_day(&self) -> Day {
-        Day::new(Date::new(self.index / Self::PERIODS_PER_DAY))
+        self.occurs_on_day()
     }
     fn first_on_day(day: Day, _params: Self::Params) -> Self {
-        Self::from_monotonic(day.to_monotonic() * Self::PERIODS_PER_DAY)
+        Self::first_on_day(day)
     }
 
     type Params = ();
@@ -340,11 +378,11 @@ impl<const N: u32> SubDateResolution for Minutes<N> {
 
     #[cfg(feature = "chrono")]
     fn from_utc_datetime(datetime: DateTime<Utc>, _params: Self::Params) -> Self {
-        datetime.into()
+        self.from_utc_datetime(datetime)
     }
 
     fn from_minute(minute: crate::Minute, params: Self::Params) -> Self {
-        minute.change_resolution()
+        self.from_minute(minute)
     }
 }
 

@@ -6,7 +6,7 @@ use alloc::{
 #[cfg(feature = "chrono")]
 use chrono::{DateTime, Datelike, NaiveDate, NaiveTime, Utc};
 use core::{convert::TryFrom, result};
-use date_impl::MonthOfYear;
+use date_impl::{DayOfMonth, MonthOfYear};
 #[cfg(feature = "serde")]
 use serde::de;
 
@@ -56,53 +56,77 @@ impl str::FromStr for Month {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
-pub struct Month(i64); // number of months +- since 0AD
+pub struct Month(i32); // number of months +- since 0AD
 
 impl crate::TimeResolution for Month {
     fn succ_n(&self, n: u16) -> Self {
-        Month(self.0 + i64::try_from(n).unwrap())
+        self.succ_n(n)
     }
     fn pred_n(&self, n: u16) -> Self {
-        Month(self.0 - i64::try_from(n).unwrap())
+        self.pred_n(n)
     }
     #[cfg(feature = "chrono")]
     fn start_datetime(&self) -> DateTime<Utc> {
         self.start().and_time(NaiveTime::MIN).and_utc()
     }
 
-    fn name(&self) -> String {
-        "Month".to_string()
+    const NAME: &str = "Month";
+
+    fn start_minute(&self) -> crate::Minute {
+        self.start_minute()
+    }
+
+    fn five_minute(self) -> crate::FiveMinute {
+        self.five_minute()
+    }
+
+    fn half_hour(self) -> crate::HalfHour {
+        self.half_hour()
+    }
+
+    fn hour(self) -> crate::Hour {
+        self.hour()
+    }
+
+    fn day(self) -> Day {
+        self.day()
+    }
+
+    fn month(self) -> Month {
+        self.month()
+    }
+
+    fn year(self) -> crate::Year {
+        self.year()
     }
 }
 
 impl crate::Monotonic for Month {
-    fn to_monotonic(&self) -> i64 {
-        self.0
+    fn to_monotonic(&self) -> i32 {
+        self.to_monotonic()
     }
-    fn between(&self, other: Self) -> i64 {
-        other.0 - self.0
+    fn between(&self, other: Self) -> i32 {
+        self.between(other)
     }
 }
 
 impl crate::FromMonotonic for Month {
-    fn from_monotonic(idx: i64) -> Self {
-        Month(idx)
+    fn from_monotonic(idx: i32) -> Self {
+        Month::from_monotonic(idx)
     }
 }
 
 impl crate::DateResolution for Month {
-    fn start(&self) -> chrono::NaiveDate {
-        let years = i32::try_from(self.0.div_euclid(12)).expect("Not pre/post historic");
-        let months = u32::try_from(1 + self.0.rem_euclid(12)).expect("valid datetime");
-        chrono::NaiveDate::from_ymd_opt(years, months, 1).expect("valid datetime")
+    fn start(&self) -> Day {
+        self.start()
     }
 
     type Params = ();
 
     fn params(&self) -> Self::Params {}
 
-    fn from_day(d: NaiveDate, _params: Self::Params) -> Self {
-        Month(i64::from(d.month0()) + i64::from(d.year()) * 12)
+    fn from_day(d: Day, _params: Self::Params) -> Self {
+        Month::from_day(d)
     }
 }
 
@@ -121,20 +145,80 @@ impl From<DateTime<Utc>> for Month {
 }
 
 impl Month {
+    pub const fn start(&self) -> Day {
+        let years = i32::try_from(self.0.div_euclid(12)).expect("Not pre/post historic");
+        let months = u32::try_from(1 + self.0.rem_euclid(12)).expect("valid datetime");
+        Day::from_ymd_opt(years, months, 1).expect("valid datetime")
+    }
+
+    pub const fn from_day(d: Day) -> Self {
+        Month(i32::from(d.month0()) + i32::from(d.year()) * 12)
+    }
+    pub const fn to_monotonic(&self) -> i32 {
+        self.0
+    }
+    pub const fn between(&self, other: Self) -> i32 {
+        other.0 - self.0
+    }
+
+    pub const fn from_monotonic(idx: i32) -> Self {
+        Month(idx)
+    }
+
+    pub const fn start_minute(&self) -> crate::Minute {
+        todo!()
+    }
+
+    pub const fn five_minute(self) -> crate::FiveMinute {
+        todo!()
+    }
+
+    pub const fn half_hour(self) -> crate::HalfHour {
+        todo!()
+    }
+
+    pub const fn hour(self) -> crate::Hour {
+        todo!()
+    }
+
+    pub const fn day(self) -> Day {
+        todo!()
+    }
+
+    pub const fn month(self) -> Month {
+        todo!()
+    }
+
+    pub const fn year(self) -> crate::Year {
+        todo!()
+    }
+
+    pub const fn succ_n(&self, n: u16) -> Self {
+        Month(self.0 + n as i32)
+    }
+    pub const fn pred_n(&self, n: u16) -> Self {
+        Month(self.0 - n as i32)
+    }
+    pub const fn succ(&self) -> Self {
+        self.succ_n(1)
+    }
+    pub const fn pred(&self) -> Self {
+        self.pred_n(1)
+    }
     pub const fn first_day(self) -> Day {
-        self.start().into()
+        self.start()
     }
     pub const fn last_day(self) -> Day {
-        self.end().into()
+        self.succ().start().pred()
     }
     pub const fn with_day(self, day: DayOfMonth) -> Day {
-        self.start().succ_n(u64::from(day.number()) - 1)
+        self.start().succ_n(day.number() as u16 - 1)
     }
     pub const fn and_day(self, d: DayOfMonth) -> Day {
         self.first_day().with_day(d)
     }
     pub const fn from_year_month(y: i32, month: MonthOfYear) -> Self {
-        Month(i64::from(month as u32) + i64::from(y) * 12)
+        Month((month.number() as i32 - 1) + y.saturating_mul(12))
     }
     pub const fn year(&self) -> super::Year {
         self.start().date().into()
@@ -148,7 +232,7 @@ impl Month {
     pub const fn month_num(&self) -> u32 {
         self.start().date().month()
     }
-    pub const fn month(&self) -> MonthOfYear {
+    pub const fn month_of_year(&self) -> MonthOfYear {
         match self.month_num() {
             1 => MonthOfYear::Jan,
             2 => MonthOfYear::Feb,
@@ -165,8 +249,8 @@ impl Month {
             _ => unreachable!(),
         }
     }
-    pub const fn new(date: NaiveDate) -> Self {
-        date.into()
+    pub const fn from_day(date: Day) -> Self {
+        date.month()
     }
     pub const fn from_parts(year: i32, month: MonthOfYear) -> Option<Self> {
         NaiveDate::from_ymd_opt(year, month.number_from_month(), 1).map(Into::into)

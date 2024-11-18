@@ -171,7 +171,7 @@ pub enum DayOfMonth {
 }
 
 impl DayOfMonth {
-    const fn number(&self) -> u8 {
+    pub const fn number(&self) -> u8 {
         match self {
             DayOfMonth::D1 => 1,
             DayOfMonth::D2 => 2,
@@ -371,6 +371,23 @@ impl MonthOfYear {
             MonthOfYear::Dec => 12,
         }
     }
+
+    pub const fn months_from_jan(self) -> u8 {
+        match self {
+            MonthOfYear::Jan => 0,
+            MonthOfYear::Feb => 1,
+            MonthOfYear::Mar => 2,
+            MonthOfYear::Apr => 3,
+            MonthOfYear::May => 4,
+            MonthOfYear::Jun => 5,
+            MonthOfYear::Jul => 6,
+            MonthOfYear::Aug => 7,
+            MonthOfYear::Sep => 8,
+            MonthOfYear::Oct => 9,
+            MonthOfYear::Nov => 10,
+            MonthOfYear::Dec => 11,
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
@@ -538,75 +555,6 @@ const B3: i32 = 3 * DAYS_PER_MOST_100Y + 1;
 const B4: i32 = 4 * DAYS_PER_MOST_100Y + 1;
 
 impl YearAndDays {
-    // const fn calculate(date: Date) -> YearAndDays {
-    //     // figure out which 400y block we are in
-    //     let block = date.0.div_euclid(DAYS_PER_400Y);
-    //     let remainder = date.0.rem_euclid(DAYS_PER_400Y);
-
-    //     let (ext_years, split) = match remainder {
-    //         0..B1 => {
-    //             // extra leap
-    //             let days_thru_block = remainder - B1;
-    //             let cycles_through_block = days_thru_block / DAYS_PER_MOST_4Y;
-    //             let days_through_cycle = days_thru_block % DAYS_PER_MOST_4Y;
-    //             let split = CycleSplit::new(days_through_cycle);
-    //             (cycles_through_block * 4 + 100, split)
-    //         }
-    //         B1..B2 => {
-    //             // regular
-
-    //             // add extra day, will remove later...
-    //             let days_thru_block = remainder + 1;
-    //             let cycles_through_block = days_thru_block / DAYS_PER_MOST_4Y;
-    //             let days_through_cycle = days_thru_block % DAYS_PER_MOST_4Y;
-    //             let mut split = CycleSplit::new(days_through_cycle);
-    //             if split.year_diff == 0 && cycles_through_block == 0 {
-    //                 split.days_thru_year -= 1;
-    //             }
-    //             (cycles_through_block * 4, split)
-    //         }
-    //         B2..B3 => {
-    //             // regular
-    //             // add extra day, will remove later...
-    //             let days_thru_block = remainder - B2 + 1;
-    //             let cycles_through_block = days_thru_block / DAYS_PER_MOST_4Y;
-    //             let days_through_cycle = days_thru_block % DAYS_PER_MOST_4Y;
-    //             let mut split = CycleSplit::new(days_through_cycle);
-    //             if split.year_diff == 0 && cycles_through_block == 0 {
-    //                 split.days_thru_year -= 1;
-    //             }
-    //             (cycles_through_block * 4 + 200, split)
-    //         }
-    //         B3..B4 => {
-    //             // regular
-    //             // add extra day, will remove later...
-    //             let days_thru_block = remainder - B3 + 1;
-    //             let cycles_through_block = days_thru_block / DAYS_PER_MOST_4Y;
-    //             let days_through_cycle = days_thru_block % DAYS_PER_MOST_4Y;
-    //             let mut split = CycleSplit::new(days_through_cycle);
-    //             if split.year_diff == 0 && cycles_through_block == 0 {
-    //                 split.days_thru_year -= 1;
-    //             }
-    //             (cycles_through_block * 4 + 300, split)
-    //         }
-    //         _ => {
-    //             panic!("Out of range!")
-    //         }
-    //     };
-
-    //     let proposed_year = 400 * block + ext_years + split.year_diff;
-
-    //     // if proposed_year > (u16::MAX as u32) {
-    //     //     panic!("Out of range");
-    //     // }
-
-    //     YearAndDays {
-    //         year: proposed_year,
-    //         leap: is_leap_year(proposed_year),
-    //         days_through: split.days_thru_year,
-    //     }
-    // }
-
     const fn calculate(date: Date) -> YearAndDays {
         // figure out which 400y block we are in
         let block = date.0.div_euclid(DAYS_PER_400Y);

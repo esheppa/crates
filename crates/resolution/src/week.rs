@@ -172,6 +172,13 @@ impl<D: StartDay> Week<D> {
     pub fn new(date: NaiveDate) -> Self {
         date.into()
     }
+
+    pub const fn succ(&self) -> Week<D> {
+        self.succ_n(1)
+    }
+    pub const fn pred(&self) -> Week<D> {
+        self.pred_n(1)
+    }
 }
 
 impl<D: StartDay> From<NaiveDate> for Week<D> {

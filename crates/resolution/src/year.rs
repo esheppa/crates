@@ -1,7 +1,8 @@
 use crate::{
     month::{self},
     quarter::{self, QuarterNumber},
-    DateResolution, DateResolutionExt, Day, FromMonotonic, Month, Quarter,
+    DateResolution, DateResolutionExt, Day, FiveMinute, FromMonotonic, HalfHour, Hour, Month,
+    Quarter, TimeResolution,
 };
 #[cfg(feature = "chrono")]
 use chrono::{DateTime, Datelike, NaiveDate, NaiveTime, Utc};
@@ -15,14 +16,14 @@ pub struct Year(i32);
 
 impl crate::DateResolution for Year {
     fn start(&self) -> Day {
-        Day::new(Date::first_on_year(self.0))
+        self.start()
     }
     type Params = ();
 
     fn params(&self) -> Self::Params {}
 
     fn from_day(d: Day, _params: Self::Params) -> Self {
-        Year(i32::from(d.year()))
+        Self::from_day(d)
     }
 }
 
@@ -35,33 +36,59 @@ impl From<NaiveDate> for Year {
 
 impl crate::TimeResolution for Year {
     fn succ_n(&self, n: u16) -> Year {
-        Year(self.0 + i32::try_from(n).unwrap())
+        self.succ_n(n)
     }
     fn pred_n(&self, n: u16) -> Year {
-        Year(self.0 - i32::try_from(n).unwrap())
+        self.pred_n(n)
     }
     #[cfg(feature = "chrono")]
     fn start_datetime(&self) -> DateTime<Utc> {
         self.start().and_time(NaiveTime::MIN).and_utc()
     }
 
-    fn start_minute(&self) -> crate::Minute {}
+    fn start_minute(&self) -> crate::Minute {
+        todo!()
+    }
 
     const NAME: &str = "Year";
+
+    fn five_minute(self) -> crate::FiveMinute {
+        todo!()
+    }
+
+    fn half_hour(self) -> crate::HalfHour {
+        todo!()
+    }
+
+    fn hour(self) -> crate::Hour {
+        todo!()
+    }
+
+    fn day(self) -> Day {
+        todo!()
+    }
+
+    fn month(self) -> Month {
+        todo!()
+    }
+
+    fn year(self) -> Year {
+        todo!()
+    }
 }
 
 impl crate::Monotonic for Year {
     fn to_monotonic(&self) -> i32 {
-        self.0
+        self.to_monotonic()
     }
     fn between(&self, other: Self) -> i32 {
-        other.0 - self.0
+        self.between(other)
     }
 }
 
 impl crate::FromMonotonic for Year {
     fn from_monotonic(idx: i32) -> Self {
-        Year(idx)
+        Self::from_monotonic(idx)
     }
 }
 
@@ -84,17 +111,66 @@ impl From<u16> for Year {
 }
 
 impl Year {
+    fn five_minute(self) -> FiveMinute {
+        FiveMinute::first_on_day(self.day())
+    }
+
+    fn half_hour(self) -> HalfHour {
+        HalfHour::first_on_day(self.day())
+    }
+
+    fn hour(self) -> Hour {
+        Hour::first_on_day(self.day())
+    }
+
+    fn day(self) -> Day {
+        self.start()
+    }
+
+    fn month(self) -> Month {
+        self.first_month()
+    }
+
+    fn year(self) -> Year {
+        self
+    }
+
+    pub const fn start(&self) -> Day {
+        Day::new(Date::first_on_year(self.0))
+    }
+
+    pub const fn from_monotonic(idx: i32) -> Self {
+        Year(idx)
+    }
+    pub const fn to_monotonic(&self) -> i32 {
+        self.0
+    }
+    pub const fn between(&self, other: Self) -> i32 {
+        other.0 - self.0
+    }
+    pub const fn succ_n(&self, n: u16) -> Year {
+        Year(self.0 + n as i32)
+    }
+    pub const fn pred_n(&self, n: u16) -> Year {
+        Year(self.0 - n as i32)
+    }
+    pub const fn succ(&self) -> Year {
+        self.succ_n(1)
+    }
+    pub const fn pred(&self) -> Year {
+        self.pred_n(1)
+    }
     pub const fn first_month(&self) -> month::Month {
-        self.start().into()
+        self.jan()
     }
     pub const fn first_quarter(&self) -> Quarter {
-        self.start().into()
+        self.q1()
     }
     pub const fn last_month(&self) -> month::Month {
-        self.end().into()
+        self.dec()
     }
     pub const fn last_quarter(&self) -> Quarter {
-        self.end().into()
+        self.q4()
     }
     pub const fn year_num(&self) -> i32 {
         self.0
@@ -109,7 +185,7 @@ impl Year {
         Quarter::from_parts(self, quarter)
     }
     pub const fn with_month(self, month: MonthOfYear) -> Month {
-        todo!()
+        self.jan().succ_n(month.months_from_jan() as u16)
     }
 
     pub const fn q1(self) -> Quarter {
