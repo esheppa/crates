@@ -304,30 +304,30 @@ pub type Result<T> = std::result::Result<T, Error>;
 /// occurring at regular times. Some examples are:
 /// * A cash-flow report aggregated to days or months
 /// * Dispatch periods in the Australian Electricity Market (and similar concepts in other energy markets)
-pub trait TimeResolution: Copy + Eq + Ord + Monotonic {
+pub trait TimeResolution: Monotonic {
     const NAME: &str;
-    fn succ(&self) -> Self {
+    fn succ(self) -> Self {
         self.succ_n(1)
     }
 
-    fn pred(&self) -> Self {
+    fn pred(self) -> Self {
         self.pred_n(1)
     }
 
     // the default impls are probably inefficient
     // makes sense to require just the n
     // and give the 1 for free
-    fn succ_n(&self, n: u16) -> Self;
+    fn succ_n(self, n: u16) -> Self;
 
-    fn pred_n(&self, n: u16) -> Self;
+    fn pred_n(self, n: u16) -> Self;
     // fn add(self, n: i32) -> Self;
 
-    fn start_minute(&self) -> Minute;
+    fn start_minute(self) -> Minute;
 
     #[cfg(feature = "chrono")]
     fn start_datetime(&self) -> DateTime<Utc>;
 
-    fn convert<Out>(&self) -> Out
+    fn convert<Out>(self) -> Out
     where
         Out: TimeResolution + From<Minute>,
     {
@@ -348,11 +348,11 @@ pub trait TimeResolution: Copy + Eq + Ord + Monotonic {
 /// It is named monotonic as it is intended to provide a monotonic (order preserving) function
 /// from a given implementor of `TimeResolution`, to allow converting backwards and forwards
 /// between the values of the `TimeResolution` implementor and `i32`s
-pub trait Monotonic {
+pub trait Monotonic: Copy + Eq + Ord {
     // we choose i32 rather than u32
     // as the behaviour on subtraction is nicer!
-    fn to_monotonic(&self) -> i32;
-    fn between(&self, other: Self) -> i32;
+    fn to_monotonic(self) -> i32;
+    fn between(self, other: Self) -> i32;
 }
 
 pub trait FromMonotonic: Monotonic {
@@ -363,9 +363,9 @@ pub trait FromMonotonic: Monotonic {
 pub trait SubDateResolution: TimeResolution {
     type Params: Copy;
 
-    fn params(&self) -> Self::Params;
+    fn params(self) -> Self::Params;
 
-    fn occurs_on_day(&self) -> Day;
+    fn occurs_on_day(self) -> Day;
 
     #[cfg(feature = "chrono")]
     fn from_utc_datetime(datetime: DateTime<Utc>, params: Self::Params) -> Self;
@@ -387,25 +387,25 @@ pub trait SubDateResolution: TimeResolution {
 pub trait DateResolution: TimeResolution {
     type Params;
 
-    fn params(&self) -> Self::Params;
+    fn params(self) -> Self::Params;
 
     fn from_day(day: Day, params: Self::Params) -> Self;
 
-    fn start(&self) -> Day;
+    fn start(self) -> Day;
 }
 
 /// `DateResolutionExt` implements some convenience methods for types that implement `DateResolution`
 // This is an extra trait to avoid the methods being overriden
 pub trait DateResolutionExt: DateResolution {
-    fn end(&self) -> Day {
+    fn end(self) -> Day {
         self.succ().start().pred()
     }
 
-    fn num_days(&self) -> i32 {
+    fn num_days(self) -> i32 {
         self.start().between(self.end())
     }
 
-    fn to_sub_date_resolution<R>(&self) -> range::TimeRange<R>
+    fn to_sub_date_resolution<R>(self) -> range::TimeRange<R>
     where
         R: SubDateResolution<Params = Self::Params> + FromMonotonic,
     {
@@ -415,7 +415,7 @@ pub trait DateResolutionExt: DateResolution {
         )
     }
 
-    fn rescale<Out>(&self) -> range::TimeRange<Out>
+    fn rescale<Out>(self) -> range::TimeRange<Out>
     where
         Out: DateResolution<Params = Self::Params> + FromMonotonic,
         Self: LongerThan<Out>,
@@ -449,16 +449,16 @@ trait DateResolutionBuilder {
 }
 impl DateResolutionBuilder for i16 {
     fn q1(self) -> Quarter {
-        Quarter::from_parts(self, quarter::QuarterNumber::Q1)
+        Quarter::from_parts(Year::new(self as i32), quarter::QuarterOfYear::Q1)
     }
     fn q2(self) -> Quarter {
-        Quarter::from_parts(self, quarter::QuarterNumber::Q2)
+        Quarter::from_parts(Year::new(self as i32), quarter::QuarterOfYear::Q2)
     }
     fn q3(self) -> Quarter {
-        Quarter::from_parts(self, quarter::QuarterNumber::Q3)
+        Quarter::from_parts(Year::new(self as i32), quarter::QuarterOfYear::Q3)
     }
     fn q4(self) -> Quarter {
-        Quarter::from_parts(self, quarter::QuarterNumber::Q4)
+        Quarter::from_parts(Year::new(self as i32), quarter::QuarterOfYear::Q4)
     }
     fn jan(self) -> Month {
         Month::from_year_month(self.into(), MonthOfYear::Jan)
@@ -500,13 +500,13 @@ impl DateResolutionBuilder for i16 {
 
 #[cfg(test)]
 mod tests {
-    use quarter::QuarterNumber;
+    use quarter::QuarterOfYear;
 
     use super::*;
 
     #[test]
     fn test_builder() {
-        assert_eq!(2024.q1(), Quarter::from_parts(2024, QuarterNumber::Q1));
+        assert_eq!(2024.q1(), Quarter::from_parts(2024, QuarterOfYear::Q1));
         assert_eq!(2024.q1(), Year::new(2024).first_quarter());
         assert_eq!(Year::new(2024).q1(), Year::new(2024).first_quarter());
     }

@@ -1,51 +1,80 @@
-use crate::{month, year, DateResolution, DateResolutionExt, Day, Monotonic, Year};
+use crate::{month, year, DateResolutionExt, Day, Year};
 use alloc::{
     fmt, str,
     string::{String, ToString},
     vec::Vec,
 };
+#[cfg(feature = "chrono")]
 use chrono::{DateTime, Datelike, NaiveDate, NaiveTime, Utc};
-use core::{convert::TryFrom, result};
+use core::convert::TryFrom;
+use date_impl::MonthOfYear;
 #[cfg(feature = "serde")]
 use serde::de;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
-pub struct Quarter(i64);
+pub struct Quarter(i32);
 
 impl crate::TimeResolution for Quarter {
-    fn succ_n(&self, n: u32) -> Self {
+    fn succ_n(&self, n: u16) -> Self {
         self.succ_n(n)
     }
-    fn pred_n(&self, n: u32) -> Self {
+    fn pred_n(&self, n: u16) -> Self {
         self.pred_n(n)
     }
+    #[cfg(feature = "chrono")]
     fn start_datetime(&self) -> DateTime<Utc> {
         self.start_datetime()
     }
 
     const NAME: &str = "Quarter";
+
+    fn start_minute(&self) -> crate::Minute {
+        self.start_minute()
+    }
+
+    fn five_minute(self) -> crate::FiveMinute {
+        self.five_minute()
+    }
+
+    fn half_hour(self) -> crate::HalfHour {
+        self.half_hour()
+    }
+
+    fn hour(self) -> crate::Hour {
+        self.hour()
+    }
+
+    fn day(self) -> Day {
+        self.day()
+    }
+
+    fn month(self) -> crate::Month {
+        self.month()
+    }
+
+    fn year(self) -> Year {
+        self.year()
+    }
 }
 
 impl crate::Monotonic for Quarter {
-    fn to_monotonic(&self) -> i64 {
+    fn to_monotonic(self) -> i32 {
         self.to_monotonic()
     }
-    fn between(&self, other: Self) -> i64 {
+    fn between(self, other: Self) -> i32 {
         self.between(other)
     }
 }
 
 impl crate::FromMonotonic for Quarter {
-    fn from_monotonic(idx: i64) -> Self {
-        Quarter::from_monotonic(idx)
+    fn from_monotonic(idx: i32) -> Self {
+        Self::from_monotonic(idx)
     }
 }
 
 impl crate::DateResolution for Quarter {
     fn start(&self) -> Day {
-        let years = i32::try_from(self.0.div_euclid(4)).expect("Not pre/post historic");
-        let qtr = self.quarter_num();
-        Day::new(chrono::NaiveDate::from_ymd_opt(years, qtr * 3 - 2, 1).expect("valid time"))
+        self.start()
     }
 
     type Params = ();
@@ -53,96 +82,139 @@ impl crate::DateResolution for Quarter {
     fn params(&self) -> Self::Params {}
 
     fn from_day(d: Day, _params: Self::Params) -> Self {
-        Quarter::from_day(d, _params)
+        Quarter::from_day(d)
     }
 }
+#[cfg(feature = "chrono")]
 impl From<NaiveDate> for Quarter {
     fn from(value: NaiveDate) -> Quarter {
-        Quarter::from_day(value, ())
-    }
-}
-
-fn quarter_num(d: chrono::NaiveDate) -> i64 {
-    match d.month() {
-        1..=3 => 1,
-        4..=6 => 2,
-        7..=9 => 3,
-        10..=12 => 4,
-        mn => panic!("Unexpected month number {}", mn),
+        Quarter::from_day(value)
     }
 }
 
 impl Quarter {
-    pub const fn succ(&self) -> Quarter {
-        self.succ_n(1)
-    }
-    pub const fn pred(&self) -> Quarter {
-        self.pred_n(1)
-    }
-    pub const fn succ_n(&self, n: u32) -> Self {
-        Quarter(self.0 + n as i64)
-    }
-    pub const fn pred_n(&self, n: u32) -> Self {
-        Quarter(self.0 - n as i64)
-    }
-    pub const fn start_datetime(&self) -> DateTime<Utc> {
-        self.start().date().and_time(NaiveTime::MIN).and_utc()
-    }
-    pub const fn to_monotonic(&self) -> i64 {
-        self.0
-    }
-    pub const fn between(&self, other: Self) -> i64 {
-        other.0 - self.0
-    }
-    pub const fn from_monotonic(idx: i64) -> Self {
-        Quarter(idx)
-    }
-    pub const fn start(&self) -> Day {
-        let years = i32::try_from(self.0.div_euclid(4)).expect("Not pre/post historic");
-        let qtr = self.quarter_num();
-        Day::new(chrono::NaiveDate::from_ymd_opt(years, qtr * 3 - 2, 1).expect("valid time"))
-    }
-    pub const fn from_day(d: Day, _params: Self::Params) -> Self {
-        Quarter(quarter_num(d) - 1 + i64::from(d.year()) * 4)
+    pub const fn start_minute(&self) -> crate::Minute {
+        todo!()
     }
 
-    pub const fn first_month(&self) -> month::Month {
-        self.start().into()
+    pub const fn five_minute(self) -> crate::FiveMinute {
+        todo!()
     }
-    pub const fn last_month(&self) -> month::Month {
-        self.end().into()
+
+    pub const fn half_hour(self) -> crate::HalfHour {
+        todo!()
     }
-    pub const fn year(&self) -> year::Year {
-        super::Year::new(self.year_num())
+
+    pub const fn hour(self) -> crate::Hour {
+        todo!()
     }
-    pub const fn year_num(&self) -> i16 {
-        Year::from(self.start()).year_num()
+
+    pub const fn day(self) -> Day {
+        todo!()
     }
-    pub const fn quarter_num(&self) -> u32 {
-        u32::try_from(1 + self.0.rem_euclid(4)).expect("Range of 1-4")
+
+    pub const fn month(self) -> crate::Month {
+        todo!()
     }
-    pub const fn new(date: NaiveDate) -> Self {
-        date.into()
+
+    pub const fn succ(self) -> Quarter {
+        self.succ_n(1)
     }
-    pub const fn from_parts(year: impl Into<Year>, quarter: QuarterNumber) -> Self {
-        crate::FromMonotonic::from_monotonic(year.into().to_monotonic() * 4 + quarter.offset())
+    pub const fn pred(self) -> Quarter {
+        self.pred_n(1)
+    }
+    pub const fn succ_n(self, n: u16) -> Self {
+        Quarter(self.0 + n as i32)
+    }
+    pub const fn pred_n(self, n: u16) -> Self {
+        Quarter(self.0 - n as i32)
+    }
+    #[cfg(feature = "chrono")]
+    pub const fn start_datetime(self) -> DateTime<Utc> {
+        self.start().date().and_time(NaiveTime::MIN).and_utc()
+    }
+    pub const fn to_monotonic(self) -> i32 {
+        self.0
+    }
+    pub const fn between(self, other: Self) -> i32 {
+        other.0 - self.0
+    }
+    pub const fn from_monotonic(idx: i32) -> Self {
+        Quarter(idx)
+    }
+    pub const fn start(self) -> Day {
+        self.first_month().start()
+    }
+    pub const fn from_day(d: Day) -> Self {
+        match d.month().month_of_year() {
+            MonthOfYear::Jan | MonthOfYear::Feb | MonthOfYear::Mar => {
+                Self::from_parts(d.year(), QuarterOfYear::Q1)
+            }
+            MonthOfYear::Apr | MonthOfYear::May | MonthOfYear::Jun => {
+                Self::from_parts(d.year(), QuarterOfYear::Q2)
+            }
+            MonthOfYear::Jul | MonthOfYear::Aug | MonthOfYear::Sep => {
+                Self::from_parts(d.year(), QuarterOfYear::Q3)
+            }
+            MonthOfYear::Oct | MonthOfYear::Nov | MonthOfYear::Dec => {
+                Self::from_parts(d.year(), QuarterOfYear::Q4)
+            }
+        }
+    }
+
+    pub const fn first_month(self) -> month::Month {
+        match self.quarter_of_year() {
+            QuarterOfYear::Q1 => self.year().jan(),
+            QuarterOfYear::Q2 => self.year().apr(),
+            QuarterOfYear::Q3 => self.year().jul(),
+            QuarterOfYear::Q4 => self.year().oct(),
+        }
+    }
+    pub const fn last_month(self) -> month::Month {
+        match self.quarter_of_year() {
+            QuarterOfYear::Q1 => self.year().mar(),
+            QuarterOfYear::Q2 => self.year().jun(),
+            QuarterOfYear::Q3 => self.year().sep(),
+            QuarterOfYear::Q4 => self.year().dec(),
+        }
+    }
+    pub const fn year(self) -> year::Year {
+        Year::new(self.year_num())
+    }
+    pub const fn year_num(self) -> i32 {
+        self.0.div_euclid(4)
+    }
+    pub const fn quarter_num(self) -> u8 {
+        (self.0.rem_euclid(4) + 1) as u8
+    }
+    pub const fn quarter_of_year(self) -> QuarterOfYear {
+        match self.quarter_num() {
+            1 => QuarterOfYear::Q1,
+            2 => QuarterOfYear::Q2,
+            3 => QuarterOfYear::Q3,
+            4 => QuarterOfYear::Q4,
+            _ => panic!("Unexpected quarter number"),
+        }
+    }
+    pub const fn from_parts(year: Year, quarter: QuarterOfYear) -> Self {
+        Self::from_monotonic(year.to_monotonic() * 4 + quarter.offset())
     }
 }
 
-pub enum QuarterNumber {
+pub enum QuarterOfYear {
     Q1,
     Q2,
     Q3,
     Q4,
 }
 
-impl QuarterNumber {
-    fn offset(&self) -> i64 {
+impl QuarterOfYear {
+    const fn offset(&self) -> i32 {
         match self {
-            QuarterNumber::Q1 => 0,
-            QuarterNumber::Q2 => 1,
-            QuarterNumber::Q3 => 2,
-            QuarterNumber::Q4 => 3,
+            QuarterOfYear::Q1 => 0,
+            QuarterOfYear::Q2 => 1,
+            QuarterOfYear::Q3 => 2,
+            QuarterOfYear::Q4 => 3,
         }
     }
 }

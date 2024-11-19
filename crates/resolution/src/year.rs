@@ -1,6 +1,6 @@
 use crate::{
     month::{self},
-    quarter::{self, QuarterNumber},
+    quarter::{self, QuarterOfYear},
     DateResolution, DateResolutionExt, Day, FiveMinute, FromMonotonic, HalfHour, Hour, Month,
     Quarter, TimeResolution,
 };
@@ -15,12 +15,12 @@ use date_impl::{Date, MonthOfYear};
 pub struct Year(i32);
 
 impl crate::DateResolution for Year {
-    fn start(&self) -> Day {
+    fn start(self) -> Day {
         self.start()
     }
     type Params = ();
 
-    fn params(&self) -> Self::Params {}
+    fn params(self) -> Self::Params {}
 
     fn from_day(d: Day, _params: Self::Params) -> Self {
         Self::from_day(d)
@@ -35,18 +35,18 @@ impl From<NaiveDate> for Year {
 }
 
 impl crate::TimeResolution for Year {
-    fn succ_n(&self, n: u16) -> Year {
+    fn succ_n(self, n: u16) -> Year {
         self.succ_n(n)
     }
-    fn pred_n(&self, n: u16) -> Year {
+    fn pred_n(self, n: u16) -> Year {
         self.pred_n(n)
     }
     #[cfg(feature = "chrono")]
-    fn start_datetime(&self) -> DateTime<Utc> {
+    fn start_datetime(self) -> DateTime<Utc> {
         self.start().and_time(NaiveTime::MIN).and_utc()
     }
 
-    fn start_minute(&self) -> crate::Minute {
+    fn start_minute(self) -> crate::Minute {
         todo!()
     }
 
@@ -78,10 +78,10 @@ impl crate::TimeResolution for Year {
 }
 
 impl crate::Monotonic for Year {
-    fn to_monotonic(&self) -> i32 {
+    fn to_monotonic(self) -> i32 {
         self.to_monotonic()
     }
-    fn between(&self, other: Self) -> i32 {
+    fn between(self, other: Self) -> i32 {
         self.between(other)
     }
 }
@@ -135,44 +135,44 @@ impl Year {
         self
     }
 
-    pub const fn start(&self) -> Day {
+    pub const fn start(self) -> Day {
         Day::new(Date::first_on_year(self.0))
     }
 
     pub const fn from_monotonic(idx: i32) -> Self {
         Year(idx)
     }
-    pub const fn to_monotonic(&self) -> i32 {
+    pub const fn to_monotonic(self) -> i32 {
         self.0
     }
-    pub const fn between(&self, other: Self) -> i32 {
+    pub const fn between(self, other: Self) -> i32 {
         other.0 - self.0
     }
-    pub const fn succ_n(&self, n: u16) -> Year {
+    pub const fn succ_n(self, n: u16) -> Year {
         Year(self.0 + n as i32)
     }
-    pub const fn pred_n(&self, n: u16) -> Year {
+    pub const fn pred_n(self, n: u16) -> Year {
         Year(self.0 - n as i32)
     }
-    pub const fn succ(&self) -> Year {
+    pub const fn succ(self) -> Year {
         self.succ_n(1)
     }
-    pub const fn pred(&self) -> Year {
+    pub const fn pred(self) -> Year {
         self.pred_n(1)
     }
-    pub const fn first_month(&self) -> month::Month {
+    pub const fn first_month(self) -> month::Month {
         self.jan()
     }
-    pub const fn first_quarter(&self) -> Quarter {
+    pub const fn first_quarter(self) -> Quarter {
         self.q1()
     }
-    pub const fn last_month(&self) -> month::Month {
+    pub const fn last_month(self) -> month::Month {
         self.dec()
     }
-    pub const fn last_quarter(&self) -> Quarter {
+    pub const fn last_quarter(self) -> Quarter {
         self.q4()
     }
-    pub const fn year_num(&self) -> i32 {
+    pub const fn year_num(self) -> i32 {
         self.0
     }
     pub const fn from_day(day: Day) -> Year {
@@ -181,7 +181,7 @@ impl Year {
     pub const fn new(year: i32) -> Self {
         Year(year as i32)
     }
-    pub const fn with_quarter(self, quarter: QuarterNumber) -> Quarter {
+    pub const fn with_quarter(self, quarter: QuarterOfYear) -> Quarter {
         Quarter::from_parts(self, quarter)
     }
     pub const fn with_month(self, month: MonthOfYear) -> Month {
@@ -189,16 +189,16 @@ impl Year {
     }
 
     pub const fn q1(self) -> Quarter {
-        Quarter::from_parts(self, quarter::QuarterNumber::Q1)
+        Quarter::from_parts(self, quarter::QuarterOfYear::Q1)
     }
     pub const fn q2(self) -> Quarter {
-        Quarter::from_parts(self, quarter::QuarterNumber::Q2)
+        Quarter::from_parts(self, quarter::QuarterOfYear::Q2)
     }
     pub const fn q3(self) -> Quarter {
-        Quarter::from_parts(self, quarter::QuarterNumber::Q3)
+        Quarter::from_parts(self, quarter::QuarterOfYear::Q3)
     }
     pub const fn q4(self) -> Quarter {
-        Quarter::from_parts(self, quarter::QuarterNumber::Q4)
+        Quarter::from_parts(self, quarter::QuarterOfYear::Q4)
     }
     pub const fn jan(self) -> Month {
         Month::from_year_month(self.year_num(), MonthOfYear::Jan)
@@ -290,7 +290,7 @@ impl crate::DateResolutionBuilder for Year {
 }
 
 impl fmt::Display for Year {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    fn fmt(self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.0)
     }
 }

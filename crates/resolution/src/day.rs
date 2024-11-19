@@ -81,19 +81,19 @@ impl<D: chrono::Datelike> From<D> for Day {
 }
 
 impl TimeResolution for Day {
-    fn succ_n(&self, n: u16) -> Day {
+    fn succ_n(self, n: u16) -> Day {
         self.succ_n(n)
     }
-    fn pred_n(&self, n: u16) -> Day {
+    fn pred_n(self, n: u16) -> Day {
         self.pred_n(n)
     }
     #[cfg(feature = "chrono")]
-    fn start_datetime(&self) -> DateTime<Utc> {
+    fn start_datetime(self) -> DateTime<Utc> {
         self.start_datetime()
     }
     const NAME: &str = "Day";
 
-    fn start_minute(&self) -> crate::Minute {
+    fn start_minute(self) -> crate::Minute {
         todo!()
     }
 
@@ -123,10 +123,10 @@ impl TimeResolution for Day {
 }
 
 impl Monotonic for Day {
-    fn to_monotonic(&self) -> i32 {
+    fn to_monotonic(self) -> i32 {
         self.0
     }
-    fn between(&self, other: Self) -> i32 {
+    fn between(self, other: Self) -> i32 {
         other.0 - self.0
     }
 }
@@ -145,44 +145,44 @@ impl Day {
         Day(date.inner())
     }
 
-    pub const fn succ_n(&self, n: u16) -> Day {
+    pub const fn succ_n(self, n: u16) -> Day {
         Day(self.0 + n as i32)
     }
-    pub const fn pred_n(&self, n: u16) -> Day {
+    pub const fn pred_n(self, n: u16) -> Day {
         Day(self.0 - n as i32)
     }
 
-    pub const fn succ(&self) -> Day {
+    pub const fn succ(self) -> Day {
         self.succ_n(1)
     }
-    pub const fn pred(&self) -> Day {
+    pub const fn pred(self) -> Day {
         self.pred_n(1)
     }
-    // pub const fn start_datetime(&self) -> DateTime<Utc> {
+    // pub const fn start_datetime(self) -> DateTime<Utc> {
     //     self.date().and_time(NaiveTime::MIN).and_utc()
     // }
 
     pub const fn with_day(self, d: DayOfMonth) -> Day {
         Day(self.date().with_day(d).inner())
     }
-    pub const fn year(&self) -> super::Year {
+    pub const fn year(self) -> super::Year {
         super::Year::new(self.date().year())
     }
-    pub const fn quarter(&self) -> super::Quarter {
+    pub const fn quarter(self) -> super::Quarter {
         Quarter::from_day(*self, ())
     }
 
-    pub const fn week<D: super::StartDay>(&self) -> super::Week<D> {
+    pub const fn week<D: super::StartDay>(self) -> super::Week<D> {
         self.date().into()
     }
-    pub const fn year_num(&self) -> i32 {
+    pub const fn year_num(self) -> i32 {
         self.date().year()
     }
-    pub const fn month_num(&self) -> u8 {
+    pub const fn month_num(self) -> u8 {
         self.date().month()
     }
 
-    pub const fn start_minute(&self) -> crate::Minute {
+    pub const fn start_minute(self) -> crate::Minute {
         todo!()
     }
 
