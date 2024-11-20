@@ -53,10 +53,9 @@ impl Date {
     pub const fn year(&self) -> i32 {
         self.through().year
     }
-    pub const fn month(&self) -> u8 {
+    pub const fn month(&self) -> MonthOfYear {
         self.through().month()
     }
-
     pub const fn day(&self) -> u8 {
         self.through().day()
     }
@@ -71,7 +70,7 @@ impl Date {
     }
     pub const fn to_ymd(self) -> (i32, u8, u8) {
         let through = self.through();
-        (through.year, through.month(), through.day())
+        (through.year, through.month().number(), through.day())
     }
 
     #[cfg(feature = "chrono")]
@@ -203,6 +202,9 @@ impl DayOfMonth {
             DayOfMonth::D28 => 28,
         }
     }
+    pub const fn offset(&self) -> u8 {
+        self.number() - 1
+    }
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
@@ -237,18 +239,32 @@ impl From<chrono::Month> for MonthOfYear {
 
 pub fn month_of_year_from_name(name: &str) -> Result<MonthOfYear, String> {
     match name {
-        "Jan" => Ok(MonthOfYear::Jan),
-        "Feb" => Ok(MonthOfYear::Feb),
-        "Mar" => Ok(MonthOfYear::Mar),
-        "Apr" => Ok(MonthOfYear::Apr),
-        "May" => Ok(MonthOfYear::May),
-        "Jun" => Ok(MonthOfYear::Jun),
-        "Jul" => Ok(MonthOfYear::Jul),
-        "Aug" => Ok(MonthOfYear::Aug),
-        "Sep" => Ok(MonthOfYear::Sep),
-        "Oct" => Ok(MonthOfYear::Oct),
-        "Nov" => Ok(MonthOfYear::Nov),
-        "Dec" => Ok(MonthOfYear::Dec),
+        // best case
+        "Jan" | "jan" => Ok(MonthOfYear::Jan),
+        "Feb" | "feb" => Ok(MonthOfYear::Feb),
+        "Mar" | "mar" => Ok(MonthOfYear::Mar),
+        "Apr" | "apr" => Ok(MonthOfYear::Apr),
+        "May" | "may" => Ok(MonthOfYear::May),
+        "Jun" | "jun" => Ok(MonthOfYear::Jun),
+        "Jul" | "jul" => Ok(MonthOfYear::Jul),
+        "Aug" | "aug" => Ok(MonthOfYear::Aug),
+        "Sep" | "sep" => Ok(MonthOfYear::Sep),
+        "Oct" | "oct" => Ok(MonthOfYear::Oct),
+        "Nov" | "nov" => Ok(MonthOfYear::Nov),
+        "Dec" | "dec" => Ok(MonthOfYear::Dec),
+        // lest performant but more flexible
+        m if m.starts_with("Jan") || m.starts_with("jan") => Ok(MonthOfYear::Jan),
+        m if m.starts_with("Feb") || m.starts_with("feb") => Ok(MonthOfYear::Feb),
+        m if m.starts_with("Mar") || m.starts_with("mar") => Ok(MonthOfYear::Mar),
+        m if m.starts_with("Apr") || m.starts_with("apr") => Ok(MonthOfYear::Apr),
+        m if m.starts_with("May") || m.starts_with("may") => Ok(MonthOfYear::May),
+        m if m.starts_with("Jun") || m.starts_with("jun") => Ok(MonthOfYear::Jun),
+        m if m.starts_with("Jul") || m.starts_with("jul") => Ok(MonthOfYear::Jul),
+        m if m.starts_with("Aug") || m.starts_with("aug") => Ok(MonthOfYear::Aug),
+        m if m.starts_with("Sep") || m.starts_with("sep") => Ok(MonthOfYear::Sep),
+        m if m.starts_with("Oct") || m.starts_with("oct") => Ok(MonthOfYear::Oct),
+        m if m.starts_with("Nov") || m.starts_with("nov") => Ok(MonthOfYear::Nov),
+        m if m.starts_with("Dec") || m.starts_with("dec") => Ok(MonthOfYear::Dec),
         _ => Err(format!("Unexpected month name: `{name}`")),
     }
 }
@@ -355,6 +371,23 @@ impl MonthOfYear {
             MonthOfYear::Dec => "Dec",
         }
     }
+    pub const fn from_number(m: u8) -> Option<MonthOfYear> {
+        match m {
+            1 => Some(MonthOfYear::Jan),
+            2 => Some(MonthOfYear::Feb),
+            3 => Some(MonthOfYear::Mar),
+            4 => Some(MonthOfYear::Apr),
+            5 => Some(MonthOfYear::May),
+            6 => Some(MonthOfYear::Jun),
+            7 => Some(MonthOfYear::Jul),
+            8 => Some(MonthOfYear::Aug),
+            9 => Some(MonthOfYear::Sep),
+            10 => Some(MonthOfYear::Oct),
+            11 => Some(MonthOfYear::Nov),
+            12 => Some(MonthOfYear::Dec),
+            _ => None,
+        }
+    }
     pub const fn number(self) -> u8 {
         match self {
             MonthOfYear::Jan => 1,
@@ -373,20 +406,7 @@ impl MonthOfYear {
     }
 
     pub const fn months_from_jan(self) -> u8 {
-        match self {
-            MonthOfYear::Jan => 0,
-            MonthOfYear::Feb => 1,
-            MonthOfYear::Mar => 2,
-            MonthOfYear::Apr => 3,
-            MonthOfYear::May => 4,
-            MonthOfYear::Jun => 5,
-            MonthOfYear::Jul => 6,
-            MonthOfYear::Aug => 7,
-            MonthOfYear::Sep => 8,
-            MonthOfYear::Oct => 9,
-            MonthOfYear::Nov => 10,
-            MonthOfYear::Dec => 11,
-        }
+        self.number() - 1
     }
 }
 
@@ -404,37 +424,37 @@ impl YearAndDays {
     pub const fn days_through(self) -> i32 {
         self.days_through
     }
-    pub const fn month(&self) -> u8 {
+    pub const fn month(&self) -> MonthOfYear {
         if self.leap {
             match self.days_through {
-                0..31 => 1,
-                31..60 => 2,
-                60..91 => 3,
-                91..121 => 4,
-                121..152 => 5,
-                152..182 => 6,
-                182..213 => 7,
-                213..244 => 8,
-                244..274 => 9,
-                274..305 => 10,
-                305..335 => 11,
-                335..366 => 12,
+                0..31 => MonthOfYear::Jan,
+                31..60 => MonthOfYear::Feb,
+                60..91 => MonthOfYear::Mar,
+                91..121 => MonthOfYear::Apr,
+                121..152 => MonthOfYear::May,
+                152..182 => MonthOfYear::Jun,
+                182..213 => MonthOfYear::Jul,
+                213..244 => MonthOfYear::Aug,
+                244..274 => MonthOfYear::Sep,
+                274..305 => MonthOfYear::Oct,
+                305..335 => MonthOfYear::Nov,
+                335..366 => MonthOfYear::Dec,
                 _ => panic!("out of range"),
             }
         } else {
             match self.days_through {
-                0..31 => 1,
-                31..59 => 2,
-                59..90 => 3,
-                90..120 => 4,
-                120..151 => 5,
-                151..181 => 6,
-                181..212 => 7,
-                212..243 => 8,
-                243..273 => 9,
-                273..304 => 10,
-                304..334 => 11,
-                334..365 => 12,
+                0..31 => MonthOfYear::Jan,
+                31..59 => MonthOfYear::Feb,
+                59..90 => MonthOfYear::Mar,
+                90..120 => MonthOfYear::Apr,
+                120..151 => MonthOfYear::May,
+                151..181 => MonthOfYear::Jun,
+                181..212 => MonthOfYear::Jul,
+                212..243 => MonthOfYear::Aug,
+                243..273 => MonthOfYear::Sep,
+                273..304 => MonthOfYear::Oct,
+                304..334 => MonthOfYear::Nov,
+                334..365 => MonthOfYear::Dec,
                 _ => panic!("out of range"),
             }
         }

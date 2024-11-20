@@ -1,24 +1,37 @@
-use crate::{month, year, DateResolutionExt, Day, Year};
-use alloc::{
-    fmt, str,
-    string::{String, ToString},
-    vec::Vec,
-};
-#[cfg(feature = "chrono")]
-use chrono::{DateTime, Datelike, NaiveDate, NaiveTime, Utc};
-use core::convert::TryFrom;
+use crate::{month, year, Day, Year};
+use alloc::{fmt, str, string::ToString};
 use date_impl::MonthOfYear;
+
 #[cfg(feature = "serde")]
 use serde::de;
+
+#[cfg(feature = "chrono")]
+pub use chrono::*;
+
+#[cfg(feature = "chrono")]
+mod chrono {
+    use chrono::{DateTime, Datelike, NaiveDate, NaiveTime, Utc};
+
+    impl From<NaiveDate> for Quarter {
+        fn from(value: NaiveDate) -> Quarter {
+            Quarter::from_day(value)
+        }
+    }
+    impl Quarter {
+        pub const fn start_datetime(self) -> DateTime<Utc> {
+            self.start().date().and_time(NaiveTime::MIN).and_utc()
+        }
+    }
+}
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub struct Quarter(i32);
 
 impl crate::TimeResolution for Quarter {
-    fn succ_n(&self, n: u16) -> Self {
+    fn succ_n(self, n: u16) -> Self {
         self.succ_n(n)
     }
-    fn pred_n(&self, n: u16) -> Self {
+    fn pred_n(self, n: u16) -> Self {
         self.pred_n(n)
     }
     #[cfg(feature = "chrono")]
@@ -28,7 +41,7 @@ impl crate::TimeResolution for Quarter {
 
     const NAME: &str = "Quarter";
 
-    fn start_minute(&self) -> crate::Minute {
+    fn start_minute(self) -> crate::Minute {
         self.start_minute()
     }
 
@@ -73,27 +86,21 @@ impl crate::FromMonotonic for Quarter {
 }
 
 impl crate::DateResolution for Quarter {
-    fn start(&self) -> Day {
+    fn start(self) -> Day {
         self.start()
     }
 
     type Params = ();
 
-    fn params(&self) -> Self::Params {}
+    fn params(self) -> Self::Params {}
 
     fn from_day(d: Day, _params: Self::Params) -> Self {
         Quarter::from_day(d)
     }
 }
-#[cfg(feature = "chrono")]
-impl From<NaiveDate> for Quarter {
-    fn from(value: NaiveDate) -> Quarter {
-        Quarter::from_day(value)
-    }
-}
 
 impl Quarter {
-    pub const fn start_minute(&self) -> crate::Minute {
+    pub const fn start_minute(self) -> crate::Minute {
         todo!()
     }
 
@@ -129,10 +136,7 @@ impl Quarter {
     pub const fn pred_n(self, n: u16) -> Self {
         Quarter(self.0 - n as i32)
     }
-    #[cfg(feature = "chrono")]
-    pub const fn start_datetime(self) -> DateTime<Utc> {
-        self.start().date().and_time(NaiveTime::MIN).and_utc()
-    }
+
     pub const fn to_monotonic(self) -> i32 {
         self.0
     }
@@ -219,89 +223,19 @@ impl QuarterOfYear {
     }
 }
 
-impl fmt::Display for Quarter {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "Q{}-{}", self.quarter_num(), self.year_num())
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::{DateResolution, TimeResolution};
-
-    #[test]
-    #[cfg(feature = "serde")]
-    fn test_roundtrip() {
-        let dt = chrono::NaiveDate::from_ymd_opt(2021, 12, 6).unwrap();
-
-        let wk = Quarter::from(dt);
-        assert!(wk.start() <= dt && wk.end() >= dt);
-
-        assert_eq!(
-            wk,
-            serde_json::from_str(&serde_json::to_string(&wk).unwrap()).unwrap()
-        )
-    }
-    #[test]
-    fn test_parse_quarter_syntax() {
-        assert_eq!(
-            "Q1-2021".parse::<Quarter>().unwrap().start(),
-            chrono::NaiveDate::from_ymd_opt(2021, 1, 1).unwrap(),
-        );
-        assert_eq!(
-            "Q1-2021".parse::<Quarter>().unwrap().succ().start(),
-            chrono::NaiveDate::from_ymd_opt(2021, 4, 1).unwrap(),
-        );
-        assert_eq!(
-            "Q1-2021".parse::<Quarter>().unwrap().succ().pred().start(),
-            chrono::NaiveDate::from_ymd_opt(2021, 1, 1).unwrap(),
-        );
-    }
-
-    #[test]
-    fn test_parse_date_syntax() {
-        assert_eq!(
-            "2021-01-01".parse::<Quarter>().unwrap().start(),
-            chrono::NaiveDate::from_ymd_opt(2021, 1, 1).unwrap(),
-        );
-        assert_eq!(
-            "2021-01-01".parse::<Quarter>().unwrap().succ().start(),
-            chrono::NaiveDate::from_ymd_opt(2021, 4, 1).unwrap(),
-        );
-        assert_eq!(
-            "2021-01-01"
-                .parse::<Quarter>()
-                .unwrap()
-                .succ()
-                .pred()
-                .start(),
-            chrono::NaiveDate::from_ymd_opt(2021, 1, 1).unwrap(),
-        );
-    }
-
-    #[test]
-    fn test_start() {
-        assert_eq!(
-            Quarter(2).start(),
-            chrono::NaiveDate::from_ymd_opt(0, 7, 1).unwrap()
-        );
-        assert_eq!(
-            Quarter(1).start(),
-            chrono::NaiveDate::from_ymd_opt(0, 4, 1).unwrap()
-        );
-        assert_eq!(
-            Quarter(0).start(),
-            chrono::NaiveDate::from_ymd_opt(0, 1, 1).unwrap()
-        );
-        assert_eq!(
-            Quarter(-1).start(),
-            chrono::NaiveDate::from_ymd_opt(-1, 10, 1).unwrap()
-        );
-        assert_eq!(
-            Quarter(-2).start(),
-            chrono::NaiveDate::from_ymd_opt(-1, 7, 1).unwrap()
-        );
+impl str::FromStr for QuarterOfYear {
+    type Err = crate::Error;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "Q1" | "q1" => Ok(Self::Q1),
+            "Q2" | "q2" => Ok(Self::Q2),
+            "Q3" | "q3" => Ok(Self::Q3),
+            "Q4" | "q4" => Ok(Self::Q4),
+            _ => Err(crate::Error::ParseCustom {
+                ty_name: "QuarterOfYear",
+                input: s.to_string(),
+            }),
+        }
     }
 }
 
@@ -328,33 +262,110 @@ impl serde::Serialize for Quarter {
     }
 }
 
+// looks like 2024-Q1, etc.
+
+impl fmt::Display for Quarter {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}-Q{}", self.year_num(), self.quarter_num())
+    }
+}
+
 impl str::FromStr for Quarter {
     type Err = crate::Error;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        if let Ok(parsed) = chrono::NaiveDate::parse_from_str(s, "%Y-%m-%d") {
-            Ok(parsed.into())
-        } else {
-            let split = s
-                .split('-')
-                .map(ToString::to_string)
-                .collect::<Vec<String>>();
-            if split.len() == 2 {
-                let qtr = split[0]
-                    .chars()
-                    .nth(1)
-                    .unwrap()
-                    .to_string()
-                    .parse::<u32>()?;
-                let year = split[1].parse()?;
-                let date =
-                    chrono::NaiveDate::from_ymd_opt(year, qtr * 3 - 2, 1).expect("valid date");
-                Ok(date.into())
-            } else {
-                Err(crate::Error::ParseCustom {
-                    ty_name: "Quarter",
-                    input: s.to_string(),
-                })
+        match s.split_once('-') {
+            Some((year, quarter)) => {
+                match (year.parse::<Year>(), quarter.parse::<QuarterOfYear>()) {
+                    (Ok(year), Ok(quarter)) => Ok(Quarter::from_parts(year, quarter)),
+                    _ => Err(crate::Error::ParseCustom {
+                        ty_name: "Quarter",
+                        input: s.to_string(),
+                    }),
+                }
             }
+            None => s.parse::<Day>().map(|d| Quarter::from_day(d)),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use date_impl::{Date, DayOfMonth, MonthOfYear};
+
+    use super::*;
+
+    #[test]
+    #[cfg(feature = "serde")]
+    fn test_roundtrip() {
+        use crate::{DateResolution, TimeResolution};
+        let dt = chrono::NaiveDate::from_ymd_opt(2021, 12, 6).unwrap();
+
+        let wk = Quarter::from(dt);
+        assert!(wk.start() <= dt && wk.end() >= dt);
+
+        assert_eq!(
+            wk,
+            serde_json::from_str(&serde_json::to_string(&wk).unwrap()).unwrap()
+        )
+    }
+    #[test]
+    fn test_parse_quarter_syntax() {
+        assert_eq!(
+            "Q1-2021".parse::<Quarter>().unwrap().start(),
+            Day::new(Date::ymd(2021, MonthOfYear::Jan, DayOfMonth::D1)),
+        );
+        assert_eq!(
+            "Q1-2021".parse::<Quarter>().unwrap().succ().start(),
+            Day::new(Date::ymd(2021, MonthOfYear::Apr, DayOfMonth::D1)),
+        );
+        assert_eq!(
+            "Q1-2021".parse::<Quarter>().unwrap().succ().pred().start(),
+            Day::new(Date::ymd(2021, MonthOfYear::Jan, DayOfMonth::D1)),
+        );
+    }
+
+    #[test]
+    fn test_parse_date_syntax() {
+        assert_eq!(
+            "2021-01-01".parse::<Quarter>().unwrap().start(),
+            Day::new(Date::ymd(2021, MonthOfYear::Jan, DayOfMonth::D1)),
+        );
+        assert_eq!(
+            "2021-01-01".parse::<Quarter>().unwrap().succ().start(),
+            Day::new(Date::ymd(2021, MonthOfYear::Apr, DayOfMonth::D1)),
+        );
+        assert_eq!(
+            "2021-01-01"
+                .parse::<Quarter>()
+                .unwrap()
+                .succ()
+                .pred()
+                .start(),
+            Day::new(Date::ymd(2021, MonthOfYear::Jan, DayOfMonth::D1)),
+        );
+    }
+
+    #[test]
+    fn test_start() {
+        assert_eq!(
+            Quarter(2).start(),
+            Day::new(Date::ymd(0, MonthOfYear::Jul, DayOfMonth::D1))
+        );
+        assert_eq!(
+            Quarter(1).start(),
+            Day::new(Date::ymd(0, MonthOfYear::Apr, DayOfMonth::D1))
+        );
+        assert_eq!(
+            Quarter(0).start(),
+            Day::new(Date::ymd(0, MonthOfYear::Jan, DayOfMonth::D1))
+        );
+        assert_eq!(
+            Quarter(-1).start(),
+            Day::new(Date::ymd(-1, MonthOfYear::Dec, DayOfMonth::D1))
+        );
+        assert_eq!(
+            Quarter(-2).start(),
+            Day::new(Date::ymd(-1, MonthOfYear::Jul, DayOfMonth::D1))
+        );
     }
 }

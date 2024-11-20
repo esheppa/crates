@@ -1,8 +1,10 @@
-use crate::{DateResolution, FromMonotonic, Monotonic, Month, Quarter, TimeResolution};
+use crate::{
+    DateResolution, FromMonotonic, Monotonic, Month, Quarter, StartDay, TimeResolution, Week,
+};
 use alloc::{fmt, str};
 #[cfg(feature = "chrono")]
 use chrono::{DateTime, Datelike, NaiveDate, NaiveTime, Utc};
-use date_impl::{Date, DayOfMonth};
+use date_impl::{Date, DayOfMonth, MonthOfYear};
 #[cfg(feature = "serde")]
 use serde::de;
 
@@ -169,17 +171,17 @@ impl Day {
         super::Year::new(self.date().year())
     }
     pub const fn quarter(self) -> super::Quarter {
-        Quarter::from_day(*self, ())
+        Quarter::from_day(self)
     }
 
-    pub const fn week<D: super::StartDay>(self) -> super::Week<D> {
-        self.date().into()
+    pub const fn week<D: StartDay>(self) -> Week<D> {
+        Week::from_day(self)
     }
     pub const fn year_num(self) -> i32 {
         self.date().year()
     }
     pub const fn month_num(self) -> u8 {
-        self.date().month()
+        self.date().month().number()
     }
 
     pub const fn start_minute(self) -> crate::Minute {
@@ -199,15 +201,15 @@ impl Day {
     }
 
     pub const fn day(self) -> Day {
-        todo!()
+        self
     }
 
     pub const fn month(self) -> crate::Month {
         Month::from_day(self)
     }
 
-    pub const fn year(self) -> crate::Year {
-        todo!()
+    pub const fn month_of_year(self) -> MonthOfYear {
+        self.date().month()
     }
 }
 
