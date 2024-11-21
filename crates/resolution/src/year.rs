@@ -1,8 +1,8 @@
 use crate::{
     month::{self},
     quarter::{self, QuarterOfYear},
-    DateResolution, DateResolutionExt, Day, FiveMinute, FromMonotonic, HalfHour, Hour, Month,
-    Quarter, TimeResolution,
+    DateResolution, DateResolutionExt, Day, FiveMinute, FromMonotonic, HalfHour, Hour, Minute,
+    Month, Quarter, TimeResolution,
 };
 #[cfg(feature = "chrono")]
 use chrono::{DateTime, Datelike, NaiveDate, NaiveTime, Utc};
@@ -35,10 +35,10 @@ impl From<NaiveDate> for Year {
 }
 
 impl crate::TimeResolution for Year {
-    fn succ_n(self, n: u16) -> Year {
+    fn succ_n(self, n: u16) -> Self {
         self.succ_n(n)
     }
-    fn pred_n(self, n: u16) -> Year {
+    fn pred_n(self, n: u16) -> Self {
         self.pred_n(n)
     }
     #[cfg(feature = "chrono")]
@@ -47,33 +47,33 @@ impl crate::TimeResolution for Year {
     }
 
     fn start_minute(self) -> crate::Minute {
-        todo!()
+        self.start_minute()
     }
 
     const NAME: &str = "Year";
 
     fn five_minute(self) -> crate::FiveMinute {
-        todo!()
+        self.five_minute()
     }
 
     fn half_hour(self) -> crate::HalfHour {
-        todo!()
+        self.half_hour()
     }
 
     fn hour(self) -> crate::Hour {
-        todo!()
+        self.hour()
     }
 
     fn day(self) -> Day {
-        todo!()
+        self.day()
     }
 
     fn month(self) -> Month {
-        todo!()
+        self.month()
     }
 
     fn year(self) -> Year {
-        todo!()
+        self.year()
     }
 }
 
@@ -111,27 +111,30 @@ impl From<u16> for Year {
 }
 
 impl Year {
-    fn five_minute(self) -> FiveMinute {
+    pub const fn start_minute(self) -> Minute {
+        Minute::first_on_day(self.day())
+    }
+    pub const fn five_minute(self) -> FiveMinute {
         FiveMinute::first_on_day(self.day())
     }
 
-    fn half_hour(self) -> HalfHour {
+    pub const fn half_hour(self) -> HalfHour {
         HalfHour::first_on_day(self.day())
     }
 
-    fn hour(self) -> Hour {
+    pub const fn hour(self) -> Hour {
         Hour::first_on_day(self.day())
     }
 
-    fn day(self) -> Day {
+    pub const fn day(self) -> Day {
         self.start()
     }
 
-    fn month(self) -> Month {
+    pub const fn month(self) -> Month {
         self.first_month()
     }
 
-    fn year(self) -> Year {
+    pub const fn year(self) -> Year {
         self
     }
 

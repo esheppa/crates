@@ -1,9 +1,9 @@
 use alloc::{fmt, str};
-use alloc::{format, string::String};
+#[cfg(feature = "chrono")]
 use chrono::{DateTime, Datelike, NaiveDate, NaiveTime, Utc};
 use core::marker;
 
-use crate::{DateResolution, FromMonotonic};
+use crate::{DateResolution, Day, Month, Year};
 
 mod private {
     pub trait Sealed {}
@@ -119,7 +119,7 @@ impl StartDay for Sunday {
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "serde", serde(try_from = "Week_", into = "Week_"))]
 pub struct Week<D: StartDay> {
-    n: i64,
+    n: i32,
     d: marker::PhantomData<D>,
 }
 
@@ -158,127 +158,216 @@ struct Week_ {
     start_day: String,
 }
 
-impl<D: StartDay> fmt::Display for Week<D> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "Week starting {}", crate::DateResolution::start(self))
-    }
-}
-
-fn base(wd: chrono::Weekday) -> chrono::NaiveDate {
-    chrono::NaiveDate::from_ymd_opt(2021, 1, 4 + wd.num_days_from_monday()).expect("valid date")
-}
-
-impl<D: StartDay> Week<D> {
-    pub fn new(date: NaiveDate) -> Self {
-        date.into()
-    }
-
-    pub const fn succ(&self) -> Week<D> {
-        self.succ_n(1)
-    }
-    pub const fn pred(&self) -> Week<D> {
-        self.pred_n(1)
-    }
-}
-
-impl<D: StartDay> From<NaiveDate> for Week<D> {
-    fn from(value: NaiveDate) -> Week<D> {
-        Week::<D>::from_day(value, ())
-    }
-}
-
-impl<D: StartDay> str::FromStr for Week<D> {
-    type Err = crate::Error;
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        if s.len() != 24 {
-            return Err(crate::Error::UnexpectedInputLength {
-                actual: s.len(),
-                required: 24,
-                format: "Week starting %Y-%m-%d",
-            });
-        }
-        let date = chrono::NaiveDate::parse_from_str(&s[14..24], "%Y-%m-%d")?;
-        if date.weekday() != D::weekday() {
-            return Err(crate::Error::UnexpectedStartDate {
-                date,
-                actual: date.weekday(),
-                required: D::weekday(),
-            });
-        };
-
-        let week_num = (date - base(D::weekday())).num_days() / 7;
-
-        Ok(Week::from_monotonic(week_num))
-    }
-}
-
 impl<D: StartDay> DateResolution for Week<D> {
-    fn start(&self) -> chrono::NaiveDate {
-        base(D::weekday()) + chrono::Duration::days(self.n * 7)
+    fn start(self) -> Day {
+        self.start()
     }
     type Params = ();
 
-    fn params(&self) -> Self::Params {}
+    fn params(self) -> Self::Params {}
 
-    fn from_day(date: NaiveDate, _params: Self::Params) -> Self {
-        let week_num = (date - base(D::weekday())).num_days() / 7;
-
-        Week::from_monotonic(week_num)
+    fn from_day(d: Day, _params: Self::Params) -> Self {
+        Self::from_day(d)
     }
 }
 
 impl<D: StartDay> crate::TimeResolution for Week<D> {
-    fn succ_n(&self, n: u32) -> Week<D> {
-        Week::from_monotonic(self.n + i64::try_from(n).unwrap())
+    fn succ_n(self, n: u16) -> Week<D> {
+        self.succ_n(n)
     }
-    fn pred_n(&self, n: u32) -> Week<D> {
-        Week::from_monotonic(self.n - i64::try_from(n).unwrap())
+    fn pred_n(self, n: u16) -> Week<D> {
+        self.pred_n(n)
     }
-    fn start_datetime(&self) -> DateTime<Utc> {
-        crate::DateResolution::start(self)
-            .and_time(NaiveTime::MIN)
-            .and_utc()
+    #[cfg(feature = "chrono")]
+    fn start_datetime(self) -> DateTime<Utc> {
+        self.start().and_time(NaiveTime::MIN).and_utc()
     }
-    fn name(&self) -> String {
-        format!("Week[StartDay:{}]", D::NAME)
+
+    fn start_minute(self) -> crate::Minute {
+        self.start_minute()
+    }
+
+    // const NAME: &str = &["Week", D::NAME];
+    const NAME: &str = "Week";
+
+    fn five_minute(self) -> crate::FiveMinute {
+        self.five_minute()
+    }
+
+    fn half_hour(self) -> crate::HalfHour {
+        self.half_hour()
+    }
+
+    fn hour(self) -> crate::Hour {
+        self.hour()
+    }
+
+    fn day(self) -> Day {
+        self.day()
+    }
+
+    fn month(self) -> Month {
+        self.month()
+    }
+
+    fn year(self) -> Year {
+        self.year()
     }
 }
 
 impl<D: StartDay> crate::Monotonic for Week<D> {
-    fn to_monotonic(&self) -> i64 {
-        self.n
+    fn to_monotonic(self) -> i32 {
+        self.to_monotonic()
     }
-    fn between(&self, other: Self) -> i64 {
-        other.n - self.n
+    fn between(self, other: Self) -> i32 {
+        self.between(other)
     }
 }
 
 impl<D: StartDay> crate::FromMonotonic for Week<D> {
-    fn from_monotonic(idx: i64) -> Self {
-        Week {
-            n: idx,
-            d: marker::PhantomData,
-        }
+    fn from_monotonic(idx: i32) -> Self {
+        Self::from_monotonic(idx)
     }
 }
 
+#[cfg(feature = "chrono")]
+impl<D: StartDay> From<NaiveDate> for Week<D> {
+    fn from(value: NaiveDate) -> Week<D> {
+        Week::<D>::from_day(value)
+    }
+}
+
+#[cfg(feature = "chrono")]
 impl<D: StartDay> From<DateTime<Utc>> for Week<D> {
     fn from(date: DateTime<Utc>) -> Self {
         date.date_naive().into()
     }
 }
 
+impl<D: StartDay> Week<D> {
+    pub const fn new(date: Day) -> Self {
+        todo!()
+        // date.into()
+    }
+    pub const fn start_minute(self) -> crate::Minute {
+        todo!()
+    }
+    pub const fn five_minute(self) -> crate::FiveMinute {
+        todo!()
+    }
+
+    pub const fn half_hour(self) -> crate::HalfHour {
+        todo!()
+    }
+
+    pub const fn hour(self) -> crate::Hour {
+        todo!()
+    }
+    pub const fn day(self) -> Day {
+        todo!()
+    }
+
+    pub const fn month(self) -> Month {
+        todo!()
+    }
+    pub const fn year(self) -> Year {
+        todo!()
+    }
+    pub const fn to_monotonic(self) -> i32 {
+        self.n
+    }
+    pub const fn between(self, other: Self) -> i32 {
+        other.n - self.n
+    }
+    pub const fn from_monotonic(idx: i32) -> Self {
+        Week {
+            n: idx,
+            d: marker::PhantomData,
+        }
+    }
+    pub const fn start(self) -> Day {
+        // base(D::weekday()) + chrono::Duration::days(self.n * 7)
+        todo!()
+    }
+
+    pub const fn from_day(date: Day) -> Self {
+        // let week_num = (date - base(D::weekday())).num_days() / 7;
+
+        // Week::from_monotonic(week_num)
+        todo!()
+    }
+    pub const fn succ_n(self, n: u16) -> Week<D> {
+        Week::from_monotonic(self.n + n as i32)
+    }
+    pub const fn pred_n(self, n: u16) -> Week<D> {
+        Week::from_monotonic(self.n - n as i32)
+    }
+    #[cfg(feature = "chrono")]
+
+    pub const fn start_datetime(self) -> DateTime<Utc> {
+        crate::DateResolution::start(self)
+            .and_time(NaiveTime::MIN)
+            .and_utc()
+    }
+    // pub const fn name(self) -> String {
+    //     format!("Week[StartDay:{}]", D::NAME)
+    // }
+
+    pub const fn succ(self) -> Week<D> {
+        self.succ_n(1)
+    }
+    pub const fn pred(self) -> Week<D> {
+        self.pred_n(1)
+    }
+}
+impl<D: StartDay> fmt::Display for Week<D> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        // write!(f, "Week starting {}", crate::DateResolution::start(self))
+        todo!()
+    }
+}
+
+impl<D: StartDay> str::FromStr for Week<D> {
+    type Err = crate::Error;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        todo!()
+        // if s.len() != 24 {
+        //     return Err(crate::Error::UnexpectedInputLength {
+        //         actual: s.len(),
+        //         required: 24,
+        //         format: "Week starting %Y-%m-%d",
+        //     });
+        // }
+        // let date = chrono::NaiveDate::parse_from_str(&s[14..24], "%Y-%m-%d")?;
+        // if date.weekday() != D::weekday() {
+        //     return Err(crate::Error::UnexpectedStartDate {
+        //         date,
+        //         actual: date.weekday(),
+        //         required: D::weekday(),
+        //     });
+        // };
+
+        // let week_num = (date - base(D::weekday())).num_days() / 7;
+
+        // Ok(Week::from_monotonic(week_num))
+    }
+}
+
 #[cfg(test)]
 mod tests {
+    use date_impl::{Date, DayOfMonth, MonthOfYear};
+
     use super::*;
     use crate::{DateResolution, TimeResolution};
 
     #[test]
     #[cfg(feature = "serde")]
     fn test_roundtrip() {
+        use date_impl::MonthOfYear;
+
         use crate::DateResolutionExt;
 
-        let dt = chrono::NaiveDate::from_ymd_opt(2021, 12, 6).expect("valid date");
+        let dt = Day::new(Date::ymd(2021, MonthOfYear::Dec, DayOfMonth::D6));
 
         let wk = Week::<Monday>::from(dt);
         assert!(wk.start() <= dt && wk.end() >= dt);
@@ -313,7 +402,7 @@ mod tests {
                 .parse::<Week<Monday>>()
                 .unwrap()
                 .start(),
-            chrono::NaiveDate::from_ymd_opt(2021, 12, 6).unwrap(),
+            Day::new(Date::ymd(2021, MonthOfYear::Dec, DayOfMonth::D6)),
         );
         assert_eq!(
             "Week starting 2021-12-06"
@@ -321,7 +410,7 @@ mod tests {
                 .unwrap()
                 .succ()
                 .start(),
-            chrono::NaiveDate::from_ymd_opt(2021, 12, 13).unwrap(),
+            Day::new(Date::ymd(2021, MonthOfYear::Dec, DayOfMonth::D13)),
         );
         assert_eq!(
             "Week starting 2021-12-06"
@@ -330,7 +419,7 @@ mod tests {
                 .succ()
                 .pred()
                 .start(),
-            chrono::NaiveDate::from_ymd_opt(2021, 12, 6).unwrap(),
+            Day::new(Date::ymd(2021, MonthOfYear::Dec, DayOfMonth::D6)),
         );
 
         assert!("Week starting 2021-12-06".parse::<Week<Tuesday>>().is_err(),);

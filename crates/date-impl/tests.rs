@@ -24,7 +24,7 @@ fn test_date() {
         };
         let date = Date(i);
         assert_eq!(chrono_adj.year(), date.year());
-        assert_eq!(chrono_adj.month() as u8, date.month());
+        assert_eq!(chrono_adj.month() as u8, date.month().number());
         assert_eq!(chrono_adj.day() as u8, date.day());
 
         #[cfg(feature = "chrono")]
@@ -68,7 +68,7 @@ fn test_new() {
         );
 
         assert_eq!(chrono_start.year(), date_start.year());
-        assert_eq!(chrono_start.month() as u8, date_start.month());
+        assert_eq!(chrono_start.month() as u8, date_start.month().number());
         assert_eq!(chrono_start.day() as u8, date_start.day());
 
         let chrono_end = NaiveDate::from_ymd_opt(year, 12, 31).unwrap();
@@ -84,7 +84,7 @@ fn test_new() {
         );
 
         assert_eq!(chrono_end.year(), date_start.year());
-        assert_eq!(chrono_end.month() as u8, date_end.month());
+        assert_eq!(chrono_end.month() as u8, date_end.month().number());
         assert_eq!(chrono_end.day() as u8, date_end.day());
 
         for month in [
@@ -106,7 +106,7 @@ fn test_new() {
             dbg!(chrono_start, date_start.to_ymd());
 
             assert_eq!(chrono_start.year(), date_start.year());
-            assert_eq!(chrono_start.month() as u8, date_start.month());
+            assert_eq!(chrono_start.month() as u8, date_start.month().number());
             assert_eq!(chrono_start.day() as u8, date_start.day());
 
             let chrono_end =
@@ -116,7 +116,7 @@ fn test_new() {
             dbg!(chrono_end, date_end.to_ymd());
 
             assert_eq!(chrono_end.year(), date_start.year());
-            assert_eq!(chrono_end.month() as u8, date_end.month());
+            assert_eq!(chrono_end.month() as u8, date_end.month().number());
             assert_eq!(chrono_end.day() as u8, date_end.day());
 
             assert_eq!(date_start, Date::ymd(year, month, DayOfMonth::D1));
