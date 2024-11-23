@@ -1,4 +1,7 @@
-use crate::{DateResolution, DateResolutionExt, Day, Quarter, TimeResolution, Year};
+use crate::{
+    DateResolution, DateResolutionExt, Day, Error, FiveMinute, FromMonotonic, HalfHour, Hour,
+    Minute, Monotonic, Quarter, TimeResolution, Year,
+};
 use alloc::{
     fmt, format, str,
     string::{String, ToString},
@@ -36,7 +39,7 @@ impl serde::Serialize for Month {
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub struct Month(i32); // number of months +- since 0AD
 
-impl crate::TimeResolution for Month {
+impl TimeResolution for Month {
     fn succ_n(self, n: u16) -> Self {
         self.succ_n(n)
     }
@@ -50,20 +53,8 @@ impl crate::TimeResolution for Month {
 
     const NAME: &str = "Month";
 
-    fn start_minute(self) -> crate::Minute {
+    fn start_minute(self) -> Minute {
         self.start_minute()
-    }
-
-    fn five_minute(self) -> crate::FiveMinute {
-        self.five_minute()
-    }
-
-    fn half_hour(self) -> crate::HalfHour {
-        self.half_hour()
-    }
-
-    fn hour(self) -> crate::Hour {
-        self.hour()
     }
 
     fn day(self) -> Day {
@@ -74,12 +65,12 @@ impl crate::TimeResolution for Month {
         self.month()
     }
 
-    fn year(self) -> crate::Year {
+    fn year(self) -> Year {
         self.year()
     }
 }
 
-impl crate::Monotonic for Month {
+impl Monotonic for Month {
     fn to_monotonic(self) -> i32 {
         self.to_monotonic()
     }
@@ -88,13 +79,13 @@ impl crate::Monotonic for Month {
     }
 }
 
-impl crate::FromMonotonic for Month {
+impl FromMonotonic for Month {
     fn from_monotonic(idx: i32) -> Self {
         Month::from_monotonic(idx)
     }
 }
 
-impl crate::DateResolution for Month {
+impl DateResolution for Month {
     fn start(self) -> Day {
         self.start()
     }
@@ -123,19 +114,19 @@ impl From<DateTime<Utc>> for Month {
 }
 
 impl Month {
-    pub const fn start_minute(self) -> crate::Minute {
+    pub const fn start_minute(self) -> Minute {
         todo!()
     }
 
-    pub const fn five_minute(self) -> crate::FiveMinute {
+    pub const fn five_minute(self) -> FiveMinute {
         todo!()
     }
 
-    pub const fn half_hour(self) -> crate::HalfHour {
+    pub const fn half_hour(self) -> HalfHour {
         todo!()
     }
 
-    pub const fn hour(self) -> crate::Hour {
+    pub const fn hour(self) -> Hour {
         todo!()
     }
 
@@ -224,7 +215,7 @@ impl Month {
 }
 
 impl str::FromStr for Month {
-    type Err = crate::Error;
+    type Err = Error;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.split_once('-') {
             Some((year, month)) => match (
@@ -232,7 +223,7 @@ impl str::FromStr for Month {
                 month.parse::<u8>().ok().and_then(MonthOfYear::from_number),
             ) {
                 (Ok(year), Some(month)) => Ok(Month::from_parts(year, month)),
-                _ => Err(crate::Error::ParseCustom {
+                _ => Err(Error::ParseCustom {
                     ty_name: "Month",
                     input: s.to_string(),
                 }),
@@ -258,7 +249,7 @@ mod tests {
     #[test]
     #[cfg(feature = "serde")]
     fn test_roundtrip() {
-        use crate::DateResolutionExt;
+        use DateResolutionExt;
 
         let dt = chrono::NaiveDate::from_ymd_opt(2021, 12, 6).unwrap();
 

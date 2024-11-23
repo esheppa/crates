@@ -1,5 +1,7 @@
+use crate::{Error, FiveMinute, HalfHour, Hour, Minute};
+
 use crate::{
-    DateResolution, FromMonotonic, Monotonic, Month, Quarter, StartDay, TimeResolution, Week,
+    DateResolution, FromMonotonic, Monotonic, Month, Quarter, StartDay, TimeResolution, Week, Year,
 };
 use alloc::{fmt, str};
 #[cfg(feature = "chrono")]
@@ -38,7 +40,7 @@ impl serde::Serialize for Day {
 pub struct Day(i32);
 
 impl str::FromStr for Day {
-    type Err = crate::Error;
+    type Err = Error;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         todo!()
 
@@ -55,19 +57,17 @@ impl fmt::Display for Day {
 }
 
 impl DateResolution for Day {
-    fn start(&self) -> Day {
-        *self
+    fn start(self) -> Day {
+        self
     }
-
     type Params = ();
 
-    fn params(&self) -> Self::Params {}
+    fn params(self) -> Self::Params {}
 
-    fn from_day(date: Day, _params: Self::Params) -> Self {
-        date
+    fn from_day(d: Day, _params: Self::Params) -> Self {
+        d
     }
 }
-
 #[cfg(feature = "chrono")]
 impl<D: chrono::Datelike> From<D> for Day {
     fn from(value: D) -> Day {
@@ -83,63 +83,59 @@ impl<D: chrono::Datelike> From<D> for Day {
 }
 
 impl TimeResolution for Day {
-    fn succ_n(self, n: u16) -> Day {
+    fn succ_n(self, n: u16) -> Self {
         self.succ_n(n)
     }
-    fn pred_n(self, n: u16) -> Day {
+    fn pred_n(self, n: u16) -> Self {
         self.pred_n(n)
     }
     #[cfg(feature = "chrono")]
     fn start_datetime(self) -> DateTime<Utc> {
-        self.start_datetime()
-    }
-    const NAME: &str = "Day";
-
-    fn start_minute(self) -> crate::Minute {
-        todo!()
+        self.start().and_time(NaiveTime::MIN).and_utc()
     }
 
-    fn five_minute(self) -> crate::FiveMinute {
-        todo!()
+    fn start_minute(self) -> Minute {
+        self.start_minute()
     }
 
-    fn half_hour(self) -> crate::HalfHour {
-        todo!()
-    }
-
-    fn hour(self) -> crate::Hour {
-        todo!()
-    }
-
+    const NAME: &str = "Year";
     fn day(self) -> Day {
-        todo!()
+        self.day()
     }
 
-    fn month(self) -> crate::Month {
-        todo!()
+    fn month(self) -> Month {
+        self.month()
     }
 
-    fn year(self) -> crate::Year {
-        todo!()
+    fn year(self) -> Year {
+        self.year()
     }
 }
 
 impl Monotonic for Day {
     fn to_monotonic(self) -> i32 {
-        self.0
+        self.to_monotonic()
     }
     fn between(self, other: Self) -> i32 {
-        other.0 - self.0
+        self.between(other)
     }
 }
 
 impl FromMonotonic for Day {
     fn from_monotonic(idx: i32) -> Self {
-        Day(idx)
+        Self::from_monotonic(idx)
     }
 }
-
 impl Day {
+    pub const fn from_monotonic(idx: i32) -> Self {
+        Day(idx)
+    }
+    pub const fn to_monotonic(self) -> i32 {
+        self.0
+    }
+    pub const fn between(self, other: Self) -> i32 {
+        other.0 - self.0
+    }
     pub const fn date(self) -> Date {
         Date::new(self.0)
     }
@@ -184,19 +180,19 @@ impl Day {
         self.date().month().number()
     }
 
-    pub const fn start_minute(self) -> crate::Minute {
+    pub const fn start_minute(self) -> Minute {
         todo!()
     }
 
-    pub const fn five_minute(self) -> crate::FiveMinute {
+    pub const fn five_minute(self) -> FiveMinute {
         todo!()
     }
 
-    pub const fn half_hour(self) -> crate::HalfHour {
+    pub const fn half_hour(self) -> HalfHour {
         todo!()
     }
 
-    pub const fn hour(self) -> crate::Hour {
+    pub const fn hour(self) -> Hour {
         todo!()
     }
 
@@ -204,7 +200,7 @@ impl Day {
         self
     }
 
-    pub const fn month(self) -> crate::Month {
+    pub const fn month(self) -> Month {
         Month::from_day(self)
     }
 
@@ -225,12 +221,12 @@ mod tests {
     use date_impl::MonthOfYear;
 
     use super::*;
-    use crate::TimeResolution;
+    use TimeResolution;
 
     #[cfg(feature = "serde")]
     #[test]
     fn test_roundtrip() {
-        use crate::DateResolutionExt;
+        use DateResolutionExt;
 
         let dt = chrono::NaiveDate::from_ymd_opt(2021, 12, 6).unwrap();
 

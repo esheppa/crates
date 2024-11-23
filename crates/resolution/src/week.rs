@@ -190,18 +190,6 @@ impl<D: StartDay> crate::TimeResolution for Week<D> {
     // const NAME: &str = &["Week", D::NAME];
     const NAME: &str = "Week";
 
-    fn five_minute(self) -> crate::FiveMinute {
-        self.five_minute()
-    }
-
-    fn half_hour(self) -> crate::HalfHour {
-        self.half_hour()
-    }
-
-    fn hour(self) -> crate::Hour {
-        self.hour()
-    }
-
     fn day(self) -> Day {
         self.day()
     }

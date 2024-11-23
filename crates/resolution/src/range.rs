@@ -382,7 +382,7 @@ mod tests {
 
     #[test]
     fn test_iter() {
-        let mth = Month::from_parts(2024, MonthOfYear::Jan).unwrap();
+        let mth = Month::from_parts(Year::new(2024), MonthOfYear::Jan);
 
         let day_range = mth.rescale::<Day>();
 

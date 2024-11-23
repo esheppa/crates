@@ -1,8 +1,8 @@
 use crate::{
     month::{self},
     quarter::{self, QuarterOfYear},
-    DateResolution, DateResolutionExt, Day, FiveMinute, FromMonotonic, HalfHour, Hour, Minute,
-    Month, Quarter, TimeResolution,
+    DateResolution, DateResolutionBuilder, DateResolutionExt, Day, Error, FiveMinute,
+    FromMonotonic, HalfHour, Hour, Minute, Monotonic, Month, Quarter, TimeResolution,
 };
 #[cfg(feature = "chrono")]
 use chrono::{DateTime, Datelike, NaiveDate, NaiveTime, Utc};
@@ -14,7 +14,7 @@ use date_impl::{Date, MonthOfYear};
 #[cfg_attr(feature = "serde", serde(transparent))]
 pub struct Year(i32);
 
-impl crate::DateResolution for Year {
+impl DateResolution for Year {
     fn start(self) -> Day {
         self.start()
     }
@@ -34,7 +34,7 @@ impl From<NaiveDate> for Year {
     }
 }
 
-impl crate::TimeResolution for Year {
+impl TimeResolution for Year {
     fn succ_n(self, n: u16) -> Self {
         self.succ_n(n)
     }
@@ -46,23 +46,11 @@ impl crate::TimeResolution for Year {
         self.start().and_time(NaiveTime::MIN).and_utc()
     }
 
-    fn start_minute(self) -> crate::Minute {
+    fn start_minute(self) -> Minute {
         self.start_minute()
     }
 
     const NAME: &str = "Year";
-
-    fn five_minute(self) -> crate::FiveMinute {
-        self.five_minute()
-    }
-
-    fn half_hour(self) -> crate::HalfHour {
-        self.half_hour()
-    }
-
-    fn hour(self) -> crate::Hour {
-        self.hour()
-    }
 
     fn day(self) -> Day {
         self.day()
@@ -77,7 +65,7 @@ impl crate::TimeResolution for Year {
     }
 }
 
-impl crate::Monotonic for Year {
+impl Monotonic for Year {
     fn to_monotonic(self) -> i32 {
         self.to_monotonic()
     }
@@ -86,7 +74,7 @@ impl crate::Monotonic for Year {
     }
 }
 
-impl crate::FromMonotonic for Year {
+impl FromMonotonic for Year {
     fn from_monotonic(idx: i32) -> Self {
         Self::from_monotonic(idx)
     }
@@ -241,7 +229,7 @@ impl Year {
     }
 }
 
-impl crate::DateResolutionBuilder for Year {
+impl DateResolutionBuilder for Year {
     fn q1(self) -> Quarter {
         Year::q1(self)
     }
@@ -299,7 +287,7 @@ impl fmt::Display for Year {
 }
 
 impl str::FromStr for Year {
-    type Err = crate::Error;
+    type Err = Error;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         Ok(Year(s.parse()?))
     }

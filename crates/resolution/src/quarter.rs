@@ -45,18 +45,6 @@ impl crate::TimeResolution for Quarter {
         self.start_minute()
     }
 
-    fn five_minute(self) -> crate::FiveMinute {
-        self.five_minute()
-    }
-
-    fn half_hour(self) -> crate::HalfHour {
-        self.half_hour()
-    }
-
-    fn hour(self) -> crate::Hour {
-        self.hour()
-    }
-
     fn day(self) -> Day {
         self.day()
     }

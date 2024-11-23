@@ -4,7 +4,7 @@ extern crate alloc;
 extern crate std;
 
 use core::{
-    any, fmt,
+    any, error, fmt,
     num::{self, ParseIntError},
     str,
 };
@@ -193,6 +193,7 @@ pub fn format_erased_resolution(
     }
 }
 
+impl error::Error for Error {}
 #[derive(Debug)]
 pub enum Error {
     GotNonMatchingNewData {
@@ -335,9 +336,6 @@ pub trait TimeResolution: Monotonic {
     }
 
     // handy functions.... to avoid turbofishing when it's a pain
-    fn five_minute(self) -> FiveMinute;
-    fn half_hour(self) -> HalfHour;
-    fn hour(self) -> Hour;
     fn day(self) -> Day;
     fn month(self) -> Month;
     fn year(self) -> Year;
@@ -506,7 +504,10 @@ mod tests {
 
     #[test]
     fn test_builder() {
-        assert_eq!(2024.q1(), Quarter::from_parts(2024, QuarterOfYear::Q1));
+        assert_eq!(
+            2024.q1(),
+            Quarter::from_parts(Year::new(2024), QuarterOfYear::Q1)
+        );
         assert_eq!(2024.q1(), Year::new(2024).first_quarter());
         assert_eq!(Year::new(2024).q1(), Year::new(2024).first_quarter());
     }
