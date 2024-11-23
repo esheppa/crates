@@ -63,40 +63,38 @@ impl<const N: u32> From<DateTime<Utc>> for Minutes<N> {
         }
     }
 }
-// macro_rules! minutes_impl_change_resolution {
-//     ($i:literal, $out:literal) => {
-//         impl Minutes<$i> {
-//    const fn change_resolution(self) -> Minutes<$out> {
-//                 if N2 == $i {
-//                     Minutes { index: self.index }
-//                 } else if N2 > $i {
-//                     // long day subdivions to short
-//                     // clean scaling
-//                     if N2 % $i == 0 {
-//                         Minutes {
-//                             index: self.index / Self::PERIODS_PER_DAY
-//                                 * Minutes::<N2>::PERIODS_PER_DAY,
-//                         }
-//                     } else {
-//                         // non matched scaling, default earlier
-//                         todo!()
-//                     }
-//                 } else {
-//                     // short day subdivision to long
-//                     if N % N2 == 0 {
-//                         Minutes {
-//                             index: self.index / Minutes::<N2>::PERIODS_PER_DAY
-//                                 * Self::PERIODS_PER_DAY,
-//                         }
-//                     } else {
-//                         // non matched scaling, default earlier
-//                         todo!()
-//                     }
-//                 }
-//             }
-//         }
-//     };
-// }
+macro_rules! minutes_impl_change_resolution {
+    ($i:literal, $out:literal) => {
+        impl Minutes<$i> {
+   const fn change_resolution(self) -> Minutes<$out> {
+                if $out == $i {
+                    Minutes { index: self.index }
+                } else if $out > $i {
+                    // long day subdivions to short
+                    // clean scaling
+                    if $out % $i == 0 {
+                        Minutes {
+                            index: self.index / Self::PERIODS_PER_DAY
+                                * Minutes::<$out>::PERIODS_PER_DAY,
+                        }
+                    } else {
+                        unreachable!()
+                    }
+                } else {
+                    // short day subdivision to long
+                    if N % $out == 0 {
+                        Minutes {
+                            index: self.index / Minutes::<$out>::PERIODS_PER_DAY
+                                * Self::PERIODS_PER_DAY,
+                        }
+                    } else {
+                        unreachable!()
+                    }
+                }
+            }
+        }
+    };
+}
 
 macro_rules! minutes_impl {
     ($i:literal) => {
@@ -361,6 +359,149 @@ macro_rules! day_subdivision_impl {
         }
     };
 }
+
+minutes_impl_change_resolution!(1, 1);
+minutes_impl_change_resolution!(1, 2);
+minutes_impl_change_resolution!(1, 3);
+minutes_impl_change_resolution!(1, 4);
+minutes_impl_change_resolution!(1, 5);
+minutes_impl_change_resolution!(1, 6);
+minutes_impl_change_resolution!(1, 10);
+minutes_impl_change_resolution!(1, 15);
+minutes_impl_change_resolution!(1, 20);
+minutes_impl_change_resolution!(1, 30);
+minutes_impl_change_resolution!(1, 60);
+minutes_impl_change_resolution!(1, 120);
+minutes_impl_change_resolution!(1, 180);
+minutes_impl_change_resolution!(1, 240);
+minutes_impl_change_resolution!(1, 360);
+minutes_impl_change_resolution!(1, 720);
+
+minutes_impl_change_resolution!(2, 2);
+minutes_impl_change_resolution!(2, 3);
+minutes_impl_change_resolution!(2, 4);
+minutes_impl_change_resolution!(2, 5);
+minutes_impl_change_resolution!(2, 6);
+minutes_impl_change_resolution!(2, 10);
+minutes_impl_change_resolution!(2, 15);
+minutes_impl_change_resolution!(2, 20);
+minutes_impl_change_resolution!(2, 30);
+minutes_impl_change_resolution!(2, 60);
+minutes_impl_change_resolution!(2, 120);
+minutes_impl_change_resolution!(2, 180);
+minutes_impl_change_resolution!(2, 240);
+minutes_impl_change_resolution!(2, 360);
+minutes_impl_change_resolution!(2, 720);
+
+minutes_impl_change_resolution!(3, 3);
+minutes_impl_change_resolution!(3, 4);
+minutes_impl_change_resolution!(3, 5);
+minutes_impl_change_resolution!(3, 6);
+minutes_impl_change_resolution!(3, 10);
+minutes_impl_change_resolution!(3, 15);
+minutes_impl_change_resolution!(3, 20);
+minutes_impl_change_resolution!(3, 30);
+minutes_impl_change_resolution!(3, 60);
+minutes_impl_change_resolution!(3, 120);
+minutes_impl_change_resolution!(3, 180);
+minutes_impl_change_resolution!(3, 240);
+minutes_impl_change_resolution!(3, 360);
+minutes_impl_change_resolution!(3, 720);
+
+minutes_impl_change_resolution!(4, 4);
+minutes_impl_change_resolution!(4, 5);
+minutes_impl_change_resolution!(4, 6);
+minutes_impl_change_resolution!(4, 10);
+minutes_impl_change_resolution!(4, 15);
+minutes_impl_change_resolution!(4, 20);
+minutes_impl_change_resolution!(4, 30);
+minutes_impl_change_resolution!(4, 60);
+minutes_impl_change_resolution!(4, 120);
+minutes_impl_change_resolution!(4, 180);
+minutes_impl_change_resolution!(4, 240);
+minutes_impl_change_resolution!(4, 360);
+minutes_impl_change_resolution!(4, 720);
+
+minutes_impl_change_resolution!(5, 5);
+minutes_impl_change_resolution!(5, 6);
+minutes_impl_change_resolution!(5, 10);
+minutes_impl_change_resolution!(5, 15);
+minutes_impl_change_resolution!(5, 20);
+minutes_impl_change_resolution!(5, 30);
+minutes_impl_change_resolution!(5, 60);
+minutes_impl_change_resolution!(5, 120);
+minutes_impl_change_resolution!(5, 180);
+minutes_impl_change_resolution!(5, 240);
+minutes_impl_change_resolution!(5, 360);
+minutes_impl_change_resolution!(5, 720);
+
+minutes_impl_change_resolution!(6, 6);
+minutes_impl_change_resolution!(6, 30);
+minutes_impl_change_resolution!(6, 60);
+minutes_impl_change_resolution!(6, 120);
+minutes_impl_change_resolution!(6, 180);
+minutes_impl_change_resolution!(6, 240);
+minutes_impl_change_resolution!(6, 360);
+minutes_impl_change_resolution!(6, 720);
+
+minutes_impl_change_resolution!(10, 10);
+minutes_impl_change_resolution!(10, 20);
+minutes_impl_change_resolution!(10, 30);
+minutes_impl_change_resolution!(10, 60);
+minutes_impl_change_resolution!(10, 120);
+minutes_impl_change_resolution!(10, 180);
+minutes_impl_change_resolution!(10, 240);
+minutes_impl_change_resolution!(10, 360);
+minutes_impl_change_resolution!(10, 720);
+
+minutes_impl_change_resolution!(15, 15);
+minutes_impl_change_resolution!(15, 30);
+minutes_impl_change_resolution!(15, 60);
+minutes_impl_change_resolution!(15, 120);
+minutes_impl_change_resolution!(15, 180);
+minutes_impl_change_resolution!(15, 240);
+minutes_impl_change_resolution!(15, 360);
+minutes_impl_change_resolution!(15, 720);
+
+minutes_impl_change_resolution!(20, 20);
+minutes_impl_change_resolution!(20, 60);
+minutes_impl_change_resolution!(20, 120);
+minutes_impl_change_resolution!(20, 180);
+minutes_impl_change_resolution!(20, 240);
+minutes_impl_change_resolution!(20, 360);
+minutes_impl_change_resolution!(20, 720);
+
+minutes_impl_change_resolution!(30, 30);
+minutes_impl_change_resolution!(30, 60);
+minutes_impl_change_resolution!(30, 120);
+minutes_impl_change_resolution!(30, 180);
+minutes_impl_change_resolution!(30, 240);
+minutes_impl_change_resolution!(30, 360);
+minutes_impl_change_resolution!(30, 720);
+
+minutes_impl_change_resolution!(60, 60);
+minutes_impl_change_resolution!(60, 120);
+minutes_impl_change_resolution!(60, 180);
+minutes_impl_change_resolution!(60, 240);
+minutes_impl_change_resolution!(60, 360);
+minutes_impl_change_resolution!(60, 720);
+
+minutes_impl_change_resolution!(120, 120);
+minutes_impl_change_resolution!(120, 240);
+minutes_impl_change_resolution!(120, 360);
+minutes_impl_change_resolution!(120, 720);
+
+minutes_impl_change_resolution!(180, 180);
+minutes_impl_change_resolution!(180, 360);
+minutes_impl_change_resolution!(180, 720);
+
+minutes_impl_change_resolution!(240, 240);
+minutes_impl_change_resolution!(240, 720);
+
+minutes_impl_change_resolution!(360, 360);
+minutes_impl_change_resolution!(360, 720);
+
+minutes_impl_change_resolution!(720, 720);
 
 minutes_impl!(1);
 minutes_impl!(2);
