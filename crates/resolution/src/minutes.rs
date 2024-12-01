@@ -1,6 +1,4 @@
-use core::fmt::Debug;
-use core::num::NonZeroU16;
-
+use crate::alloc::string::ToString;
 use crate::{
     Convert, Day, Error, FromMonotonic, Minute, Monotonic, Month, SubDateResolution,
     TimeResolution, Year,
@@ -8,7 +6,9 @@ use crate::{
 use alloc::{fmt, format, str, string::String};
 #[cfg(feature = "chrono")]
 use chrono::{DateTime, Datelike, Duration, NaiveDate, NaiveTime, Timelike, Utc};
-use date_impl::Date;
+use core::fmt::Debug;
+use core::num::NonZeroU16;
+use date_impl::{Date, MonthOfYear};
 
 // leap seconds are ignored here
 const NUM_SECS: i32 = 60;
@@ -63,261 +63,400 @@ impl<const N: u32> From<DateTime<Utc>> for Minutes<N> {
         }
     }
 }
-macro_rules! minutes_impl_change_resolution {
-    ($i:literal, $out:literal) => {
-        impl Minutes<$i> {
-   const fn change_resolution(self) -> Minutes<$out> {
-                if $out == $i {
-                    Minutes { index: self.index }
-                } else if $out > $i {
-                    // long day subdivions to short
-                    // clean scaling
-                    if $out % $i == 0 {
-                        Minutes {
-                            index: self.index / Self::PERIODS_PER_DAY
-                                * Minutes::<$out>::PERIODS_PER_DAY,
-                        }
-                    } else {
-                        unreachable!()
-                    }
-                } else {
-                    // short day subdivision to long
-                    if N % $out == 0 {
-                        Minutes {
-                            index: self.index / Minutes::<$out>::PERIODS_PER_DAY
-                                * Self::PERIODS_PER_DAY,
-                        }
-                    } else {
-                        unreachable!()
-                    }
-                }
-            }
-        }
-    };
+
+
+
+pub struct ParseError {
+    pub kind: MinutesParseErrorKind,
+    pub raw_data: String,
 }
 
-macro_rules! minutes_impl {
-    ($i:literal) => {
-        impl Minutes<$i> {
-            const NAME: &str = concat!("Minutes[Length:", $i, "]");
+enum MinutesParseErrorKind {
+    NonAscii,
+    MissingP,
+    MissingSlash,
+    WrongPeriodsPerDay {
+        expected: i32,
+        got: i32,
+    },
+    CurrentPeriodZero,
+    InvalidCharacterAtIndex {
+        idx: usize,
+        char: u8,
+    },
+    TooLong,
+    TooShort,
+    InvalidMonth,
 
-            pub const fn relative(self) -> DaySubdivison<$i> {
-                DaySubdivison {
-                    index: Minutes::<$i>::first_on_day(self.occurs_on_day()).between(self),
-                }
-            }
+    InvalidDay {
+        year: i32,
+        month: MonthOfYear,
+        day: u8,
+    },
+}
 
-            pub const fn day(self) -> Day {
-                self.occurs_on_day()
-            }
+const fn ascii_char_to_numeral(ch: u8) -> Option<u8> {
+    match ch {
+        b'0' => Some(0),
+        b'1' => Some(1),
+        b'2' => Some(2),
+        b'3' => Some(3),
+        b'4' => Some(4),
+        b'5' => Some(5),
+        b'6' => Some(6),
+        b'7' => Some(7),
+        b'8' => Some(8),
+        b'9' => Some(9),
+        _ => None,
+    }
+}
 
-            pub const fn month(self) -> Month {
-                self.occurs_on_day().month()
-            }
+impl Monotonic for Minutes<$i> {
+    fn to_monotonic(self) -> i32 {
+        self.to_monotonic()
+    }
+    fn between(self, other: Self) -> i32 {
+        self.between(other)
+    }
+}
 
-            pub const fn year(self) -> Year {
-                self.occurs_on_day().year()
-            }
+impl FromMonotonic for Minutes<$i> {
+    fn from_monotonic(index: i32) -> Self {
+        Self::from_monotonic(index)
+    }
+}
 
-            const PERIODS_PER_DAY: i32 = MINUTES_PER_DAY / $i as i32;
+impl<const N1: u32> Convert<Minutes<N1>> for Minutes<$i> {
+    fn convert(self) -> Minutes<N1> {
+        todo!()
+    }
+}
 
-            pub const fn succ_n(self, n: u16) -> Minutes<$i> {
-                Minutes {
-                    index: self.index + n as i32,
-                }
-            }
-            pub const fn pred_n(self, n: u16) -> Minutes<$i> {
-                Minutes {
-                    index: self.index - n as i32,
-                }
-            }
-            pub const fn succ(self) -> Minutes<$i> {
-                self.succ_n(1)
-            }
-            pub const fn pred(self) -> Minutes<$i> {
-                self.pred_n(1)
-            }
-            pub const fn to_monotonic(self) -> i32 {
-                self.index
-            }
-            pub const fn between(self, other: Self) -> i32 {
-                other.index - self.index
-            }
-            pub const fn from_monotonic(index: i32) -> Self {
-                Minutes { index }
-            }
-            pub const fn occurs_on_day(self) -> Day {
-                Day::new(Date::new(self.index / Self::PERIODS_PER_DAY))
-            }
-            pub const fn first_on_day(day: Day) -> Self {
-                Self::from_monotonic(day.to_monotonic() * Self::PERIODS_PER_DAY)
-            }
+impl Convert<Day> for Minutes<$i> {
+    fn convert(self) -> Day {
+        todo!()
+    }
+}
+impl Convert<Month> for Minutes<$i> {
+    fn convert(self) -> Month {
+        todo!()
+    }
+}
 
-            #[cfg(feature = "chrono")]
-            pub const fn from_utc_datetime(datetime: DateTime<Utc>) -> Self {
-                datetime.into()
-            }
-            pub const fn start_minute(self) -> Minute {
-                todo!()
-            }
-            pub const fn from_minute(minute: Minute) -> Self {
-                minute.change_resolution()
-            }
+impl Convert<Year> for Minutes<$i> {
+    fn convert(self) -> Year {
+        todo!()
+    }
+}
+
+impl TimeResolution for Minutes<$i> {
+    fn succ_n(self, n: u16) -> Minutes<$i> {
+        self.succ_n(n)
+    }
+    fn pred_n(self, n: u16) -> Minutes<$i> {
+        self.pred_n(n)
+    }
+    #[cfg(feature = "chrono")]
+    fn start_datetime(self) -> DateTime<Utc> {
+        DateTime::<Utc>::from_timestamp(self.index * NUM_SECS * i64::from($i), 0)
+            .expect("valid timestamp")
+    }
+
+    const NAME: &str = Self::NAME;
+
+    fn start_minute(self) -> Minute {
+        self.start_minute()
+    }
+
+    fn succ(self) -> Self {
+        self.succ_n(1)
+    }
+
+    fn pred(self) -> Self {
+        self.pred_n(1)
+    }
+
+    fn convert<Out>(self) -> Out
+    where
+        Out: TimeResolution + From<crate::Minute>,
+    {
+        Out::from(self.start_minute())
+    }
+
+    fn day(self) -> Day {
+        self.day()
+    }
+
+    fn month(self) -> Month {
+        self.month()
+    }
+
+    fn year(self) -> Year {
+        self.year()
+    }
+}
+impl SubDateResolution for Minutes<$i> {
+    fn occurs_on_day(self) -> Day {
+        self.occurs_on_day()
+    }
+    fn first_on_day(day: Day, _params: Self::Params) -> Self {
+        Self::first_on_day(day)
+    }
+
+    type Params = ();
+
+    fn params(self) -> Self::Params {}
+
+    #[cfg(feature = "chrono")]
+    fn from_utc_datetime(datetime: DateTime<Utc>, _params: Self::Params) -> Self {
+        self.from_utc_datetime(datetime)
+    }
+
+    fn from_minute(minute: Minute, _params: Self::Params) -> Self {
+        Self::from_minute(minute)
+    }
+}
+
+impl fmt::Display for Minutes<$i> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let day = self.day();
+        let sub = self.relative().index();
+        let periods = Self::PERIODS_PER_DAY;
+
+        write!(f, "{day}P{sub:04}/{periods:04}")
+    }
+}
+impl str::FromStr for Minutes<$i> {
+    type Err = ParseError;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match Self::parse(s) {
+            Ok(m) => Ok(m),
+            Err(e) => Err(ParseError {
+                kind: e,
+                raw_data: s.to_string(),
+            }),
         }
+    }
+}
 
-        impl Monotonic for Minutes<$i> {
-            fn to_monotonic(self) -> i32 {
-                self.to_monotonic()
-            }
-            fn between(self, other: Self) -> i32 {
-                self.between(other)
-            }
+
+
+impl<const N: u32> Minutes<N> {
+
+    pub const fn relative(self) -> DaySubdivison<N> {
+        let idx = Minutes::<N>::first_on_day(self.occurs_on_day()).between(self);
+        assert!(idx >= 0 && idx <= u16::MAX as i32);
+        DaySubdivison { index: idx as u16 }
+    }
+
+    pub const fn day(self) -> Day {
+        self.occurs_on_day()
+    }
+
+    pub const fn month(self) -> Month {
+        self.occurs_on_day().month()
+    }
+
+    pub const fn year(self) -> Year {
+        self.occurs_on_day().year()
+    }
+
+    const PERIODS_PER_DAY: i32 = MINUTES_PER_DAY / N as i32;
+
+    pub const fn succ_n(self, n: u16) -> Minutes<N> {
+        Minutes {
+            index: self.index + n as i32,
         }
-
-        impl FromMonotonic for Minutes<$i> {
-            fn from_monotonic(index: i32) -> Self {
-                Self::from_monotonic(index)
-            }
+    }
+    pub const fn pred_n(self, n: u16) -> Minutes<N> {
+        Minutes {
+            index: self.index - n as i32,
         }
+    }
+    pub const fn succ(self) -> Minutes<N> {
+        self.succ_n(1)
+    }
+    pub const fn pred(self) -> Minutes<N> {
+        self.pred_n(1)
+    }
+    pub const fn to_monotonic(self) -> i32 {
+        self.index
+    }
+    pub const fn between(self, other: Self) -> i32 {
+        other.index - self.index
+    }
+    pub const fn from_monotonic(index: i32) -> Self {
+        Minutes { index }
+    }
+    pub const fn occurs_on_day(self) -> Day {
+        Day::new(Date::new(self.index / Self::PERIODS_PER_DAY))
+    }
+    pub const fn first_on_day(day: Day) -> Self {
+        Self::from_monotonic(day.to_monotonic() * Self::PERIODS_PER_DAY)
+    }
 
-        impl<const N1: u32> Convert<Minutes<N1>> for Minutes<$i> {
-            fn convert(self) -> Minutes<N1> {
-                todo!()
-            }
+    #[cfg(feature = "chrono")]
+    pub const fn from_utc_datetime(datetime: DateTime<Utc>) -> Self {
+        datetime.into()
+    }
+    pub const fn start_minute(self) -> Minute {
+        todo!()
+    }
+    pub const fn from_minute(minute: Minute) -> Self {
+        minute.change_resolution()
+    }
+
+    const NAME: &str = {
+        match N {
+            1 => "Minutes[Length:1]",
+            2 => "Minutes[Length:2]",
+            3 => "Minutes[Length:3]",
+            4 => "Minutes[Length:4]",
+            5 => "Minutes[Length:5]",
+            6 => "Minutes[Length:6]",
+            10 => "Minutes[Length:10]",
+            15 => "Minutes[Length:15]",
+            20 => "Minutes[Length:20]",
+            30 => "Minutes[Length:30]",
+            60 => "Minutes[Length:60]",
+            120 => "Minutes[Length:120]",
+            180 => "Minutes[Length:180]",
+            240 => "Minutes[Length:240]",
+            360 => "Minutes[Length:360]",
+            720 => "Minutes[Length:720]",
+            _ => panic!("Please choose a minutes impl within 1, 2, 3, 4, 5, 6, 10, 15, 20, 30, 60, 120, 180, 240, 360, 720")
         }
+    }
 
-        impl Convert<Day> for Minutes<$i> {
-            fn convert(self) -> Day {
-                todo!()
-            }
-        }
-        impl Convert<Month> for Minutes<$i> {
-            fn convert(self) -> Month {
-                todo!()
-            }
-        }
 
-        impl Convert<Year> for Minutes<$i> {
-            fn convert(self) -> Year {
-                todo!()
-            }
-        }
 
-        impl TimeResolution for Minutes<$i> {
-            fn succ_n(self, n: u16) -> Minutes<$i> {
-                self.succ_n(n)
-            }
-            fn pred_n(self, n: u16) -> Minutes<$i> {
-                self.pred_n(n)
-            }
-            #[cfg(feature = "chrono")]
-            fn start_datetime(self) -> DateTime<Utc> {
-                DateTime::<Utc>::from_timestamp(self.index * NUM_SECS * i64::from($i), 0)
-                    .expect("valid timestamp")
+    const SENSIBLE: () = {
+        let sensible = [
+            1, 2, 3, 4, 5, 6, 10, 15, 20, 30, 60, 120, 180, 240, 360, 720,
+        ];
+
+        let mut idx = 0;
+
+        loop {
+            if idx >= sensible.len() {
+                panic!("Please choose a minutes impl within 1, 2, 3, 4, 5, 6, 10, 15, 20, 30, 60, 120, 180, 240, 360, 720")
             }
 
-            const NAME: &str = Self::NAME;
-
-            fn start_minute(self) -> Minute {
-                self.start_minute()
+            if N == sensible[idx] {
+                break;
             }
 
-            fn succ(self) -> Self {
-                self.succ_n(1)
-            }
-
-            fn pred(self) -> Self {
-                self.pred_n(1)
-            }
-
-            fn convert<Out>(self) -> Out
-            where
-                Out: TimeResolution + From<crate::Minute>,
-            {
-                Out::from(self.start_minute())
-            }
-
-            fn day(self) -> Day {
-                self.day()
-            }
-
-            fn month(self) -> Month {
-                self.month()
-            }
-
-            fn year(self) -> Year {
-                self.year()
-            }
-        }
-        impl SubDateResolution for Minutes<$i> {
-            fn occurs_on_day(self) -> Day {
-                self.occurs_on_day()
-            }
-            fn first_on_day(day: Day, _params: Self::Params) -> Self {
-                Self::first_on_day(day)
-            }
-
-            type Params = ();
-
-            fn params(self) -> Self::Params {}
-
-            #[cfg(feature = "chrono")]
-            fn from_utc_datetime(datetime: DateTime<Utc>, _params: Self::Params) -> Self {
-                self.from_utc_datetime(datetime)
-            }
-
-            fn from_minute(minute: Minute, _params: Self::Params) -> Self {
-                Self::from_minute(minute)
-            }
-        }
-
-        impl fmt::Display for Minutes<$i> {
-            fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-                let day = self.day();
-                let sub = self.relative().index();
-                let periods = Self::PERIODS_PER_DAY;
-
-                if Self::PERIODS_PER_DAY < 100 {
-                    write!(f, "{day}P{sub:02}/{periods:02}")
-                } else {
-                    write!(f, "{day}P{sub:03}/{periods:03}")
-                }
-            }
-        }
-        impl str::FromStr for Minutes<$i> {
-            type Err = Error;
-            fn from_str(s: &str) -> Result<Self, Self::Err> {
-                if !s.is_ascii() {
-                    todo!()
-                }
-                let Some((day, periods)) = s.split_once('P') else {
-                    todo!()
-                };
-
-                let Some((current, total)) = periods.split_once('/') else {
-                    todo!();
-                };
-
-                match (day.parse(), current.parse(), total.parse::<i32>()) {
-                    (Ok(day), Ok(current), Ok(total)) => {
-                        if total != Self::PERIODS_PER_DAY {
-                            todo!();
-                        }
-                        let Some(current) = NonZeroU16::new(current) else {
-                            todo!();
-                        };
-
-                        let Some(subdivision) = DaySubdivison::<$i>::new(current) else {
-                            todo!();
-                        };
-
-                        Ok(subdivision.on_date(day))
-                    }
-                    _ => todo!(),
-                }
-            }
+            idx += 1;
         }
     };
+
+    const fn to_str(self) -> [u8; 20] {
+        let base = [
+            b'0', b'0', b'0', b'0', b'-', b'0', b'0', b'-', b'0', b'0', b'P', b'0', b'0', b'0',
+            b'0', b'/', b'0', b'0', b'0', b'0',
+        ];
+
+        base
+    }
+    const fn parse(s: &str) -> Result<Self, MinutesParseErrorKind> {
+        if !s.is_ascii() {
+            return Err(MinutesParseErrorKind::NonAscii);
+        }
+
+        let bytes = s.as_bytes();
+
+        if bytes.len() > 20 {
+            return Err(MinutesParseErrorKind::TooLong);
+        }
+        if bytes.len() < 20 {
+            return Err(MinutesParseErrorKind::TooShort);
+        }
+        if bytes[10] != b'P' {
+            return Err(MinutesParseErrorKind::MissingP);
+        }
+        if bytes[15] != b'/' {
+            return Err(MinutesParseErrorKind::MissingSlash);
+        }
+
+        let mut idx = 0;
+
+        loop {
+            if idx >= bytes.len() {
+                break;
+            }
+
+            if idx != 10 && idx != 13 {
+                if ascii_char_to_numeral(bytes[idx]).is_none() {
+                    return Err(MinutesParseErrorKind::InvalidCharacterAtIndex {
+                        idx,
+                        char: bytes[idx],
+                    });
+                }
+            }
+
+            idx += 1;
+        }
+
+        let year = {
+            ascii_char_to_numeral(bytes[0]).unwrap() as i32 * 1000
+                + ascii_char_to_numeral(bytes[1]).unwrap() as i32 * 100
+                + ascii_char_to_numeral(bytes[2]).unwrap() as i32 * 10
+                + ascii_char_to_numeral(bytes[3]).unwrap() as i32
+        };
+
+        let month = {
+            ascii_char_to_numeral(bytes[5]).unwrap() as u8 * 10
+                + ascii_char_to_numeral(bytes[6]).unwrap() as u8
+        };
+
+        let Some(month) = MonthOfYear::from_number(month) else {
+            return Err(MinutesParseErrorKind::InvalidMonth);
+        };
+
+        let day = {
+            ascii_char_to_numeral(bytes[8]).unwrap() as u8 * 10
+                + ascii_char_to_numeral(bytes[9]).unwrap() as u8
+        };
+
+        if day == 0 || day > month.num_days(year) {
+            return Err(MinutesParseErrorKind::InvalidDay { year, month, day });
+        }
+
+        let current = {
+            ascii_char_to_numeral(bytes[11]).unwrap() as u16 * 1000
+                + ascii_char_to_numeral(bytes[12]).unwrap() as u16 * 100
+                + ascii_char_to_numeral(bytes[13]).unwrap() as u16 * 10
+                + ascii_char_to_numeral(bytes[14]).unwrap() as u16
+        };
+
+        let total = {
+            ascii_char_to_numeral(bytes[16]).unwrap() as u16 * 1000
+                + ascii_char_to_numeral(bytes[17]).unwrap() as u16 * 100
+                + ascii_char_to_numeral(bytes[18]).unwrap() as u16 * 10
+                + ascii_char_to_numeral(bytes[19]).unwrap() as u16
+        };
+
+        if total as i32 != (MINUTES_PER_DAY / N as i32) {
+            return Err(MinutesParseErrorKind::WrongPeriodsPerDay {
+                got: total as i32,
+                expected: (MINUTES_PER_DAY / N as i32),
+            });
+        }
+        let Some(current) = NonZeroU16::new(current) else {
+            return Err(MinutesParseErrorKind::CurrentPeriodZero);
+        };
+
+        let Some(subdivision) = DaySubdivison::<N>::new(current) else {
+            todo!();
+        };
+
+        let day = Year::new(year)
+            .with_month(month)
+            .first_day()
+            .succ_n(day as u16 - 1);
+
+        Ok(subdivision.on_date(day))
+    }
 }
 
 macro_rules! day_subdivision_impl {
@@ -360,182 +499,231 @@ macro_rules! day_subdivision_impl {
     };
 }
 
-minutes_impl_change_resolution!(1, 1);
-minutes_impl_change_resolution!(1, 2);
-minutes_impl_change_resolution!(1, 3);
-minutes_impl_change_resolution!(1, 4);
-minutes_impl_change_resolution!(1, 5);
-minutes_impl_change_resolution!(1, 6);
-minutes_impl_change_resolution!(1, 10);
-minutes_impl_change_resolution!(1, 15);
-minutes_impl_change_resolution!(1, 20);
-minutes_impl_change_resolution!(1, 30);
-minutes_impl_change_resolution!(1, 60);
-minutes_impl_change_resolution!(1, 120);
-minutes_impl_change_resolution!(1, 180);
-minutes_impl_change_resolution!(1, 240);
-minutes_impl_change_resolution!(1, 360);
-minutes_impl_change_resolution!(1, 720);
+macro_rules! minutes_impl_change_resolution {
+    ($i:literal) => {
+        impl Minutes<$i> {
+            pub const fn change_resolution<const N2: u32>(self) -> Minutes<N2> {
+                if N2 == $i {
+                    Minutes { index: self.index }
+                } else if N2 > $i {
+                    // long day subdivions to short
+                    // clean scaling
+                    if N2 % $i == 0 {
+                        Minutes {
+                            index: self.index / Self::PERIODS_PER_DAY
+                                * (MINUTES_PER_DAY / N2 as i32),
+                        }
+                    } else {
+                        unreachable!()
+                    }
+                } else {
+                    // short day subdivision to long
+                    if $i % N2 == 0 {
+                        Minutes {
+                            index: self.index / (MINUTES_PER_DAY / N2 as i32)
+                                * Self::PERIODS_PER_DAY,
+                        }
+                    } else {
+                        unreachable!()
+                    }
+                }
+            }
+        }
+    };
+}
 
-minutes_impl_change_resolution!(2, 2);
-minutes_impl_change_resolution!(2, 3);
-minutes_impl_change_resolution!(2, 4);
-minutes_impl_change_resolution!(2, 5);
-minutes_impl_change_resolution!(2, 6);
-minutes_impl_change_resolution!(2, 10);
-minutes_impl_change_resolution!(2, 15);
-minutes_impl_change_resolution!(2, 20);
-minutes_impl_change_resolution!(2, 30);
-minutes_impl_change_resolution!(2, 60);
-minutes_impl_change_resolution!(2, 120);
-minutes_impl_change_resolution!(2, 180);
-minutes_impl_change_resolution!(2, 240);
-minutes_impl_change_resolution!(2, 360);
-minutes_impl_change_resolution!(2, 720);
+// minutes_impl_change_resolution!(1);
+// minutes_impl_change_resolution!(2);
+// minutes_impl_change_resolution!(3);
+// minutes_impl_change_resolution!(4);
+// minutes_impl_change_resolution!(5);
+// minutes_impl_change_resolution!(6);
+// minutes_impl_change_resolution!(10);
+// minutes_impl_change_resolution!(15);
+// minutes_impl_change_resolution!(20);
+// minutes_impl_change_resolution!(30);
+// minutes_impl_change_resolution!(60);
+// minutes_impl_change_resolution!(120);
+// minutes_impl_change_resolution!(180);
+// minutes_impl_change_resolution!(240);
+// minutes_impl_change_resolution!(360);
+// minutes_impl_change_resolution!(720);
+// minutes_impl_change_resolution!(1, 1);
+// minutes_impl_change_resolution!(1, 2);
+// minutes_impl_change_resolution!(1, 3);
+// minutes_impl_change_resolution!(1, 4);
+// minutes_impl_change_resolution!(1, 5);
+// minutes_impl_change_resolution!(1, 6);
+// minutes_impl_change_resolution!(1, 10);
+// minutes_impl_change_resolution!(1, 15);
+// minutes_impl_change_resolution!(1, 20);
+// minutes_impl_change_resolution!(1, 30);
+// minutes_impl_change_resolution!(1, 60);
+// minutes_impl_change_resolution!(1, 120);
+// minutes_impl_change_resolution!(1, 180);
+// minutes_impl_change_resolution!(1, 240);
+// minutes_impl_change_resolution!(1, 360);
+// minutes_impl_change_resolution!(1, 720);
 
-minutes_impl_change_resolution!(3, 3);
-minutes_impl_change_resolution!(3, 4);
-minutes_impl_change_resolution!(3, 5);
-minutes_impl_change_resolution!(3, 6);
-minutes_impl_change_resolution!(3, 10);
-minutes_impl_change_resolution!(3, 15);
-minutes_impl_change_resolution!(3, 20);
-minutes_impl_change_resolution!(3, 30);
-minutes_impl_change_resolution!(3, 60);
-minutes_impl_change_resolution!(3, 120);
-minutes_impl_change_resolution!(3, 180);
-minutes_impl_change_resolution!(3, 240);
-minutes_impl_change_resolution!(3, 360);
-minutes_impl_change_resolution!(3, 720);
+// minutes_impl_change_resolution!(2, 2);
+// minutes_impl_change_resolution!(2, 3);
+// minutes_impl_change_resolution!(2, 4);
+// minutes_impl_change_resolution!(2, 5);
+// minutes_impl_change_resolution!(2, 6);
+// minutes_impl_change_resolution!(2, 10);
+// minutes_impl_change_resolution!(2, 15);
+// minutes_impl_change_resolution!(2, 20);
+// minutes_impl_change_resolution!(2, 30);
+// minutes_impl_change_resolution!(2, 60);
+// minutes_impl_change_resolution!(2, 120);
+// minutes_impl_change_resolution!(2, 180);
+// minutes_impl_change_resolution!(2, 240);
+// minutes_impl_change_resolution!(2, 360);
+// minutes_impl_change_resolution!(2, 720);
 
-minutes_impl_change_resolution!(4, 4);
-minutes_impl_change_resolution!(4, 5);
-minutes_impl_change_resolution!(4, 6);
-minutes_impl_change_resolution!(4, 10);
-minutes_impl_change_resolution!(4, 15);
-minutes_impl_change_resolution!(4, 20);
-minutes_impl_change_resolution!(4, 30);
-minutes_impl_change_resolution!(4, 60);
-minutes_impl_change_resolution!(4, 120);
-minutes_impl_change_resolution!(4, 180);
-minutes_impl_change_resolution!(4, 240);
-minutes_impl_change_resolution!(4, 360);
-minutes_impl_change_resolution!(4, 720);
+// minutes_impl_change_resolution!(3, 3);
+// minutes_impl_change_resolution!(3, 4);
+// minutes_impl_change_resolution!(3, 5);
+// minutes_impl_change_resolution!(3, 6);
+// minutes_impl_change_resolution!(3, 10);
+// minutes_impl_change_resolution!(3, 15);
+// minutes_impl_change_resolution!(3, 20);
+// minutes_impl_change_resolution!(3, 30);
+// minutes_impl_change_resolution!(3, 60);
+// minutes_impl_change_resolution!(3, 120);
+// minutes_impl_change_resolution!(3, 180);
+// minutes_impl_change_resolution!(3, 240);
+// minutes_impl_change_resolution!(3, 360);
+// minutes_impl_change_resolution!(3, 720);
 
-minutes_impl_change_resolution!(5, 5);
-minutes_impl_change_resolution!(5, 6);
-minutes_impl_change_resolution!(5, 10);
-minutes_impl_change_resolution!(5, 15);
-minutes_impl_change_resolution!(5, 20);
-minutes_impl_change_resolution!(5, 30);
-minutes_impl_change_resolution!(5, 60);
-minutes_impl_change_resolution!(5, 120);
-minutes_impl_change_resolution!(5, 180);
-minutes_impl_change_resolution!(5, 240);
-minutes_impl_change_resolution!(5, 360);
-minutes_impl_change_resolution!(5, 720);
+// minutes_impl_change_resolution!(4, 4);
+// minutes_impl_change_resolution!(4, 5);
+// minutes_impl_change_resolution!(4, 6);
+// minutes_impl_change_resolution!(4, 10);
+// minutes_impl_change_resolution!(4, 15);
+// minutes_impl_change_resolution!(4, 20);
+// minutes_impl_change_resolution!(4, 30);
+// minutes_impl_change_resolution!(4, 60);
+// minutes_impl_change_resolution!(4, 120);
+// minutes_impl_change_resolution!(4, 180);
+// minutes_impl_change_resolution!(4, 240);
+// minutes_impl_change_resolution!(4, 360);
+// minutes_impl_change_resolution!(4, 720);
 
-minutes_impl_change_resolution!(6, 6);
-minutes_impl_change_resolution!(6, 30);
-minutes_impl_change_resolution!(6, 60);
-minutes_impl_change_resolution!(6, 120);
-minutes_impl_change_resolution!(6, 180);
-minutes_impl_change_resolution!(6, 240);
-minutes_impl_change_resolution!(6, 360);
-minutes_impl_change_resolution!(6, 720);
+// minutes_impl_change_resolution!(5, 5);
+// minutes_impl_change_resolution!(5, 6);
+// minutes_impl_change_resolution!(5, 10);
+// minutes_impl_change_resolution!(5, 15);
+// minutes_impl_change_resolution!(5, 20);
+// minutes_impl_change_resolution!(5, 30);
+// minutes_impl_change_resolution!(5, 60);
+// minutes_impl_change_resolution!(5, 120);
+// minutes_impl_change_resolution!(5, 180);
+// minutes_impl_change_resolution!(5, 240);
+// minutes_impl_change_resolution!(5, 360);
+// minutes_impl_change_resolution!(5, 720);
 
-minutes_impl_change_resolution!(10, 10);
-minutes_impl_change_resolution!(10, 20);
-minutes_impl_change_resolution!(10, 30);
-minutes_impl_change_resolution!(10, 60);
-minutes_impl_change_resolution!(10, 120);
-minutes_impl_change_resolution!(10, 180);
-minutes_impl_change_resolution!(10, 240);
-minutes_impl_change_resolution!(10, 360);
-minutes_impl_change_resolution!(10, 720);
+// minutes_impl_change_resolution!(6, 6);
+// minutes_impl_change_resolution!(6, 30);
+// minutes_impl_change_resolution!(6, 60);
+// minutes_impl_change_resolution!(6, 120);
+// minutes_impl_change_resolution!(6, 180);
+// minutes_impl_change_resolution!(6, 240);
+// minutes_impl_change_resolution!(6, 360);
+// minutes_impl_change_resolution!(6, 720);
 
-minutes_impl_change_resolution!(15, 15);
-minutes_impl_change_resolution!(15, 30);
-minutes_impl_change_resolution!(15, 60);
-minutes_impl_change_resolution!(15, 120);
-minutes_impl_change_resolution!(15, 180);
-minutes_impl_change_resolution!(15, 240);
-minutes_impl_change_resolution!(15, 360);
-minutes_impl_change_resolution!(15, 720);
+// minutes_impl_change_resolution!(10, 10);
+// minutes_impl_change_resolution!(10, 20);
+// minutes_impl_change_resolution!(10, 30);
+// minutes_impl_change_resolution!(10, 60);
+// minutes_impl_change_resolution!(10, 120);
+// minutes_impl_change_resolution!(10, 180);
+// minutes_impl_change_resolution!(10, 240);
+// minutes_impl_change_resolution!(10, 360);
+// minutes_impl_change_resolution!(10, 720);
 
-minutes_impl_change_resolution!(20, 20);
-minutes_impl_change_resolution!(20, 60);
-minutes_impl_change_resolution!(20, 120);
-minutes_impl_change_resolution!(20, 180);
-minutes_impl_change_resolution!(20, 240);
-minutes_impl_change_resolution!(20, 360);
-minutes_impl_change_resolution!(20, 720);
+// minutes_impl_change_resolution!(15, 15);
+// minutes_impl_change_resolution!(15, 30);
+// minutes_impl_change_resolution!(15, 60);
+// minutes_impl_change_resolution!(15, 120);
+// minutes_impl_change_resolution!(15, 180);
+// minutes_impl_change_resolution!(15, 240);
+// minutes_impl_change_resolution!(15, 360);
+// minutes_impl_change_resolution!(15, 720);
 
-minutes_impl_change_resolution!(30, 30);
-minutes_impl_change_resolution!(30, 60);
-minutes_impl_change_resolution!(30, 120);
-minutes_impl_change_resolution!(30, 180);
-minutes_impl_change_resolution!(30, 240);
-minutes_impl_change_resolution!(30, 360);
-minutes_impl_change_resolution!(30, 720);
+// minutes_impl_change_resolution!(20, 20);
+// minutes_impl_change_resolution!(20, 60);
+// minutes_impl_change_resolution!(20, 120);
+// minutes_impl_change_resolution!(20, 180);
+// minutes_impl_change_resolution!(20, 240);
+// minutes_impl_change_resolution!(20, 360);
+// minutes_impl_change_resolution!(20, 720);
 
-minutes_impl_change_resolution!(60, 60);
-minutes_impl_change_resolution!(60, 120);
-minutes_impl_change_resolution!(60, 180);
-minutes_impl_change_resolution!(60, 240);
-minutes_impl_change_resolution!(60, 360);
-minutes_impl_change_resolution!(60, 720);
+// minutes_impl_change_resolution!(30, 30);
+// minutes_impl_change_resolution!(30, 60);
+// minutes_impl_change_resolution!(30, 120);
+// minutes_impl_change_resolution!(30, 180);
+// minutes_impl_change_resolution!(30, 240);
+// minutes_impl_change_resolution!(30, 360);
+// minutes_impl_change_resolution!(30, 720);
 
-minutes_impl_change_resolution!(120, 120);
-minutes_impl_change_resolution!(120, 240);
-minutes_impl_change_resolution!(120, 360);
-minutes_impl_change_resolution!(120, 720);
+// minutes_impl_change_resolution!(60, 60);
+// minutes_impl_change_resolution!(60, 120);
+// minutes_impl_change_resolution!(60, 180);
+// minutes_impl_change_resolution!(60, 240);
+// minutes_impl_change_resolution!(60, 360);
+// minutes_impl_change_resolution!(60, 720);
 
-minutes_impl_change_resolution!(180, 180);
-minutes_impl_change_resolution!(180, 360);
-minutes_impl_change_resolution!(180, 720);
+// minutes_impl_change_resolution!(120, 120);
+// minutes_impl_change_resolution!(120, 240);
+// minutes_impl_change_resolution!(120, 360);
+// minutes_impl_change_resolution!(120, 720);
 
-minutes_impl_change_resolution!(240, 240);
-minutes_impl_change_resolution!(240, 720);
+// minutes_impl_change_resolution!(180, 180);
+// minutes_impl_change_resolution!(180, 360);
+// minutes_impl_change_resolution!(180, 720);
 
-minutes_impl_change_resolution!(360, 360);
-minutes_impl_change_resolution!(360, 720);
+// minutes_impl_change_resolution!(240, 240);
+// minutes_impl_change_resolution!(240, 720);
 
-minutes_impl_change_resolution!(720, 720);
+// minutes_impl_change_resolution!(360, 360);
+// minutes_impl_change_resolution!(360, 720);
 
-minutes_impl!(1);
-minutes_impl!(2);
-minutes_impl!(3);
-minutes_impl!(4);
-minutes_impl!(5);
-minutes_impl!(6);
-minutes_impl!(10);
-minutes_impl!(15);
-minutes_impl!(20);
-minutes_impl!(30);
-minutes_impl!(60);
-minutes_impl!(120);
-minutes_impl!(180);
-minutes_impl!(240);
-minutes_impl!(360);
-minutes_impl!(720);
+// minutes_impl_change_resolution!(720, 720);
 
-day_subdivision_impl!(1);
-day_subdivision_impl!(2);
-day_subdivision_impl!(3);
-day_subdivision_impl!(4);
-day_subdivision_impl!(5);
-day_subdivision_impl!(6);
-day_subdivision_impl!(10);
-day_subdivision_impl!(15);
-day_subdivision_impl!(20);
-day_subdivision_impl!(30);
-day_subdivision_impl!(60);
-day_subdivision_impl!(120);
-day_subdivision_impl!(180);
-day_subdivision_impl!(240);
-day_subdivision_impl!(360);
-day_subdivision_impl!(720);
+// minutes_impl!(1);
+// minutes_impl!(2);
+// minutes_impl!(3);
+// minutes_impl!(4);
+// minutes_impl!(5);
+// minutes_impl!(6);
+// minutes_impl!(10);
+// minutes_impl!(15);
+// minutes_impl!(20);
+// minutes_impl!(30);
+// minutes_impl!(60);
+// minutes_impl!(120);
+// minutes_impl!(180);
+// minutes_impl!(240);
+// minutes_impl!(360);
+// minutes_impl!(720);
+
+// day_subdivision_impl!(1);
+// day_subdivision_impl!(2);
+// day_subdivision_impl!(3);
+// day_subdivision_impl!(4);
+// day_subdivision_impl!(5);
+// day_subdivision_impl!(6);
+// day_subdivision_impl!(10);
+// day_subdivision_impl!(15);
+// day_subdivision_impl!(20);
+// day_subdivision_impl!(30);
+// day_subdivision_impl!(60);
+// day_subdivision_impl!(120);
+// day_subdivision_impl!(180);
+// day_subdivision_impl!(240);
+// day_subdivision_impl!(360);
+// day_subdivision_impl!(720);
 
 #[derive(Clone, Copy, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub struct DaySubdivison<const N: u32> {
@@ -655,6 +843,7 @@ mod tests {
         )
     }
 
+    #[cfg(feature = "chrono")]
     #[test]
     fn test_into() {
         assert_eq!(
