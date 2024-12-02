@@ -24,8 +24,12 @@ pub type FiveMinute = Minutes<5>;
 pub type HalfHour = Minutes<30>;
 pub type Hour = Minutes<60>;
 
+mod const_formatting;
+mod time_of_day;
+
+
 mod day;
-pub use day::Day;
+pub use day::date_impl::{self, Day};
 
 mod week;
 pub use week::{Friday, Monday, Saturday, StartDay, Sunday, Thursday, Tuesday, Wednesday, Week};

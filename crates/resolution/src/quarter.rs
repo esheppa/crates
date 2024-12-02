@@ -1,6 +1,6 @@
+use crate::date_impl::MonthOfYear;
 use crate::{month, year, Day, Year};
 use alloc::{fmt, str, string::ToString};
-use date_impl::MonthOfYear;
 
 #[cfg(feature = "serde")]
 use serde::de;
@@ -278,7 +278,7 @@ impl str::FromStr for Quarter {
 
 #[cfg(test)]
 mod tests {
-    use date_impl::{Date, DayOfMonth, MonthOfYear};
+    use crate::date_impl::{DayOfMonth, MonthOfYear};
 
     use super::*;
 
@@ -300,15 +300,15 @@ mod tests {
     fn test_parse_quarter_syntax() {
         assert_eq!(
             "Q1-2021".parse::<Quarter>().unwrap().start(),
-            Day::new(Date::ymd(2021, MonthOfYear::Jan, DayOfMonth::D1)),
+            Day::ymd(2021, MonthOfYear::Jan, DayOfMonth::D1),
         );
         assert_eq!(
             "Q1-2021".parse::<Quarter>().unwrap().succ().start(),
-            Day::new(Date::ymd(2021, MonthOfYear::Apr, DayOfMonth::D1)),
+            Day::ymd(2021, MonthOfYear::Apr, DayOfMonth::D1),
         );
         assert_eq!(
             "Q1-2021".parse::<Quarter>().unwrap().succ().pred().start(),
-            Day::new(Date::ymd(2021, MonthOfYear::Jan, DayOfMonth::D1)),
+            Day::ymd(2021, MonthOfYear::Jan, DayOfMonth::D1),
         );
     }
 
@@ -316,11 +316,11 @@ mod tests {
     fn test_parse_date_syntax() {
         assert_eq!(
             "2021-01-01".parse::<Quarter>().unwrap().start(),
-            Day::new(Date::ymd(2021, MonthOfYear::Jan, DayOfMonth::D1)),
+            Day::ymd(2021, MonthOfYear::Jan, DayOfMonth::D1),
         );
         assert_eq!(
             "2021-01-01".parse::<Quarter>().unwrap().succ().start(),
-            Day::new(Date::ymd(2021, MonthOfYear::Apr, DayOfMonth::D1)),
+            Day::ymd(2021, MonthOfYear::Apr, DayOfMonth::D1),
         );
         assert_eq!(
             "2021-01-01"
@@ -329,7 +329,7 @@ mod tests {
                 .succ()
                 .pred()
                 .start(),
-            Day::new(Date::ymd(2021, MonthOfYear::Jan, DayOfMonth::D1)),
+            Day::ymd(2021, MonthOfYear::Jan, DayOfMonth::D1),
         );
     }
 
@@ -337,23 +337,23 @@ mod tests {
     fn test_start() {
         assert_eq!(
             Quarter(2).start(),
-            Day::new(Date::ymd(0, MonthOfYear::Jul, DayOfMonth::D1))
+            Day::ymd(0, MonthOfYear::Jul, DayOfMonth::D1)
         );
         assert_eq!(
             Quarter(1).start(),
-            Day::new(Date::ymd(0, MonthOfYear::Apr, DayOfMonth::D1))
+            Day::ymd(0, MonthOfYear::Apr, DayOfMonth::D1)
         );
         assert_eq!(
             Quarter(0).start(),
-            Day::new(Date::ymd(0, MonthOfYear::Jan, DayOfMonth::D1))
+            Day::ymd(0, MonthOfYear::Jan, DayOfMonth::D1)
         );
         assert_eq!(
             Quarter(-1).start(),
-            Day::new(Date::ymd(-1, MonthOfYear::Dec, DayOfMonth::D1))
+            Day::ymd(-1, MonthOfYear::Dec, DayOfMonth::D1)
         );
         assert_eq!(
             Quarter(-2).start(),
-            Day::new(Date::ymd(-1, MonthOfYear::Jul, DayOfMonth::D1))
+            Day::ymd(-1, MonthOfYear::Jul, DayOfMonth::D1)
         );
     }
 }

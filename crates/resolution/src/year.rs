@@ -1,3 +1,4 @@
+use crate::date_impl::MonthOfYear;
 use crate::{
     month::{self},
     quarter::{self, QuarterOfYear},
@@ -7,7 +8,6 @@ use crate::{
 #[cfg(feature = "chrono")]
 use chrono::{DateTime, Datelike, NaiveDate, NaiveTime, Utc};
 use core::{convert::TryFrom, fmt, str};
-use date_impl::{Date, MonthOfYear};
 
 #[derive(Clone, Copy, Debug, Eq, PartialOrd, PartialEq, Ord, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
@@ -80,14 +80,14 @@ impl FromMonotonic for Year {
     }
 }
 
-impl From<i32> for Year {
-    fn from(value: i32) -> Self {
+impl From<i16> for Year {
+    fn from(value: i16) -> Self {
         Year::from_monotonic(value.into())
     }
 }
 
-impl From<i16> for Year {
-    fn from(value: i16) -> Self {
+impl From<i32> for Year {
+    fn from(value: i32) -> Self {
         Year::from_monotonic(value.into())
     }
 }
@@ -127,7 +127,7 @@ impl Year {
     }
 
     pub const fn start(self) -> Day {
-        Day::new(Date::first_on_year(self.0))
+        Day::first_on_year(self.0)
     }
 
     pub const fn from_monotonic(idx: i32) -> Self {
@@ -295,7 +295,7 @@ impl str::FromStr for Year {
 
 #[cfg(test)]
 mod tests {
-    use date_impl::DayOfMonth;
+    use crate::date_impl::DayOfMonth;
 
     use super::*;
     use crate::{DateResolution, TimeResolution};
@@ -318,15 +318,15 @@ mod tests {
     fn test_parse() {
         assert_eq!(
             "2021".parse::<Year>().unwrap().start(),
-            Day::new(Date::ymd(2021, MonthOfYear::Jan, DayOfMonth::D1)),
+            Day::ymd(2021, MonthOfYear::Jan, DayOfMonth::D1),
         );
         assert_eq!(
             "2021".parse::<Year>().unwrap().succ().start(),
-            Day::new(Date::ymd(2022, MonthOfYear::Jan, DayOfMonth::D1)),
+            Day::ymd(2022, MonthOfYear::Jan, DayOfMonth::D1),
         );
         assert_eq!(
             "2021".parse::<Year>().unwrap().succ().pred().start(),
-            Day::new(Date::ymd(2021, MonthOfYear::Jan, DayOfMonth::D1)),
+            Day::ymd(2021, MonthOfYear::Jan, DayOfMonth::D1),
         );
 
         assert!("a2021".parse::<Year>().is_err(),);

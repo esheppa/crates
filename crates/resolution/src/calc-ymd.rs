@@ -1,6 +1,6 @@
 use chrono::{Datelike, Days, NaiveDate};
 use criterion::{criterion_group, criterion_main, Criterion};
-use date_impl::Date;
+use resolution::Day;
 use std::hint::black_box;
 
 const CHRONO_BASE: NaiveDate = match NaiveDate::from_ymd_opt(1900, 1, 1) {
@@ -12,7 +12,7 @@ fn date_impl_narrow_benchmark(c: &mut Criterion) {
     c.bench_function("date-impl-narrow", |b| {
         b.iter(|| {
             for i in 36524..58439_i32 {
-                let date = Date::new(black_box(i));
+                let date = Day::new(black_box(i));
                 _ = date.year();
                 _ = date.month();
                 _ = date.day();
@@ -37,7 +37,7 @@ fn chrono_narrow_benchmark(c: &mut Criterion) {
 fn date_impl_pre_benchmark(c: &mut Criterion) {
     c.bench_function("date-impl-pre", |b| {
         b.iter(|| {
-            let date = Date::new(black_box(11255));
+            let date = Day::new(black_box(11255));
             _ = date.year();
             _ = date.month();
             _ = date.day();
@@ -48,7 +48,7 @@ fn date_impl_pre_benchmark(c: &mut Criterion) {
 fn date_impl_1_benchmark(c: &mut Criterion) {
     c.bench_function("date-impl-1", |b| {
         b.iter(|| {
-            let date = Date::new(black_box(36557));
+            let date = Day::new(black_box(36557));
             _ = date.year();
             _ = date.month();
             _ = date.day();

@@ -374,7 +374,7 @@ impl<K: Ord + fmt::Debug + Copy, T: Send + fmt::Debug + Eq + Copy> Cache<K, T> {
 #[cfg(test)]
 mod tests {
 
-    use date_impl::MonthOfYear;
+    use crate::date_impl::MonthOfYear;
 
     use crate::{Day, FiveMinute, Hour, Month, Year};
 

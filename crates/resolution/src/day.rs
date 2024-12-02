@@ -6,9 +6,11 @@ use crate::{
 use alloc::{fmt, str};
 #[cfg(feature = "chrono")]
 use chrono::{DateTime, Datelike, NaiveDate, NaiveTime, Utc};
-use date_impl::{Date, DayOfMonth, MonthOfYear};
+use date_impl::{Day, DayOfMonth, MonthOfYear};
 #[cfg(feature = "serde")]
 use serde::de;
+
+pub mod date_impl;
 
 const DATE_FORMAT: &str = "%Y-%m-%d";
 
@@ -36,9 +38,6 @@ impl serde::Serialize for Day {
     }
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
-pub struct Day(i32);
-
 impl str::FromStr for Day {
     type Err = Error;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
@@ -51,7 +50,7 @@ impl str::FromStr for Day {
 
 impl fmt::Display for Day {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let (year, month, day) = self.date().to_ymd();
+        let (year, month, day) = self.to_ymd();
         write!(f, "{year:04}-{month:02}-{day:02}")
     }
 }
@@ -136,35 +135,13 @@ impl Day {
     pub const fn between(self, other: Self) -> i32 {
         other.0 - self.0
     }
-    pub const fn date(self) -> Date {
-        Date::new(self.0)
-    }
-    pub const fn new(date: Date) -> Self {
-        Day(date.inner())
-    }
 
-    pub const fn succ_n(self, n: u16) -> Day {
-        Day(self.0 + n as i32)
-    }
-    pub const fn pred_n(self, n: u16) -> Day {
-        Day(self.0 - n as i32)
-    }
-
-    pub const fn succ(self) -> Day {
-        self.succ_n(1)
-    }
-    pub const fn pred(self) -> Day {
-        self.pred_n(1)
-    }
     // pub const fn start_datetime(self) -> DateTime<Utc> {
     //     self.date().and_time(NaiveTime::MIN).and_utc()
     // }
 
-    pub const fn with_day(self, d: DayOfMonth) -> Day {
-        Day(self.date().with_day(d).inner())
-    }
     pub const fn year(self) -> super::Year {
-        super::Year::new(self.date().year())
+        super::Year::new(self.year_num())
     }
     pub const fn quarter(self) -> super::Quarter {
         Quarter::from_day(self)
@@ -173,11 +150,9 @@ impl Day {
     pub const fn week<D: StartDay>(self) -> Week<D> {
         Week::from_day(self)
     }
-    pub const fn year_num(self) -> i32 {
-        self.date().year()
-    }
+
     pub const fn month_num(self) -> u8 {
-        self.date().month().number()
+        self.month_of_year().number()
     }
 
     pub const fn start_minute(self) -> Minute {
@@ -203,10 +178,6 @@ impl Day {
     pub const fn month(self) -> Month {
         Month::from_day(self)
     }
-
-    pub const fn month_of_year(self) -> MonthOfYear {
-        self.date().month()
-    }
 }
 
 // date impl
@@ -218,7 +189,6 @@ impl Day {
 
 #[cfg(test)]
 mod tests {
-    use date_impl::MonthOfYear;
 
     use super::*;
     use TimeResolution;
@@ -243,37 +213,25 @@ mod tests {
 
     fn test_parse_date_syntax() {
         assert_eq!(
-            "2021-01-01".parse::<Day>().unwrap().date(),
-            Date::first_on_year(2021),
+            "2021-01-01".parse::<Day>().unwrap(),
+            Day::first_on_year(2021),
         );
         assert_eq!(
-            "2021-01-01".parse::<Day>().unwrap().succ().date(),
-            Date::ymd(2021, MonthOfYear::Jan, DayOfMonth::D2),
+            "2021-01-01".parse::<Day>().unwrap().succ(),
+            Day::ymd(2021, MonthOfYear::Jan, DayOfMonth::D2),
         );
         assert_eq!(
-            "2021-01-01".parse::<Day>().unwrap().succ().pred().date(),
-            Date::first_on_year(2021),
+            "2021-01-01".parse::<Day>().unwrap().succ().pred(),
+            Day::first_on_year(2021),
         );
     }
 
     #[test]
     fn test_start() {
-        assert_eq!(
-            Day(2).date(),
-            Date::ymd(0, MonthOfYear::Jan, DayOfMonth::D3)
-        );
-        assert_eq!(
-            Day(1).date(),
-            Date::ymd(0, MonthOfYear::Jan, DayOfMonth::D2)
-        );
-        assert_eq!(
-            Day(0).date(),
-            Date::ymd(0, MonthOfYear::Jan, DayOfMonth::D1)
-        );
-        assert_eq!(Day(-1).date(), Date::last_on_month(-1, MonthOfYear::Dec));
-        assert_eq!(
-            Day(-2).date(),
-            Date::last_on_month(-1, MonthOfYear::Dec).pred_n(1)
-        );
+        assert_eq!(Day(2), Day::ymd(0, MonthOfYear::Jan, DayOfMonth::D3));
+        assert_eq!(Day(1), Day::ymd(0, MonthOfYear::Jan, DayOfMonth::D2));
+        assert_eq!(Day(0), Day::ymd(0, MonthOfYear::Jan, DayOfMonth::D1));
+        assert_eq!(Day(-1), Day::last_on_month(-1, MonthOfYear::Dec));
+        assert_eq!(Day(-2), Day::last_on_month(-1, MonthOfYear::Dec).pred_n(1));
     }
 }

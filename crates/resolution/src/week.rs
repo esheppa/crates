@@ -343,7 +343,7 @@ impl<D: StartDay> str::FromStr for Week<D> {
 
 #[cfg(test)]
 mod tests {
-    use date_impl::{Date, DayOfMonth, MonthOfYear};
+    use crate::date_impl::{DayOfMonth, MonthOfYear};
 
     use super::*;
     use crate::{DateResolution, TimeResolution};
@@ -355,7 +355,7 @@ mod tests {
 
         use crate::DateResolutionExt;
 
-        let dt = Day::new(Date::ymd(2021, MonthOfYear::Dec, DayOfMonth::D6));
+        let dt = Day::ymd(2021, MonthOfYear::Dec, DayOfMonth::D6);
 
         let wk = Week::<Monday>::from(dt);
         assert!(wk.start() <= dt && wk.end() >= dt);
@@ -390,7 +390,7 @@ mod tests {
                 .parse::<Week<Monday>>()
                 .unwrap()
                 .start(),
-            Day::new(Date::ymd(2021, MonthOfYear::Dec, DayOfMonth::D6)),
+            Day::ymd(2021, MonthOfYear::Dec, DayOfMonth::D6),
         );
         assert_eq!(
             "Week starting 2021-12-06"
@@ -398,7 +398,7 @@ mod tests {
                 .unwrap()
                 .succ()
                 .start(),
-            Day::new(Date::ymd(2021, MonthOfYear::Dec, DayOfMonth::D13)),
+            Day::ymd(2021, MonthOfYear::Dec, DayOfMonth::D13),
         );
         assert_eq!(
             "Week starting 2021-12-06"
@@ -407,7 +407,7 @@ mod tests {
                 .succ()
                 .pred()
                 .start(),
-            Day::new(Date::ymd(2021, MonthOfYear::Dec, DayOfMonth::D6)),
+            Day::ymd(2021, MonthOfYear::Dec, DayOfMonth::D6),
         );
 
         assert!("Week starting 2021-12-06".parse::<Week<Tuesday>>().is_err(),);

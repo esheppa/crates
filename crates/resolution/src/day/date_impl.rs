@@ -1,5 +1,3 @@
-#![no_std]
-
 use core::ops::{Add, AddAssign, Sub, SubAssign};
 
 use alloc::{format, string::String};
@@ -12,35 +10,41 @@ mod tests;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 // days since 1900-01-01
-pub struct Date(i32);
+pub struct Day(pub(super) i32);
 
-impl Date {
-    pub const fn succ_n(self, n: u16) -> Date {
-        Date(self.0 + (n as i32))
+impl Day {
+    pub const fn succ_n(self, n: u16) -> Day {
+        Day(self.0 + (n as i32))
     }
-    pub const fn pred_n(self, n: u16) -> Date {
-        Date(self.0 - (n as i32))
+    pub const fn pred_n(self, n: u16) -> Day {
+        Day(self.0 - (n as i32))
     }
-    pub const fn first_on_year(year: i32) -> Date {
+    pub const fn succ(self) -> Day {
+        Day(self.0 + 1)
+    }
+    pub const fn pred(self) -> Day {
+        Day(self.0 - 1)
+    }
+    pub const fn first_on_year(year: i32) -> Day {
         first_on_year(year)
     }
-    pub const fn last_on_year(year: i32) -> Date {
+    pub const fn last_on_year(year: i32) -> Day {
         first_on_year(year + 1).pred_n(1)
     }
 
-    pub const fn first_on_month(year: i32, month: MonthOfYear) -> Date {
+    pub const fn first_on_month(year: i32, month: MonthOfYear) -> Day {
         first_on_year(year).succ_n(month.cumulative_days(year))
     }
 
-    pub const fn last_on_month(year: i32, month: MonthOfYear) -> Date {
+    pub const fn last_on_month(year: i32, month: MonthOfYear) -> Day {
         Self::first_on_month(year, month).succ_n(month.num_days(year) as u16 - 1)
     }
     // this is limited to only the 28th day
-    pub const fn ymd(year: i32, month: MonthOfYear, day: DayOfMonth) -> Date {
+    pub const fn ymd(year: i32, month: MonthOfYear, day: DayOfMonth) -> Day {
         Self::first_on_month(year, month).succ_n(day.number() as u16 - 1)
     }
-    pub const fn with_day(self, day: DayOfMonth) -> Date {
-        let current_day = self.day();
+    pub const fn with_day(self, day: DayOfMonth) -> Day {
+        let current_day = self.day_of_month();
         if current_day == day.number() {
             return self;
         }
@@ -50,20 +54,20 @@ impl Date {
             self.pred_n((current_day - day.number()) as u16)
         }
     }
-    pub const fn year(&self) -> i32 {
+    pub const fn year_num(&self) -> i32 {
         self.through().year
     }
-    pub const fn month(&self) -> MonthOfYear {
+    pub const fn month_of_year(&self) -> MonthOfYear {
         self.through().month()
     }
-    pub const fn day(&self) -> u8 {
+    pub const fn day_of_month(&self) -> u8 {
         self.through().day()
     }
     pub const fn through(&self) -> YearAndDays {
         YearAndDays::calculate(*self)
     }
-    pub const fn new(days: i32) -> Date {
-        Date(days)
+    pub const fn new(days: i32) -> Day {
+        Day(days)
     }
     pub const fn inner(self) -> i32 {
         self.0
@@ -87,52 +91,52 @@ impl Date {
 }
 
 #[cfg(feature = "chrono")]
-impl From<chrono::NaiveDate> for Date {
+impl From<chrono::NaiveDate> for Day {
     fn from(value: chrono::NaiveDate) -> Self {
-        Date::from_chrono_date(value)
+        Day::from_chrono_date(value)
     }
 }
 
 #[cfg(feature = "chrono")]
-impl From<Date> for chrono::NaiveDate {
-    fn from(value: Date) -> Self {
+impl From<Day> for chrono::NaiveDate {
+    fn from(value: Day) -> Self {
         value.chrono_date()
     }
 }
 
-impl Add<i32> for Date {
-    type Output = Date;
+impl Add<i32> for Day {
+    type Output = Day;
 
     fn add(self, rhs: i32) -> Self::Output {
-        Date(self.0 + rhs)
+        Day(self.0 + rhs)
     }
 }
 
-impl Add<Date> for i32 {
-    type Output = Date;
+impl Add<Day> for i32 {
+    type Output = Day;
 
-    fn add(self, rhs: Date) -> Self::Output {
-        Date(self + rhs.0)
+    fn add(self, rhs: Day) -> Self::Output {
+        Day(self + rhs.0)
     }
 }
 
-impl AddAssign<i32> for Date {
+impl AddAssign<i32> for Day {
     fn add_assign(&mut self, rhs: i32) {
         self.0 += rhs;
     }
 }
 
-impl SubAssign<i32> for Date {
+impl SubAssign<i32> for Day {
     fn sub_assign(&mut self, rhs: i32) {
         self.0 -= rhs;
     }
 }
 
-impl Sub<i32> for Date {
-    type Output = Date;
+impl Sub<i32> for Day {
+    type Output = Day;
 
     fn sub(self, rhs: i32) -> Self::Output {
-        Date(self.0 - rhs)
+        Day(self.0 - rhs)
     }
 }
 
@@ -547,7 +551,7 @@ impl CycleSplit {
     }
 }
 
-const fn first_on_year(year: i32) -> Date {
+const fn first_on_year(year: i32) -> Day {
     // if year < 1900 {
     //     panic!("Out of range")
     // }
@@ -566,7 +570,7 @@ const fn first_on_year(year: i32) -> Date {
     // how many 4ys - we subtract one because it is about how many of these that we have passed
     let cycles = (year - 1).div_euclid(4);
 
-    Date(year * 365 + cycles - mid_cycles + long_cycles + 1)
+    Day(year * 365 + cycles - mid_cycles + long_cycles + 1)
 }
 
 const B1: i32 = 1 * DAYS_PER_MOST_100Y + 1;
@@ -575,7 +579,7 @@ const B3: i32 = 3 * DAYS_PER_MOST_100Y + 1;
 const B4: i32 = 4 * DAYS_PER_MOST_100Y + 1;
 
 impl YearAndDays {
-    const fn calculate(date: Date) -> YearAndDays {
+    const fn calculate(date: Day) -> YearAndDays {
         // figure out which 400y block we are in
         let block = date.0.div_euclid(DAYS_PER_400Y);
         let remainder = date.0.rem_euclid(DAYS_PER_400Y);
@@ -669,7 +673,7 @@ impl YearAndDays {
 #[kani::proof]
 pub fn verify_roundtrip() {
     let x: i32 = kani::any();
-    let date = Date::new(x);
+    let date = Day::new(x);
     let calculated = YearAndDays::calculate(date);
     let roundtrip = first_on_year(calculated.year).succ_n(calculated.days_through as u16);
     assert_eq!(date, roundtrip);

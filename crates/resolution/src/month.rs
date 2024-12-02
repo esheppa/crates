@@ -1,3 +1,4 @@
+use crate::date_impl::{DayOfMonth, MonthOfYear};
 use crate::{
     DateResolution, DateResolutionExt, Day, Error, FiveMinute, FromMonotonic, HalfHour, Hour,
     Minute, Monotonic, Quarter, TimeResolution, Year,
@@ -9,7 +10,6 @@ use alloc::{
 #[cfg(feature = "chrono")]
 use chrono::{DateTime, Datelike, NaiveDate, NaiveTime, Utc};
 use core::{convert::TryFrom, result};
-use date_impl::{DayOfMonth, MonthOfYear};
 #[cfg(feature = "serde")]
 use serde::de;
 
@@ -169,7 +169,7 @@ impl Month {
         Quarter::from_day(self.start())
     }
     pub const fn year_num(self) -> i32 {
-        self.start().date().year()
+        self.start().year_num()
     }
     pub const fn month_num(self) -> u8 {
         self.start().month_of_year().number()
@@ -241,7 +241,7 @@ impl fmt::Display for Month {
 
 #[cfg(test)]
 mod tests {
-    use date_impl::{Date, DayOfMonth, MonthOfYear};
+    use crate::date_impl::{DayOfMonth, MonthOfYear};
 
     use super::Month;
     use crate::{DateResolution, Day, TimeResolution};
@@ -272,15 +272,15 @@ mod tests {
     fn test_parse() {
         assert_eq!(
             "Jan-2021".parse::<Month>().unwrap().start(),
-            Day::new(Date::ymd(2021, MonthOfYear::Jan, DayOfMonth::D1))
+            Day::ymd(2021, MonthOfYear::Jan, DayOfMonth::D1)
         );
         assert_eq!(
             "Jan-2021".parse::<Month>().unwrap().succ().start(),
-            Day::new(Date::ymd(2021, MonthOfYear::Feb, DayOfMonth::D1))
+            Day::ymd(2021, MonthOfYear::Feb, DayOfMonth::D1)
         );
         assert_eq!(
             "Jan-2021".parse::<Month>().unwrap().succ().pred().start(),
-            Day::new(Date::ymd(2021, MonthOfYear::Jan, DayOfMonth::D1))
+            Day::ymd(2021, MonthOfYear::Jan, DayOfMonth::D1)
         );
     }
 
@@ -288,39 +288,39 @@ mod tests {
     fn test_start() {
         assert_eq!(
             Month(24240).start(),
-            Day::new(Date::ymd(2020, MonthOfYear::Jan, DayOfMonth::D1))
+            Day::ymd(2020, MonthOfYear::Jan, DayOfMonth::D1)
         );
         assert_eq!(
             Month(24249).start(),
-            Day::new(Date::ymd(2020, MonthOfYear::Oct, DayOfMonth::D1))
+            Day::ymd(2020, MonthOfYear::Oct, DayOfMonth::D1)
         );
         assert_eq!(
             Month(15).start(),
-            Day::new(Date::ymd(1, MonthOfYear::Apr, DayOfMonth::D1))
+            Day::ymd(1, MonthOfYear::Apr, DayOfMonth::D1)
         );
         assert_eq!(
             Month(2).start(),
-            Day::new(Date::ymd(0, MonthOfYear::Mar, DayOfMonth::D1))
+            Day::ymd(0, MonthOfYear::Mar, DayOfMonth::D1)
         );
         assert_eq!(
             Month(1).start(),
-            Day::new(Date::ymd(0, MonthOfYear::Feb, DayOfMonth::D1))
+            Day::ymd(0, MonthOfYear::Feb, DayOfMonth::D1)
         );
         assert_eq!(
             Month(0).start(),
-            Day::new(Date::ymd(0, MonthOfYear::Jan, DayOfMonth::D1))
+            Day::ymd(0, MonthOfYear::Jan, DayOfMonth::D1)
         );
         assert_eq!(
             Month(-1).start(),
-            Day::new(Date::ymd(-1, MonthOfYear::Dec, DayOfMonth::D1))
+            Day::ymd(-1, MonthOfYear::Dec, DayOfMonth::D1)
         );
         assert_eq!(
             Month(-2).start(),
-            Day::new(Date::ymd(-1, MonthOfYear::Nov, DayOfMonth::D1))
+            Day::ymd(-1, MonthOfYear::Nov, DayOfMonth::D1)
         );
         assert_eq!(
             Month(-15).start(),
-            Day::new(Date::ymd(-2, MonthOfYear::Oct, DayOfMonth::D1))
+            Day::ymd(-2, MonthOfYear::Oct, DayOfMonth::D1)
         );
     }
 }
