@@ -1,9 +1,13 @@
 use crate::{
-    DateResolution, DateResolutionExt, FixedTimeZone, FromMonotonic, LongerThanOrEqual,
-    SubDateResolution, TimeResolution, Zoned,
+    DateResolution, DateResolutionExt, FromMonotonic, LongerThanOrEqual, Minute, Monotonic,
+    SubDateResolution, TimeResolution,
 };
+#[cfg(feature = "chrono")]
+use crate::{FixedTimeZone, Zoned};
 use alloc::{collections, fmt, vec::Vec};
+#[cfg(feature = "chrono")]
 use chrono::{DateTime, Utc};
+
 use core::{iter::FusedIterator, mem, num};
 #[cfg(feature = "serde")]
 use serde::de;
@@ -34,10 +38,10 @@ pub enum TimeRangeComparison {
 
 impl<P: SubDateResolution> TimeRange<P> {}
 
-impl<P: DateResolution> TimeRange<P> {
+impl<P: DateResolution + FromMonotonic> TimeRange<P> {
     pub fn to_sub_date_resolution<S>(&self) -> TimeRange<S>
     where
-        S: SubDateResolution<Params = P::Params>,
+        S: SubDateResolution<Params = P::Params> + FromMonotonic,
     {
         // get first start
         let first_start = S::first_on_day(self.start.start(), self.start.params());
@@ -49,7 +53,7 @@ impl<P: DateResolution> TimeRange<P> {
 }
 
 impl<P: TimeResolution + FromMonotonic> TimeRange<P> {
-    pub fn from_map(map: collections::BTreeSet<i64>) -> Vec<TimeRange<P>> {
+    pub fn from_map(map: collections::BTreeSet<i32>) -> Vec<TimeRange<P>> {
         let mut ranges = Vec::new();
         if map.is_empty() {
             return ranges;
@@ -87,8 +91,8 @@ impl<P: TimeResolution + FromMonotonic> TimeRange<P> {
     }
 }
 
-impl<P: TimeResolution> TimeRange<P> {
-    pub fn to_indexes(&self) -> collections::BTreeSet<i64> {
+impl<P: TimeResolution + Monotonic + FromMonotonic> TimeRange<P> {
+    pub fn to_indexes(&self) -> collections::BTreeSet<i32> {
         self.iter().map(|p| p.to_monotonic()).collect()
     }
 
@@ -187,7 +191,9 @@ impl<P: TimeResolution> TimeRange<P> {
         self.start
     }
     pub fn end(&self) -> P {
-        self.start.succ_n(self.len.get() - 1)
+        P::from_monotonic(
+            self.start.to_monotonic() + i32::try_from(self.len().get()).expect("out of range") - 1,
+        )
     }
     pub fn contains<O>(&self, rhs: O) -> bool
     where
@@ -197,11 +203,11 @@ impl<P: TimeResolution> TimeRange<P> {
         extern crate std;
         use std::dbg;
 
-        let range_start = self.start.start_datetime();
-        let range_end = self.end().succ().start_datetime();
+        let range_start = self.start.start_minute();
+        let range_end = self.end().succ().start_minute();
 
-        let comparison_start = rhs.start_datetime();
-        let comparison_end = rhs.succ().start_datetime();
+        let comparison_start = rhs.start_minute();
+        let comparison_end = rhs.succ().start_minute();
 
         dbg!(range_start, range_end, comparison_start, comparison_end);
 
@@ -220,14 +226,14 @@ impl<P: TimeResolution> TimeRange<P> {
 
     pub fn rescale<Out>(&self) -> TimeRange<Out>
     where
-        Out: TimeResolution + From<DateTime<Utc>>,
+        Out: TimeResolution + From<Minute> + FromMonotonic,
     {
         // get the exact start
-        let start = Out::from(self.start().start_datetime());
+        let start = Out::from(self.start().start_minute());
 
         // for the end, we can't use something like 23:59:59
         // so we instead get the next period then look back.
-        let end = Out::from(self.end().succ().start_datetime()).pred();
+        let end = Out::from(self.end().succ().start_minute()).pred();
 
         TimeRange::from_bounds(start, end)
     }
@@ -238,7 +244,7 @@ pub struct TimeRangeIter<P: TimeResolution> {
     end: P,
 }
 
-impl<P: TimeResolution> Iterator for TimeRangeIter<P> {
+impl<P: TimeResolution + FromMonotonic> Iterator for TimeRangeIter<P> {
     type Item = P;
     fn next(&mut self) -> Option<Self::Item> {
         if self.start <= self.end {
@@ -259,11 +265,11 @@ impl<P: TimeResolution> Iterator for TimeRangeIter<P> {
     }
 }
 
-impl<P: TimeResolution> FusedIterator for TimeRangeIter<P> {}
+impl<P: TimeResolution + FromMonotonic> FusedIterator for TimeRangeIter<P> {}
 
-impl<P: TimeResolution> ExactSizeIterator for TimeRangeIter<P> {}
+impl<P: TimeResolution + FromMonotonic> ExactSizeIterator for TimeRangeIter<P> {}
 
-impl<P: TimeResolution> DoubleEndedIterator for TimeRangeIter<P> {
+impl<P: TimeResolution + FromMonotonic> DoubleEndedIterator for TimeRangeIter<P> {
     fn next_back(&mut self) -> Option<Self::Item> {
         if self.start <= self.end {
             let ret = self.end;
@@ -275,6 +281,7 @@ impl<P: TimeResolution> DoubleEndedIterator for TimeRangeIter<P> {
     }
 }
 
+#[cfg(feature = "chrono")]
 impl<P: TimeResolution, Z: FixedTimeZone> TimeRange<Zoned<P, Z>> {
     pub fn local(&self) -> TimeRange<P> {
         TimeRange::new(self.start().local_resolution(), self.len)
@@ -366,16 +373,16 @@ impl<K: Ord + fmt::Debug + Copy, T: Send + fmt::Debug + Eq + Copy> Cache<K, T> {
 }
 #[cfg(test)]
 mod tests {
-    use alloc::string::ToString;
-    use chrono::{NaiveDate, NaiveDateTime, NaiveTime};
 
-    use crate::{Day, FiveMinute, Hour, Minutes, Month, Year};
+    use crate::date_impl::MonthOfYear;
+
+    use crate::{Day, FiveMinute, Hour, Month, Year};
 
     use super::*;
 
     #[test]
     fn test_iter() {
-        let mth = Month::from_parts(2024, chrono::Month::January).unwrap();
+        let mth = Month::from_parts(Year::new(2024), MonthOfYear::Jan);
 
         let day_range = mth.rescale::<Day>();
 
@@ -405,12 +412,17 @@ mod tests {
             ])
         )
     }
+
+    #[cfg(feature = "chrono")]
     #[test]
     fn test_contains() {
         extern crate std;
+        use crate::Minutes;
+        use alloc::string::ToString;
+        use chrono::{NaiveDate, NaiveDateTime, NaiveTime};
         use std::dbg;
 
-        let mth = Month::from_parts(2024, chrono::Month::January).unwrap();
+        let mth = Month::from_parts(2024, MonthOfYear::January).unwrap();
 
         let day_range = mth.rescale::<Day>();
 
