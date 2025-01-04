@@ -44,7 +44,7 @@ pub use year::Year;
 #[cfg(feature = "chrono")]
 mod zoned;
 #[cfg(feature = "chrono")]
-pub use zoned::{FixedTimeZone, Zoned};
+pub use zoned::{FixedTimeZone, ZonedLocal};
 
 pub trait LongerThan<T>: LongerThanOrEqual<T> {}
 
@@ -329,8 +329,8 @@ pub trait TimeResolution: Monotonic {
 
     fn start_minute(self) -> Minute;
 
-    #[cfg(feature = "chrono")]
-    fn start_datetime(&self) -> DateTime<Utc>;
+    // #[cfg(feature = "chrono")]
+    // fn start_datetime(self) -> DateTime<Utc>;
 
     fn convert<Out>(self) -> Out
     where
@@ -369,11 +369,11 @@ pub trait SubDateResolution: TimeResolution {
 
     fn occurs_on_day(self) -> Day;
 
-    #[cfg(feature = "chrono")]
-    fn from_utc_datetime(datetime: DateTime<Utc>, params: Self::Params) -> Self;
+    // #[cfg(feature = "chrono")]
+    // fn from_utc_datetime(datetime: DateTime<Utc>, params: Self::Params) -> Self;
 
-    #[cfg(feature = "std")]
-    fn from_systemtime(systime: std::time::SystemTime, params: Self::Params) -> Self;
+    // #[cfg(feature = "std")]
+    // fn from_systemtime(systime: std::time::SystemTime, params: Self::Params) -> Self;
 
     fn from_minute(minute: Minute, params: Self::Params) -> Self;
 
@@ -393,18 +393,18 @@ pub trait DateResolution: TimeResolution {
 
     fn from_day(day: Day, params: Self::Params) -> Self;
 
-    fn start(self) -> Day;
+    fn start_day(self) -> Day;
 }
 
 /// `DateResolutionExt` implements some convenience methods for types that implement `DateResolution`
 // This is an extra trait to avoid the methods being overriden
 pub trait DateResolutionExt: DateResolution {
-    fn end(self) -> Day {
-        self.succ().start().pred()
+    fn end_day(self) -> Day {
+        self.succ().start_day().pred()
     }
 
     fn num_days(self) -> i32 {
-        self.start().between(self.end())
+        self.start_day().between(self.end_day())
     }
 
     fn to_sub_date_resolution<R>(self) -> range::TimeRange<R>
@@ -412,8 +412,8 @@ pub trait DateResolutionExt: DateResolution {
         R: SubDateResolution<Params = Self::Params> + FromMonotonic,
     {
         range::TimeRange::from_bounds(
-            R::first_on_day(self.start(), self.params()),
-            R::last_on_day(self.end(), self.params()),
+            R::first_on_day(self.start_day(), self.params()),
+            R::last_on_day(self.end_day(), self.params()),
         )
     }
 
@@ -423,8 +423,8 @@ pub trait DateResolutionExt: DateResolution {
         Self: LongerThan<Out>,
     {
         range::TimeRange::from_bounds(
-            Out::from_day(self.start(), self.params()),
-            Out::from_day(self.end(), self.params()),
+            Out::from_day(self.start_day(), self.params()),
+            Out::from_day(self.end_day(), self.params()),
         )
     }
 }

@@ -3,26 +3,7 @@ use crate::{month, year, Day, Year};
 use alloc::{fmt, str, string::ToString};
 
 #[cfg(feature = "serde")]
-use serde::de;
-
-#[cfg(feature = "chrono")]
-pub use chrono::*;
-
-#[cfg(feature = "chrono")]
-mod chrono {
-    use chrono::{DateTime, Datelike, NaiveDate, NaiveTime, Utc};
-
-    impl From<NaiveDate> for Quarter {
-        fn from(value: NaiveDate) -> Quarter {
-            Quarter::from_day(value)
-        }
-    }
-    impl Quarter {
-        pub const fn start_datetime(self) -> DateTime<Utc> {
-            self.start().date().and_time(NaiveTime::MIN).and_utc()
-        }
-    }
-}
+use {alloc::string::String, core::result, serde::de};
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub struct Quarter(i32);
@@ -33,10 +14,6 @@ impl crate::TimeResolution for Quarter {
     }
     fn pred_n(self, n: u16) -> Self {
         self.pred_n(n)
-    }
-    #[cfg(feature = "chrono")]
-    fn start_datetime(&self) -> DateTime<Utc> {
-        self.start_datetime()
     }
 
     const NAME: &str = "Quarter";
@@ -74,7 +51,7 @@ impl crate::FromMonotonic for Quarter {
 }
 
 impl crate::DateResolution for Quarter {
-    fn start(self) -> Day {
+    fn start_day(self) -> Day {
         self.start()
     }
 
@@ -285,11 +262,11 @@ mod tests {
     #[test]
     #[cfg(feature = "serde")]
     fn test_roundtrip() {
-        use crate::{DateResolution, TimeResolution};
+        use crate::{DateResolution, DateResolutionExt};
         let dt = chrono::NaiveDate::from_ymd_opt(2021, 12, 6).unwrap();
 
-        let wk = Quarter::from(dt);
-        assert!(wk.start() <= dt && wk.end() >= dt);
+        let wk = Quarter::from_day(Day::from_chrono_date(dt));
+        assert!(wk.start_day().chrono_date() <= dt && wk.end_day().chrono_date() >= dt);
 
         assert_eq!(
             wk,

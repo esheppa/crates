@@ -30,7 +30,7 @@ fn test_date() {
         #[cfg(feature = "chrono")]
         {
             assert_eq!(chrono_adj, date.chrono_date());
-            assert_eq!(date, Date::from_chrono_date(chrono_adj));
+            assert_eq!(date, Day::from_chrono_date(chrono_adj));
         }
     }
 }

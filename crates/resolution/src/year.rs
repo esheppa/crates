@@ -2,12 +2,11 @@ use crate::date_impl::MonthOfYear;
 use crate::{
     month::{self},
     quarter::{self, QuarterOfYear},
-    DateResolution, DateResolutionBuilder, DateResolutionExt, Day, Error, FiveMinute,
-    FromMonotonic, HalfHour, Hour, Minute, Monotonic, Month, Quarter, TimeResolution,
+    DateResolution, DateResolutionBuilder, Day, Error, FiveMinute, FromMonotonic, HalfHour, Hour,
+    Minute, Monotonic, Month, Quarter, TimeResolution,
 };
-#[cfg(feature = "chrono")]
-use chrono::{DateTime, Datelike, NaiveDate, NaiveTime, Utc};
-use core::{convert::TryFrom, fmt, str};
+
+use core::{fmt, str};
 
 #[derive(Clone, Copy, Debug, Eq, PartialOrd, PartialEq, Ord, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
@@ -15,7 +14,7 @@ use core::{convert::TryFrom, fmt, str};
 pub struct Year(i32);
 
 impl DateResolution for Year {
-    fn start(self) -> Day {
+    fn start_day(self) -> Day {
         self.start()
     }
     type Params = ();
@@ -27,23 +26,12 @@ impl DateResolution for Year {
     }
 }
 
-#[cfg(feature = "chrono")]
-impl From<NaiveDate> for Year {
-    fn from(value: NaiveDate) -> Year {
-        Year::from_day(value)
-    }
-}
-
 impl TimeResolution for Year {
     fn succ_n(self, n: u16) -> Self {
         self.succ_n(n)
     }
     fn pred_n(self, n: u16) -> Self {
         self.pred_n(n)
-    }
-    #[cfg(feature = "chrono")]
-    fn start_datetime(self) -> DateTime<Utc> {
-        self.start().and_time(NaiveTime::MIN).and_utc()
     }
 
     fn start_minute(self) -> Minute {
@@ -298,15 +286,16 @@ mod tests {
     use crate::date_impl::DayOfMonth;
 
     use super::*;
-    use crate::{DateResolution, TimeResolution};
+    use crate::DateResolution;
+    use crate::DateResolutionExt;
 
     #[test]
     #[cfg(feature = "serde")]
     fn test_roundtrip() {
         let dt = chrono::NaiveDate::from_ymd_opt(2021, 12, 6).unwrap();
 
-        let yr = Year::from(dt);
-        assert!(yr.start() <= dt && yr.end() >= dt);
+        let yr = Year::from_day(Day::from_chrono_date(dt));
+        assert!(yr.start_day().chrono_date() <= dt && yr.end_day().chrono_date() >= dt);
 
         assert_eq!(
             yr,

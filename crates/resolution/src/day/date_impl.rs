@@ -2,6 +2,8 @@ use core::ops::{Add, AddAssign, Sub, SubAssign};
 
 use alloc::{format, string::String};
 
+use crate::time_of_day::{LocalDateTime, LocalTimeOfDay};
+
 extern crate alloc;
 
 #[path = "tests.rs"]
@@ -88,19 +90,12 @@ impl Day {
     pub fn from_chrono_date(d: chrono::NaiveDate) -> Self {
         Self::new(chrono::Datelike::num_days_from_ce(&d) + 365)
     }
-}
 
-#[cfg(feature = "chrono")]
-impl From<chrono::NaiveDate> for Day {
-    fn from(value: chrono::NaiveDate) -> Self {
-        Day::from_chrono_date(value)
+    pub const fn and_time(self, time: LocalTimeOfDay) -> LocalDateTime {
+        LocalDateTime::new(self, time)
     }
-}
-
-#[cfg(feature = "chrono")]
-impl From<Day> for chrono::NaiveDate {
-    fn from(value: Day) -> Self {
-        value.chrono_date()
+    pub const fn start_time(self) -> LocalDateTime {
+        self.and_time(LocalTimeOfDay::start())
     }
 }
 

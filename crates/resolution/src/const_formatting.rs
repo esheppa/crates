@@ -10,21 +10,22 @@ pub const fn format_to_zero_padded_ascii_array<const N: usize>(n: i32) -> [u8; N
 
     let mut idx = N;
 
-    // let 
-    let base = if n > 10_i32.pow(N as u32) {
+    // // let 
+    // let base = if n > 10_i32.pow(N as u32) {
 
-    } else {
-        n
-    };
+    // } else {
+    //     n
+    // };
 
-    while idx >= 0 {
-        let divisor
+    // while idx >= 0 {
+    //     let divisor
 
-        idx - 1;
-    }
+    //     idx - 1;
+    // }
 
 
-    ret
+    // ret
+    todo!();
 
 }
 

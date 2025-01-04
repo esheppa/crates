@@ -1,15 +1,13 @@
 use crate::date_impl::{DayOfMonth, MonthOfYear};
 use crate::{
-    DateResolution, DateResolutionExt, Day, Error, FiveMinute, FromMonotonic, HalfHour, Hour,
-    Minute, Monotonic, Quarter, TimeResolution, Year,
+    DateResolution, Day, Error, FiveMinute, FromMonotonic, HalfHour, Hour, Minute, Monotonic,
+    Quarter, TimeResolution, Year,
 };
 use alloc::{
-    fmt, format, str,
+    fmt, str,
     string::{String, ToString},
 };
-#[cfg(feature = "chrono")]
-use chrono::{DateTime, Datelike, NaiveDate, NaiveTime, Utc};
-use core::{convert::TryFrom, result};
+use core::result;
 #[cfg(feature = "serde")]
 use serde::de;
 
@@ -45,10 +43,6 @@ impl TimeResolution for Month {
     }
     fn pred_n(self, n: u16) -> Self {
         self.pred_n(n)
-    }
-    #[cfg(feature = "chrono")]
-    fn start_datetime(self) -> DateTime<Utc> {
-        self.start().and_time(NaiveTime::MIN).and_utc()
     }
 
     const NAME: &str = "Month";
@@ -86,7 +80,7 @@ impl FromMonotonic for Month {
 }
 
 impl DateResolution for Month {
-    fn start(self) -> Day {
+    fn start_day(self) -> Day {
         self.start()
     }
 
@@ -96,20 +90,6 @@ impl DateResolution for Month {
 
     fn from_day(d: Day, _params: Self::Params) -> Self {
         Month::from_day(d)
-    }
-}
-
-#[cfg(feature = "chrono")]
-impl From<NaiveDate> for Month {
-    fn from(value: NaiveDate) -> Month {
-        Month::from_day(value, ())
-    }
-}
-
-#[cfg(feature = "chrono")]
-impl From<DateTime<Utc>> for Month {
-    fn from(d: DateTime<Utc>) -> Self {
-        d.date_naive().into()
     }
 }
 
@@ -244,23 +224,23 @@ mod tests {
     use crate::date_impl::{DayOfMonth, MonthOfYear};
 
     use super::Month;
-    use crate::{DateResolution, Day, TimeResolution};
+    use crate::{DateResolution, Day};
 
     #[test]
     #[cfg(feature = "serde")]
     fn test_roundtrip() {
-        use DateResolutionExt;
+        use crate::DateResolutionExt;
 
         let dt = chrono::NaiveDate::from_ymd_opt(2021, 12, 6).unwrap();
 
-        let m1 = Month::from(dt);
-        assert!(m1.start() <= dt && m1.end() >= dt);
+        let m1 = Month::from_day(Day::from_chrono_date(dt));
+        assert!(m1.start_day().chrono_date() <= dt && m1.end_day().chrono_date() >= dt);
 
         let dt = chrono::NaiveDate::from_ymd_opt(2019, 7, 1).unwrap();
 
-        let m2 = Month::from(dt);
+        let m2 = Month::from_day(Day::from_chrono_date(dt));
 
-        assert!(m2.start() == dt);
+        assert!(m2.start_day().chrono_date() == dt);
 
         assert_eq!(
             m1,

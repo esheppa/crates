@@ -5,10 +5,10 @@ use crate::{
 };
 use alloc::{fmt, str};
 #[cfg(feature = "chrono")]
-use chrono::{DateTime, Datelike, NaiveDate, NaiveTime, Utc};
-use date_impl::{Day, DayOfMonth, MonthOfYear};
+use chrono::{DateTime, NaiveTime, Utc};
+use date_impl::Day;
 #[cfg(feature = "serde")]
-use serde::de;
+use {alloc::string::String, alloc::string::ToString, core::result, serde::de};
 
 pub mod date_impl;
 
@@ -23,7 +23,7 @@ impl<'de> de::Deserialize<'de> for Day {
         let s = String::deserialize(deserializer)?;
         let date =
             chrono::NaiveDate::parse_from_str(&s, DATE_FORMAT).map_err(serde::de::Error::custom)?;
-        Ok(date.into())
+        Ok(Day::from_chrono_date(date))
     }
 }
 
@@ -56,7 +56,7 @@ impl fmt::Display for Day {
 }
 
 impl DateResolution for Day {
-    fn start(self) -> Day {
+    fn start_day(self) -> Day {
         self
     }
     type Params = ();
@@ -67,19 +67,6 @@ impl DateResolution for Day {
         d
     }
 }
-#[cfg(feature = "chrono")]
-impl<D: chrono::Datelike> From<D> for Day {
-    fn from(value: D) -> Day {
-        Day::new(
-            chrono::NaiveDate::from_ymd_opt(
-                chrono::Datelike::year(&value),
-                chrono::Datelike::month(&value),
-                chrono::Datelike::day(&value),
-            )
-            .unwrap(),
-        )
-    }
-}
 
 impl TimeResolution for Day {
     fn succ_n(self, n: u16) -> Self {
@@ -88,10 +75,13 @@ impl TimeResolution for Day {
     fn pred_n(self, n: u16) -> Self {
         self.pred_n(n)
     }
-    #[cfg(feature = "chrono")]
-    fn start_datetime(self) -> DateTime<Utc> {
-        self.start().and_time(NaiveTime::MIN).and_utc()
-    }
+    // #[cfg(feature = "chrono")]
+    // fn start_datetime(self) -> DateTime<Utc> {
+    //     self.start_day()
+    //         .chrono_date()
+    //         .and_time(NaiveTime::MIN)
+    //         .and_utc()
+    // }
 
     fn start_minute(self) -> Minute {
         self.start_minute()
@@ -190,18 +180,18 @@ impl Day {
 #[cfg(test)]
 mod tests {
 
+    use date_impl::{DayOfMonth, MonthOfYear};
+
     use super::*;
-    use TimeResolution;
+    use crate::DateResolutionExt;
 
     #[cfg(feature = "serde")]
     #[test]
     fn test_roundtrip() {
-        use DateResolutionExt;
-
         let dt = chrono::NaiveDate::from_ymd_opt(2021, 12, 6).unwrap();
 
-        let wk = Day::from(dt);
-        assert!(wk.start() <= dt && wk.end() >= dt);
+        let wk = Day::from_chrono_date(dt);
+        assert!(wk.start_day().chrono_date() <= dt && wk.end_day().chrono_date() >= dt);
 
         assert_eq!(
             wk,

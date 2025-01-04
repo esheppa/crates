@@ -1,19 +1,19 @@
 use crate::alloc::string::ToString;
 use crate::date_impl::MonthOfYear;
+use crate::time_of_day::LocalDateTime;
 use crate::{
-    Convert, Day, Error, FromMonotonic, Minute, Monotonic, Month, SubDateResolution,
-    TimeResolution, Year,
+    Convert, Day, FromMonotonic, Minute, Monotonic, Month, SubDateResolution, TimeResolution, Year,
 };
 use alloc::{fmt, format, str, string::String};
 #[cfg(feature = "chrono")]
-use chrono::{DateTime, Datelike, Duration, NaiveDate, NaiveTime, Timelike, Utc};
+use chrono::{DateTime, Utc};
 use core::fmt::Debug;
 use core::num::NonZeroU16;
 
 // leap seconds are ignored here
 const NUM_SECS: i32 = 60;
 
-const MINUTES_PER_DAY: i32 = 24 * 60;
+pub(crate) const MINUTES_PER_DAY: i32 = 24 * 60;
 
 /// Note that for sensible behaviour, the N chosen should be a number that either:
 /// 1. divides into an hour with no remainder (1, 2, 3, 4, 5, 6, 10, 12, 15, 20, 30, 60)
@@ -55,14 +55,6 @@ pub(crate) struct Minutes_ {
     pub(crate) length: u16,
 }
 
-#[cfg(feature = "chrono")]
-impl<const N: u16> From<DateTime<Utc>> for Minutes<N> {
-    fn from(d: DateTime<Utc>) -> Self {
-        Minutes {
-            index: d.timestamp().div_euclid(60 * i32::from(N)),
-        }
-    }
-}
 #[derive(Clone, Debug)]
 
 pub struct ParseError {
@@ -156,11 +148,6 @@ impl<const N: u16> TimeResolution for Minutes<N> {
     fn pred_n(self, n: u16) -> Minutes<N> {
         self.pred_n(n)
     }
-    #[cfg(feature = "chrono")]
-    fn start_datetime(self) -> DateTime<Utc> {
-        DateTime::<Utc>::from_timestamp(self.index * NUM_SECS * i64::from(N), 0)
-            .expect("valid timestamp")
-    }
 
     const NAME: &str = Self::NAME;
 
@@ -195,6 +182,16 @@ impl<const N: u16> TimeResolution for Minutes<N> {
         self.year()
     }
 }
+
+// #[cfg(feature = "chrono")]
+// impl<const N: u16> From<DateTime<Utc>> for Minutes<N> {
+//     fn from(d: DateTime<Utc>) -> Self {
+//         Minutes {
+//             index: i32::try_from(d.timestamp()).unwrap().div_euclid(60 * i32::from(N)),
+//         }
+//     }
+// }
+
 impl<const N: u16> SubDateResolution for Minutes<N> {
     fn occurs_on_day(self) -> Day {
         self.occurs_on_day()
@@ -207,10 +204,10 @@ impl<const N: u16> SubDateResolution for Minutes<N> {
 
     fn params(self) -> Self::Params {}
 
-    #[cfg(feature = "chrono")]
-    fn from_utc_datetime(datetime: DateTime<Utc>, _params: Self::Params) -> Self {
-        self.from_utc_datetime(datetime)
-    }
+    // #[cfg(feature = "chrono")]
+    // fn from_utc_datetime(datetime: DateTime<Utc>, _params: Self::Params) -> Self {
+    //     self.from_utc_datetime(datetime)
+    // }
 
     fn from_minute(minute: Minute, _params: Self::Params) -> Self {
         Self::from_minute(minute)
@@ -292,12 +289,32 @@ impl<const N: u16> Minutes<N> {
         Self::from_monotonic(day.to_monotonic() * Self::PERIODS_PER_DAY)
     }
 
+    pub const fn from_local_time(local: LocalDateTime) -> Self {
+        let through_day =
+            local.time().hour().number() as u16 + 60 * (local.time().minute().number() as u16);
+        Self::from_minute(Minute::first_on_day(local.day()).succ_n(through_day))
+    }
+
+    // TODO: improve or remove
     #[cfg(feature = "chrono")]
     pub const fn from_utc_datetime(datetime: DateTime<Utc>) -> Self {
-        datetime.into()
+        if datetime.timestamp() > (i32::MAX as i64) || datetime.timestamp() < (i32::MIN as i64) {
+            panic!("Datetime.timestamp is outside bounds of i32")
+        }
+        Self {
+            index: (datetime.timestamp() as i32).div_euclid(60 * (N as i32)),
+        }
     }
+
+    // TODO: improve or remove
+    #[cfg(feature = "chrono")]
+    fn start_datetime(self) -> DateTime<Utc> {
+        DateTime::<Utc>::from_timestamp(i64::from(self.index * NUM_SECS) * i64::from(N), 0)
+            .expect("valid timestamp")
+    }
+
     pub const fn start_minute(self) -> Minute {
-        todo!()
+        self.change_resolution()
     }
     pub const fn from_minute(minute: Minute) -> Self {
         minute.change_resolution()
@@ -528,7 +545,6 @@ pub struct DaySubdivison<const N: u16> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::TimeResolution;
 
     #[test]
     fn test_relative() {
@@ -604,32 +620,30 @@ mod tests {
         }
     }
 
-    #[cfg(feature = "serde")]
+    #[cfg(all(feature = "serde", feature = "chrono"))]
     #[test]
     fn test_roundtrip() {
-        use SubDateResolution;
-
         let dt = chrono::NaiveDate::from_ymd_opt(2021, 12, 6).unwrap();
-        let tm = dt.and_time(NaiveTime::MIN).and_utc();
+        let tm = dt.and_time(chrono::NaiveTime::MIN).and_utc();
 
-        let min = Minutes::<1>::from(tm);
-        assert!(min.occurs_on_date() == dt);
+        let min = Minutes::<1>::from_utc_datetime(tm);
+        assert!(min.occurs_on_day().chrono_date() == dt);
         assert!(min.start_datetime() == tm);
 
-        let min = Minutes::<2>::from(tm);
-        assert!(min.occurs_on_date() == dt);
+        let min = Minutes::<2>::from_utc_datetime(tm);
+        assert!(min.occurs_on_day().chrono_date() == dt);
         assert!(min.start_datetime() == tm);
 
-        let min = Minutes::<3>::from(tm);
-        assert!(min.occurs_on_date() == dt);
+        let min = Minutes::<3>::from_utc_datetime(tm);
+        assert!(min.occurs_on_day().chrono_date() == dt);
         assert!(min.start_datetime() == tm);
 
-        let min = Minutes::<4>::from(tm);
-        assert!(min.occurs_on_date() == dt);
+        let min = Minutes::<4>::from_utc_datetime(tm);
+        assert!(min.occurs_on_day().chrono_date() == dt);
         assert!(min.start_datetime() == tm);
 
-        let min = Minutes::<5>::from(tm);
-        assert!(min.occurs_on_date() == dt);
+        let min = Minutes::<5>::from_utc_datetime(tm);
+        assert!(min.occurs_on_day().chrono_date() == dt);
         assert!(min.start_datetime() == tm);
 
         assert_eq!(
@@ -642,14 +656,14 @@ mod tests {
     #[test]
     fn test_into() {
         assert_eq!(
-            Minutes::<2>::from(
+            Minutes::<2>::from_utc_datetime(
                 chrono::NaiveDate::from_ymd_opt(2021, 1, 1)
                     .unwrap()
                     .and_hms_opt(10, 2, 0)
                     .unwrap()
                     .and_utc()
             ),
-            Minutes::<2>::from(
+            Minutes::<2>::from_utc_datetime(
                 chrono::NaiveDate::from_ymd_opt(2021, 1, 1)
                     .unwrap()
                     .and_hms_opt(10, 3, 59)
@@ -660,6 +674,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "chrono")]
     fn test_parse() {
         assert!("2021-01-01 10:05".parse::<Minutes<2>>().is_err());
         assert!("2021-01-01 10:05 => 2021-01-01 10:06"
@@ -671,21 +686,23 @@ mod tests {
 
         assert_eq!(
             "2021-01-01 10:05".parse::<Minutes<1>>().unwrap(),
-            chrono::NaiveDate::from_ymd_opt(2021, 1, 1)
-                .unwrap()
-                .and_hms_opt(10, 5, 0)
-                .unwrap()
-                .and_utc()
-                .into(),
+            Minutes::<1>::from_utc_datetime(
+                chrono::NaiveDate::from_ymd_opt(2021, 1, 1)
+                    .unwrap()
+                    .and_hms_opt(10, 5, 0)
+                    .unwrap()
+                    .and_utc()
+            ),
         );
         assert_eq!(
             "2021-01-01 10:05".parse::<Minutes<1>>().unwrap().succ(),
-            chrono::NaiveDate::from_ymd_opt(2021, 1, 1)
-                .unwrap()
-                .and_hms_opt(10, 6, 0)
-                .unwrap()
-                .and_utc()
-                .into(),
+            Minutes::<1>::from_utc_datetime(
+                chrono::NaiveDate::from_ymd_opt(2021, 1, 1)
+                    .unwrap()
+                    .and_hms_opt(10, 6, 0)
+                    .unwrap()
+                    .and_utc()
+            ),
         );
         assert_eq!(
             "2021-01-01 10:05"
@@ -693,36 +710,39 @@ mod tests {
                 .unwrap()
                 .succ()
                 .pred(),
-            chrono::NaiveDate::from_ymd_opt(2021, 1, 1)
-                .unwrap()
-                .and_hms_opt(10, 5, 0)
-                .unwrap()
-                .and_utc()
-                .into(),
+            Minutes::<1>::from_utc_datetime(
+                chrono::NaiveDate::from_ymd_opt(2021, 1, 1)
+                    .unwrap()
+                    .and_hms_opt(10, 5, 0)
+                    .unwrap()
+                    .and_utc()
+            ),
         );
 
         assert_eq!(
             "2021-01-01 10:02 => 2021-01-01 10:04"
                 .parse::<Minutes<2>>()
                 .unwrap(),
-            chrono::NaiveDate::from_ymd_opt(2021, 1, 1)
-                .unwrap()
-                .and_hms_opt(10, 2, 0)
-                .unwrap()
-                .and_utc()
-                .into(),
+            Minutes::<2>::from_utc_datetime(
+                chrono::NaiveDate::from_ymd_opt(2021, 1, 1)
+                    .unwrap()
+                    .and_hms_opt(10, 2, 0)
+                    .unwrap()
+                    .and_utc()
+            ),
         );
 
         assert_eq!(
             "2021-01-01 10:00 => 2021-01-01 10:05"
                 .parse::<Minutes<5>>()
                 .unwrap(),
-            chrono::NaiveDate::from_ymd_opt(2021, 1, 1)
-                .unwrap()
-                .and_hms_opt(10, 0, 0)
-                .unwrap()
-                .and_utc()
-                .into(),
+            Minutes::<5>::from_utc_datetime(
+                chrono::NaiveDate::from_ymd_opt(2021, 1, 1)
+                    .unwrap()
+                    .and_hms_opt(10, 0, 0)
+                    .unwrap()
+                    .and_utc()
+            ),
         );
     }
 }

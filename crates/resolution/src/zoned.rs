@@ -15,6 +15,7 @@ use chrono::Offset;
 use chrono::TimeDelta;
 use chrono::TimeZone;
 use chrono::Utc;
+use core::any;
 use core::fmt;
 use core::result;
 
@@ -37,7 +38,7 @@ impl FixedTimeZone for Utc {
 ///
 /// note: this works perfectly well with _fixed_ and _non-fixed_ timezones, but many implementations are only
 /// available for fixed timezones.
-pub struct Zoned<R, Z>
+pub struct ZonedLocal<R, Z>
 where
     R: TimeResolution,
     Z: TimeZone + Copy + fmt::Debug,
@@ -53,13 +54,28 @@ where
     zone: Z,
 }
 
+
+
+pub struct ZonedUtc<R, Z>
+where
+    R: TimeResolution,
+    Z: TimeZone + Copy + fmt::Debug,
+{
+    // where the R is a Minutes<N>:
+    // where the R is not a Minutes<N>: no difference between utc and local anyway
+    utc_resolution: R,
+    // store the offset of the local_resolution so that we can reconstruct the local time infallibly
+    current_offset: FixedOffset,
+    zone: Z,
+}
+
 #[cfg(feature = "serde")]
-impl<'de, R, Z> serde::de::Deserialize<'de> for Zoned<R, Z>
+impl<'de, R, Z> serde::de::Deserialize<'de> for ZonedLocal<R, Z>
 where
     R: SubDateResolution<Params = ()>,
     Z: FixedTimeZone,
 {
-    fn deserialize<D>(deserializer: D) -> result::Result<Zoned<R, Z>, D::Error>
+    fn deserialize<D>(deserializer: D) -> result::Result<ZonedLocal<R, Z>, D::Error>
     where
         D: serde::de::Deserializer<'de>,
     {
@@ -74,7 +90,7 @@ where
 }
 
 #[cfg(feature = "serde")]
-impl<'de, R, Z> serde::Serialize for Zoned<R, Z>
+impl<'de, R, Z> serde::Serialize for ZonedLocal<R, Z>
 where
     R: SubDateResolution<Params = ()>,
     Z: FixedTimeZone,
@@ -89,42 +105,170 @@ where
     }
 }
 
-impl<R, Z> TimeResolution for Zoned<R, Z>
+impl<R, Z> Copy for ZonedUtc<R, Z>
 where
     R: TimeResolution,
-    Z: FixedTimeZone,
+    Z: TimeZone + Copy + fmt::Debug,
 {
-    fn succ_n(&self, n: u32) -> Self {
-        Zoned {
-            local_resolution: self.local_resolution.succ_n(n),
-            ..*self
+}
+
+impl<R, Z> Clone for ZonedUtc<R, Z>
+where
+    R: TimeResolution,
+    Z: TimeZone + Copy + fmt::Debug,
+{
+    fn clone(&self) -> Self {
+        *self
+    }
+}
+
+impl<R, Z> Eq for ZonedUtc<R, Z>
+where
+    R: TimeResolution,
+    Z: TimeZone + Copy + fmt::Debug,
+{
+}
+
+impl<R, Z> PartialEq for ZonedUtc<R, Z>
+where
+    R: TimeResolution,
+    Z: TimeZone + Copy + fmt::Debug,
+{
+    fn eq(&self, other: &Self) -> bool {
+        self.utc_resolution == other.utc_resolution
+    }
+}
+
+impl<R, Z> Ord for ZonedUtc<R, Z>
+where
+    R: TimeResolution,
+    Z: TimeZone + Copy + fmt::Debug,
+{
+    fn cmp(&self, other: &Self) -> core::cmp::Ordering {
+        self.utc_resolution
+            .cmp(&other.utc_resolution)
+    }
+}
+
+impl<R, Z> PartialOrd for ZonedUtc<R, Z>
+where
+    R: TimeResolution,
+    Z: TimeZone + Copy + fmt::Debug,
+{
+    fn partial_cmp(&self, other: &Self) -> Option<core::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+
+impl<R, Z> Monotonic for ZonedUtc<R, Z>
+where
+    Z: TimeZone + Copy + fmt::Debug,
+    R: TimeResolution,
+{
+    fn to_monotonic(self) -> i32 {
+        self.utc_resolution.to_monotonic()
+    }
+    fn between(self, other: Self) -> i32 {
+        other.to_monotonic() - self.to_monotonic()
+    }
+}
+
+impl<R, Z> TimeResolution for ZonedUtc<R, Z>
+where
+    R: TimeResolution,
+    Z: TimeZone + Copy + fmt::Debug,
+{
+    fn succ_n(self, n: u16) -> Self {
+        ZonedUtc {
+            utc_resolution: self.utc_resolution.succ_n(n),
+            ..self
         }
     }
-    fn pred_n(&self, n: u32) -> Self {
-        Zoned {
-            local_resolution: self.local_resolution.pred_n(n),
-            ..*self
+    fn pred_n(self, n: u16) -> Self {
+        ZonedUtc {
+            utc_resolution: self.utc_resolution.pred_n(n),
+            ..self
         }
+    }
+    
+    const NAME: &str = const {
+        // if any::type_name::<R>() == "Year" {
+
+        // }
+
+        // panic!("not allowed for ZonedLocal")
+
+        "ZonedLocal"
+    };
+    
+    fn start_minute(self) -> crate::Minute {
+        todo!()
+    }
+    
+    fn day(self) -> crate::Day {
+        todo!()
+    }
+    
+    fn month(self) -> crate::Month {
+        todo!()
+    }
+    
+    fn year(self) -> crate::Year {
+        todo!()
+    }
+
+    
+}
+
+impl<R, Z> ZonedUtc<R, Z>
+where
+    R: TimeResolution,
+    Z: TimeZone + Copy + fmt::Debug,
+{
+    pub fn name(self) -> String {
+        format!("Zoned[{},{:?}]", R::NAME, self.zone)
+    }
+    pub fn local_end_exclusive(&self) -> chrono::DateTime<Z> {
+        self.succ().local_start_datetime()
     }
     fn start_datetime(&self) -> DateTime<Utc> {
         self.utc_start_datetime()
     }
-    fn name(&self) -> String {
-        format!("Zoned[{},{:?}]", self.local_resolution.name(), self.zone)
-    }
 }
 
-impl<R, Z> Zoned<R, Z>
+impl<R, Z> ZonedUtc<R, Z>
 where
     R: TimeResolution,
-    Z: FixedTimeZone,
+    Z: TimeZone + Copy + fmt::Debug,
 {
-    pub fn local_end_exclusive(&self) -> chrono::DateTime<Z> {
-        self.succ().local_start_datetime()
+    pub fn local_start_datetime(&self) -> DateTime<Z> {
+        self.utc_resolution
+            .start_datetime()
+            .naive_utc()
+            .and_local_timezone(self.current_offset)
+            .single()
+            // unwrap will never panic becuase calling
+            // `and_local_timezone` with a fixed offset will
+            // always reuturn a valid local time
+            .unwrap()
+            .with_timezone(&self.zone)
+    }
+
+    pub fn utc_start_datetime(&self) -> DateTime<Utc> {
+        self.utc_resolution.start_minute()
+    }
+
+    pub fn zone(&self) -> Z {
+        self.zone
+    }
+    pub fn local_resolution(&self) -> R {
+        todo!()
     }
 }
 
-impl<R, Z> Zoned<R, Z>
+
+impl<R, Z> ZonedUtc<R, Z>
 where
     R: SubDateResolution<Params = ()>,
     Z: FixedTimeZone,
@@ -143,7 +287,71 @@ where
     }
 }
 
-impl<R, Z> Zoned<R, Z>
+
+impl<R, Z> TimeResolution for ZonedLocal<R, Z>
+where
+    R: TimeResolution,
+    Z: FixedTimeZone,
+{
+    fn succ_n(self, n: u16) -> Self {
+        ZonedLocal {
+            local_resolution: self.local_resolution.succ_n(n),
+            ..self
+        }
+    }
+    fn pred_n(self, n: u16) -> Self {
+        ZonedLocal {
+            local_resolution: self.local_resolution.pred_n(n),
+            ..self
+        }
+    }
+    
+    const NAME: &str = const {
+        // if any::type_name::<R>() == "Year" {
+
+        // }
+
+        // panic!("not allowed for ZonedLocal")
+
+        "ZonedLocal"
+    };
+    
+    fn start_minute(self) -> crate::Minute {
+        todo!()
+    }
+    
+    fn day(self) -> crate::Day {
+        todo!()
+    }
+    
+    fn month(self) -> crate::Month {
+        todo!()
+    }
+    
+    fn year(self) -> crate::Year {
+        todo!()
+    }
+
+    
+}
+
+impl<R, Z> ZonedLocal<R, Z>
+where
+    R: TimeResolution,
+    Z: FixedTimeZone,
+{
+    pub fn name(self) -> String {
+        format!("Zoned[{},{:?}]", self.local_resolution.name(), self.zone)
+    }
+    pub fn local_end_exclusive(&self) -> chrono::DateTime<Z> {
+        self.succ().local_start_datetime()
+    }
+    fn start_datetime(&self) -> DateTime<Utc> {
+        self.utc_start_datetime()
+    }
+}
+
+impl<R, Z> ZonedLocal<R, Z>
 where
     R: TimeResolution,
     Z: TimeZone + Copy + fmt::Debug,
@@ -172,7 +380,30 @@ where
         self.local_resolution
     }
 }
-impl<R, Z> fmt::Debug for Zoned<R, Z>
+
+
+impl<R, Z> ZonedLocal<R, Z>
+where
+    R: SubDateResolution<Params = ()>,
+    Z: FixedTimeZone,
+{
+    pub fn from_local(value: R, zone: Z) -> Self {
+        value
+            .start_datetime()
+            .naive_utc()
+            .and_local_timezone(zone)
+            .single()
+            // unwrap will never panic becuase calling
+            // `and_local_timezone` with a FixedTimeZone will
+            // always reuturn a valid local time
+            .unwrap()
+            .into()
+    }
+}
+
+
+
+impl<R, Z> fmt::Debug for ZonedLocal<R, Z>
 where
     R: TimeResolution + fmt::Debug,
     Z: TimeZone + fmt::Debug + Copy,
@@ -187,7 +418,7 @@ where
     }
 }
 
-impl<R, Z> Monotonic for Zoned<R, Z>
+impl<R, Z> Monotonic for ZonedLocal<R, Z>
 where
     Z: TimeZone + Copy + fmt::Debug,
     R: TimeResolution,
@@ -218,7 +449,7 @@ where
 // {
 // }
 
-impl<R, Z> SubDateResolution for Zoned<R, Z>
+impl<R, Z> SubDateResolution for ZonedLocal<R, Z>
 where
     R: SubDateResolution<Params = ()>,
     Z: FixedTimeZone,
@@ -249,7 +480,7 @@ where
     }
 }
 
-impl<R, Z> DateResolution for Zoned<R, Z>
+impl<R, Z> DateResolution for ZonedLocal<R, Z>
 where
     R: DateResolution<Params = ()>,
     Z: FixedTimeZone,
@@ -258,28 +489,28 @@ where
     fn params(&self) -> Self::Params {
         self.zone()
     }
-    fn start(&self) -> chrono::NaiveDate {
-        self.local_resolution.start()
+    fn start_day(&self) -> chrono::NaiveDate {
+        self.local_resolution.start_day()
     }
 
     fn from_day(date: NaiveDate, params: Self::Params) -> Self {
-        Zoned::from_date(date, params)
+        ZonedLocal::from_date(date, params)
     }
 }
 
-impl<R, Z> Zoned<R, Z>
+impl<R, Z> ZonedLocal<R, Z>
 where
     R: DateResolution<Params = ()>,
     Z: TimeZone + Copy + fmt::Debug,
 {
     pub fn start(&self) -> NaiveDate {
-        self.local_resolution.start()
+        self.local_resolution.start_day()
     }
     pub fn end(&self) -> NaiveDate {
-        self.local_resolution.end()
+        self.local_resolution.end_day()
     }
     pub fn from_date(date: NaiveDate, zone: Z) -> Self {
-        Zoned {
+        ZonedLocal {
             local_resolution: R::from_day(date, ()),
             // for DateResolution this is the offset of the start time
             current_offset: local_offset_at_start_of_date(date, zone),
@@ -304,13 +535,13 @@ where
         .unwrap()
 }
 
-impl<Z, R> From<chrono::DateTime<Z>> for Zoned<R, Z>
+impl<Z, R> From<chrono::DateTime<Z>> for ZonedLocal<R, Z>
 where
     R: SubDateResolution<Params = ()>,
     Z: TimeZone + Copy + fmt::Debug,
 {
     fn from(local_time: chrono::DateTime<Z>) -> Self {
-        Zoned {
+        ZonedLocal {
             // we swap out the tz for UTC without changing the actual hour/minute here
             // a bit sketchy but does the intended effect of producitng a local resolution
             local_resolution: R::from_utc_datetime(local_time.naive_local().and_utc(), ()),
@@ -320,14 +551,14 @@ where
     }
 }
 
-impl<R, Z> Copy for Zoned<R, Z>
+impl<R, Z> Copy for ZonedLocal<R, Z>
 where
     R: TimeResolution,
     Z: TimeZone + Copy + fmt::Debug,
 {
 }
 
-impl<R, Z> Clone for Zoned<R, Z>
+impl<R, Z> Clone for ZonedLocal<R, Z>
 where
     R: TimeResolution,
     Z: TimeZone + Copy + fmt::Debug,
@@ -337,14 +568,14 @@ where
     }
 }
 
-impl<R, Z> Eq for Zoned<R, Z>
+impl<R, Z> Eq for ZonedLocal<R, Z>
 where
     R: TimeResolution,
     Z: TimeZone + Copy + fmt::Debug,
 {
 }
 
-impl<R, Z> PartialEq for Zoned<R, Z>
+impl<R, Z> PartialEq for ZonedLocal<R, Z>
 where
     R: TimeResolution,
     Z: TimeZone + Copy + fmt::Debug,
@@ -354,7 +585,7 @@ where
     }
 }
 
-impl<R, Z> Ord for Zoned<R, Z>
+impl<R, Z> Ord for ZonedLocal<R, Z>
 where
     R: TimeResolution,
     Z: TimeZone + Copy + fmt::Debug,
@@ -365,7 +596,7 @@ where
     }
 }
 
-impl<R, Z> PartialOrd for Zoned<R, Z>
+impl<R, Z> PartialOrd for ZonedLocal<R, Z>
 where
     R: TimeResolution,
     Z: TimeZone + Copy + fmt::Debug,
@@ -375,14 +606,14 @@ where
     }
 }
 
-impl<R, Z> Zoned<R, Z>
+impl<R, Z> ZonedLocal<R, Z>
 where
     R: DateResolution,
     Z: TimeZone + Copy + fmt::Debug,
 {
 }
 
-impl<R, Z> Zoned<R, Z>
+impl<R, Z> ZonedLocal<R, Z>
 where
     R: SubDateResolution,
     Z: TimeZone + Copy + fmt::Debug,
@@ -395,7 +626,7 @@ mod tests {
     use crate::Day;
     use crate::FixedTimeZone;
     use crate::Minutes;
-    use crate::Zoned;
+    use crate::ZonedLocal;
     use alloc::vec::Vec;
     use chrono::FixedOffset;
 
@@ -415,7 +646,7 @@ mod tests {
             for start_timestamp in start_timestamps {
                 assert_eq!(
                     start_timestamp,
-                    Zoned::<Minutes<N>, _>::from(start_timestamp).local_start_datetime(),
+                    ZonedLocal::<Minutes<N>, _>::from(start_timestamp).local_start_datetime(),
                 );
             }
         }
@@ -455,27 +686,27 @@ mod tests {
             for start_timestamp in start_timestamps {
                 assert_eq!(
                     start_timestamp.clone(),
-                    Zoned::<Minutes<N>, _>::from(start_timestamp.clone()).local_start_datetime(),
+                    ZonedLocal::<Minutes<N>, _>::from(start_timestamp.clone()).local_start_datetime(),
                 );
 
                 assert_eq!(
-                    Zoned::from_local(
-                        Zoned::<Minutes<N>, _>::from(start_timestamp.clone()).local_resolution(),
+                    ZonedLocal::from_local(
+                        ZonedLocal::<Minutes<N>, _>::from(start_timestamp.clone()).local_resolution(),
                         tz
                     ),
-                    Zoned::<Minutes<N>, _>::from(start_timestamp.clone())
+                    ZonedLocal::<Minutes<N>, _>::from(start_timestamp.clone())
                 );
 
                 #[cfg(feature = "serde")]
                 assert_eq!(
-                    serde_json::from_str::<Zoned::<Minutes<N>, _>>(
-                        &serde_json::to_string(&Zoned::<Minutes<N>, _>::from(
+                    serde_json::from_str::<ZonedLocal::<Minutes<N>, _>>(
+                        &serde_json::to_string(&ZonedLocal::<Minutes<N>, _>::from(
                             start_timestamp.clone()
                         ))
                         .unwrap()
                     )
                     .unwrap(),
-                    Zoned::<Minutes<N>, _>::from(start_timestamp)
+                    ZonedLocal::<Minutes<N>, _>::from(start_timestamp)
                 );
             }
         }
@@ -553,13 +784,13 @@ mod tests {
                 .collect::<Vec<_>>();
 
             for period in periods {
-                let zoned = Zoned::<R, _>::from_date(period.date_naive(), tz);
-                assert_eq!(period.date_naive(), zoned.start());
-                assert_eq!(period.date_naive(), zoned.local_resolution().start());
+                let zoned = ZonedLocal::<R, _>::from_date(period.date_naive(), tz);
+                assert_eq!(period.date_naive(), zoned.start_day());
+                assert_eq!(period.date_naive(), zoned.local_resolution().start_day());
 
-                let zoned2 = Zoned::<R, _>::from_date(period.date_naive(), tz);
-                assert_eq!(period.date_naive(), zoned2.start());
-                assert_eq!(period.date_naive(), zoned2.local_resolution().start());
+                let zoned2 = ZonedLocal::<R, _>::from_date(period.date_naive(), tz);
+                assert_eq!(period.date_naive(), zoned2.start_day());
+                assert_eq!(period.date_naive(), zoned2.local_resolution().start_day());
             }
         }
         for tz in [

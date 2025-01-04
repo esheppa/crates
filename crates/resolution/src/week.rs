@@ -4,6 +4,8 @@ use chrono::{DateTime, Datelike, NaiveDate, NaiveTime, Utc};
 use core::marker;
 
 use crate::{DateResolution, Day, Month, Year};
+#[cfg(feature = "serde")]
+use {alloc::format, alloc::string::String};
 
 mod private {
     pub trait Sealed {}
@@ -154,12 +156,12 @@ impl<D: StartDay> From<Week<D>> for Week_ {
 #[cfg(feature = "serde")]
 #[derive(serde::Deserialize, serde::Serialize)]
 struct Week_ {
-    n: i64,
+    n: i32,
     start_day: String,
 }
 
 impl<D: StartDay> DateResolution for Week<D> {
-    fn start(self) -> Day {
+    fn start_day(self) -> Day {
         self.start()
     }
     type Params = ();
@@ -177,10 +179,6 @@ impl<D: StartDay> crate::TimeResolution for Week<D> {
     }
     fn pred_n(self, n: u16) -> Week<D> {
         self.pred_n(n)
-    }
-    #[cfg(feature = "chrono")]
-    fn start_datetime(self) -> DateTime<Utc> {
-        self.start().and_time(NaiveTime::MIN).and_utc()
     }
 
     fn start_minute(self) -> crate::Minute {
@@ -215,20 +213,6 @@ impl<D: StartDay> crate::Monotonic for Week<D> {
 impl<D: StartDay> crate::FromMonotonic for Week<D> {
     fn from_monotonic(idx: i32) -> Self {
         Self::from_monotonic(idx)
-    }
-}
-
-#[cfg(feature = "chrono")]
-impl<D: StartDay> From<NaiveDate> for Week<D> {
-    fn from(value: NaiveDate) -> Week<D> {
-        Week::<D>::from_day(value)
-    }
-}
-
-#[cfg(feature = "chrono")]
-impl<D: StartDay> From<DateTime<Utc>> for Week<D> {
-    fn from(date: DateTime<Utc>) -> Self {
-        date.date_naive().into()
     }
 }
 
@@ -290,13 +274,7 @@ impl<D: StartDay> Week<D> {
     pub const fn pred_n(self, n: u16) -> Week<D> {
         Week::from_monotonic(self.n - n as i32)
     }
-    #[cfg(feature = "chrono")]
 
-    pub const fn start_datetime(self) -> DateTime<Utc> {
-        crate::DateResolution::start(self)
-            .and_time(NaiveTime::MIN)
-            .and_utc()
-    }
     // pub const fn name(self) -> String {
     //     format!("Week[StartDay:{}]", D::NAME)
     // }
@@ -346,37 +324,35 @@ mod tests {
     use crate::date_impl::{DayOfMonth, MonthOfYear};
 
     use super::*;
-    use crate::{DateResolution, TimeResolution};
+    use crate::DateResolution;
 
     #[test]
     #[cfg(feature = "serde")]
     fn test_roundtrip() {
-        use date_impl::MonthOfYear;
-
         use crate::DateResolutionExt;
 
         let dt = Day::ymd(2021, MonthOfYear::Dec, DayOfMonth::D6);
 
-        let wk = Week::<Monday>::from(dt);
-        assert!(wk.start() <= dt && wk.end() >= dt);
+        let wk = Week::<Monday>::from_day(dt);
+        assert!(wk.start_day() <= dt && wk.end_day() >= dt);
 
-        let wk = Week::<Tuesday>::from(dt);
-        assert!(wk.start() <= dt && wk.end() >= dt);
+        let wk = Week::<Tuesday>::from_day(dt);
+        assert!(wk.start_day() <= dt && wk.end_day() >= dt);
 
-        let wk = Week::<Wednesday>::from(dt);
-        assert!(wk.start() <= dt && wk.end() >= dt);
+        let wk = Week::<Wednesday>::from_day(dt);
+        assert!(wk.start_day() <= dt && wk.end_day() >= dt);
 
-        let wk = Week::<Thursday>::from(dt);
-        assert!(wk.start() <= dt && wk.end() >= dt);
+        let wk = Week::<Thursday>::from_day(dt);
+        assert!(wk.start_day() <= dt && wk.end_day() >= dt);
 
-        let wk = Week::<Friday>::from(dt);
-        assert!(wk.start() <= dt && wk.end() >= dt);
+        let wk = Week::<Friday>::from_day(dt);
+        assert!(wk.start_day() <= dt && wk.end_day() >= dt);
 
-        let wk = Week::<Saturday>::from(dt);
-        assert!(wk.start() <= dt && wk.end() >= dt);
+        let wk = Week::<Saturday>::from_day(dt);
+        assert!(wk.start_day() <= dt && wk.end_day() >= dt);
 
-        let wk = Week::<Sunday>::from(dt);
-        assert!(wk.start() <= dt && wk.end() >= dt);
+        let wk = Week::<Sunday>::from_day(dt);
+        assert!(wk.start_day() <= dt && wk.end_day() >= dt);
 
         assert_eq!(
             wk,
