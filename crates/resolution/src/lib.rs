@@ -27,7 +27,6 @@ pub type Hour = Minutes<60>;
 mod const_formatting;
 mod time_of_day;
 
-
 mod day;
 pub use day::date_impl::{self, Day};
 
@@ -44,7 +43,7 @@ pub use year::Year;
 #[cfg(feature = "chrono")]
 mod zoned;
 #[cfg(feature = "chrono")]
-pub use zoned::{FixedTimeZone, ZonedLocal};
+pub use zoned::{FixedTimeZone, Zoned};
 
 pub trait LongerThan<T>: LongerThanOrEqual<T> {}
 

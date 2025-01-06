@@ -1,6 +1,6 @@
 use crate::alloc::string::ToString;
 use crate::date_impl::MonthOfYear;
-use crate::time_of_day::LocalDateTime;
+use crate::time_of_day::{LocalDateTime, LocalTimeOfDay};
 use crate::{
     Convert, Day, FromMonotonic, Minute, Monotonic, Month, SubDateResolution, TimeResolution, Year,
 };
@@ -296,7 +296,7 @@ impl<const N: u16> Minutes<N> {
     }
 
     pub const fn local_time(self) -> LocalDateTime {
-        todo!()
+        LocalDateTime::from_minutes(self)
     }
 
     // TODO: improve or remove
@@ -313,8 +313,9 @@ impl<const N: u16> Minutes<N> {
     // TODO: improve or remove
     #[cfg(feature = "chrono")]
     pub fn start_datetime(self) -> DateTime<Utc> {
-        DateTime::<Utc>::from_timestamp(i64::from(self.index * NUM_SECS) * i64::from(N), 0)
-            .expect("valid timestamp")
+        // DateTime::<Utc>::from_timestamp(i64::from(self.index * NUM_SECS) * i64::from(N), 0)
+        //     .expect("valid timestamp")
+        self.local_time().chrono_datetime().and_utc()
     }
 
     pub const fn start_minute(self) -> Minute {

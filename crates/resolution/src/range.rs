@@ -3,7 +3,7 @@ use crate::{
     SubDateResolution, TimeResolution,
 };
 #[cfg(feature = "chrono")]
-use crate::{FixedTimeZone, ZonedLocal};
+use crate::{FixedTimeZone, Zoned};
 use alloc::{collections, fmt, vec::Vec};
 #[cfg(feature = "chrono")]
 use chrono::{DateTime, Utc};
@@ -282,7 +282,10 @@ impl<P: TimeResolution + FromMonotonic> DoubleEndedIterator for TimeRangeIter<P>
 }
 
 #[cfg(feature = "chrono")]
-impl<P: TimeResolution + FromMonotonic, Z: FixedTimeZone> TimeRange<ZonedLocal<P, Z>> where ZonedLocal<P, Z>: FromMonotonic {
+impl<P: TimeResolution + FromMonotonic, Z: FixedTimeZone> TimeRange<Zoned<P, Z>>
+where
+    Zoned<P, Z>: FromMonotonic,
+{
     pub fn local(&self) -> TimeRange<P> {
         TimeRange::new(self.start().local_resolution(), self.len)
     }

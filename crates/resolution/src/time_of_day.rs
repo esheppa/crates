@@ -4,7 +4,7 @@
 
 // represents the local time of day
 
-use crate::Day;
+use crate::{Day, DaySubdivison, Minutes};
 
 #[derive(Clone, Copy, Debug, PartialEq, PartialOrd, Eq, Ord)]
 pub struct LocalDateTime(Day, LocalTimeOfDay);
@@ -23,6 +23,13 @@ impl LocalDateTime {
     #[cfg(feature = "chrono")]
     pub const fn chrono_datetime(self) -> chrono::NaiveDateTime {
         self.0.chrono_date().and_time(self.1.chrono_time())
+    }
+
+    pub const fn from_minutes<const N: u16>(min: Minutes<N>) -> LocalDateTime {
+        LocalDateTime(
+            min.day(),
+            LocalTimeOfDay::from_day_subdivision(min.relative()),
+        )
     }
 }
 
@@ -46,6 +53,119 @@ impl LocalTimeOfDay {
                 (self.0.number() as i64 * 60) + self.1.number() as i64,
             ))
             .0
+    }
+
+    // argurably this could also live alongside
+    // Minutes and DaySubdivision
+    // but it also asserts their invariants
+    // and this avoids exposing the constructor
+    pub const fn from_day_subdivision<const N: u16>(sub: DaySubdivison<N>) -> LocalTimeOfDay {
+        // subtract N at the end to get the minutes at the _start_ of the period
+        let total_minutes = sub.index().get() * N - N;
+
+        // guaranteed by Minutes & DaySubdivision impl
+        assert!(total_minutes < 1440);
+
+        // guaranteed by above to be < 24
+        let hours_through = total_minutes / 60;
+        // guaranteed to be 0..59 due to % operator
+        let minutes_through = total_minutes % 60;
+
+        let hour = match hours_through {
+            0 => HourOfDay::H0,
+            1 => HourOfDay::H1,
+            2 => HourOfDay::H2,
+            3 => HourOfDay::H3,
+            4 => HourOfDay::H4,
+            5 => HourOfDay::H5,
+            6 => HourOfDay::H6,
+            7 => HourOfDay::H7,
+            8 => HourOfDay::H8,
+            9 => HourOfDay::H9,
+            10 => HourOfDay::H10,
+            11 => HourOfDay::H11,
+            12 => HourOfDay::H12,
+            13 => HourOfDay::H13,
+            14 => HourOfDay::H14,
+            15 => HourOfDay::H15,
+            16 => HourOfDay::H16,
+            17 => HourOfDay::H17,
+            18 => HourOfDay::H18,
+            19 => HourOfDay::H19,
+            20 => HourOfDay::H20,
+            21 => HourOfDay::H21,
+            22 => HourOfDay::H22,
+            23 => HourOfDay::H23,
+            // as per above guarantees
+            _ => unreachable!(),
+        };
+
+        let minute = match minutes_through {
+            0 => MinuteOfHour::M0,
+            1 => MinuteOfHour::M1,
+            2 => MinuteOfHour::M2,
+            3 => MinuteOfHour::M3,
+            4 => MinuteOfHour::M4,
+            5 => MinuteOfHour::M5,
+            6 => MinuteOfHour::M6,
+            7 => MinuteOfHour::M7,
+            8 => MinuteOfHour::M8,
+            9 => MinuteOfHour::M9,
+            10 => MinuteOfHour::M10,
+            11 => MinuteOfHour::M11,
+            12 => MinuteOfHour::M12,
+            13 => MinuteOfHour::M13,
+            14 => MinuteOfHour::M14,
+            15 => MinuteOfHour::M15,
+            16 => MinuteOfHour::M16,
+            17 => MinuteOfHour::M17,
+            18 => MinuteOfHour::M18,
+            19 => MinuteOfHour::M19,
+            20 => MinuteOfHour::M20,
+            21 => MinuteOfHour::M21,
+            22 => MinuteOfHour::M22,
+            23 => MinuteOfHour::M23,
+            24 => MinuteOfHour::M24,
+            25 => MinuteOfHour::M25,
+            26 => MinuteOfHour::M26,
+            27 => MinuteOfHour::M27,
+            28 => MinuteOfHour::M28,
+            29 => MinuteOfHour::M29,
+            30 => MinuteOfHour::M30,
+            31 => MinuteOfHour::M31,
+            32 => MinuteOfHour::M32,
+            33 => MinuteOfHour::M33,
+            34 => MinuteOfHour::M34,
+            35 => MinuteOfHour::M35,
+            36 => MinuteOfHour::M36,
+            37 => MinuteOfHour::M37,
+            38 => MinuteOfHour::M38,
+            39 => MinuteOfHour::M39,
+            40 => MinuteOfHour::M40,
+            41 => MinuteOfHour::M41,
+            42 => MinuteOfHour::M42,
+            43 => MinuteOfHour::M43,
+            44 => MinuteOfHour::M44,
+            45 => MinuteOfHour::M45,
+            46 => MinuteOfHour::M46,
+            47 => MinuteOfHour::M47,
+            48 => MinuteOfHour::M48,
+            49 => MinuteOfHour::M49,
+            50 => MinuteOfHour::M50,
+            51 => MinuteOfHour::M51,
+            52 => MinuteOfHour::M52,
+            53 => MinuteOfHour::M53,
+            54 => MinuteOfHour::M54,
+            55 => MinuteOfHour::M55,
+            56 => MinuteOfHour::M56,
+            57 => MinuteOfHour::M57,
+            58 => MinuteOfHour::M58,
+            59 => MinuteOfHour::M59,
+            // as per above guarantees
+            _ => unreachable!(),
+        };
+
+        Self(hour, minute)
     }
 }
 
