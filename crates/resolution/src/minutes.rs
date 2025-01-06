@@ -295,6 +295,10 @@ impl<const N: u16> Minutes<N> {
         Self::from_minute(Minute::first_on_day(local.day()).succ_n(through_day))
     }
 
+    pub const fn local_time(self) -> LocalDateTime {
+        todo!()
+    }
+
     // TODO: improve or remove
     #[cfg(feature = "chrono")]
     pub const fn from_utc_datetime(datetime: DateTime<Utc>) -> Self {
@@ -308,7 +312,7 @@ impl<const N: u16> Minutes<N> {
 
     // TODO: improve or remove
     #[cfg(feature = "chrono")]
-    fn start_datetime(self) -> DateTime<Utc> {
+    pub fn start_datetime(self) -> DateTime<Utc> {
         DateTime::<Utc>::from_timestamp(i64::from(self.index * NUM_SECS) * i64::from(N), 0)
             .expect("valid timestamp")
     }

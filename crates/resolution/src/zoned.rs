@@ -29,32 +29,30 @@ impl FixedTimeZone for Utc {
     }
 }
 
-/// `Zoned` stores a `TimeResolution` representing the local time in the zone, plus the relevant
-/// offset and zone itself. This is intended to allow assertion that a given resolution is in a certain
-/// timezone and thus allow finding the start and end times of that resolution with their correct UTC offsets.
-///
-/// warning: this should not be used for `SubDateResolution`s larger than `Minutes<60>` or equivalent. (Ideally
-/// this restriction will be removed later)
-///
-/// note: this works perfectly well with _fixed_ and _non-fixed_ timezones, but many implementations are only
-/// available for fixed timezones.
-pub struct ZonedLocal<R, Z>
-where
-    R: TimeResolution,
-    Z: TimeZone + Copy + fmt::Debug,
-{
-    // we store local rather than utc here.
-    // this is because we want start time validation (relevant for Minutes<N>) to be applied to the
-    // local time, not the UTC time.
-    // we could alternatively just store a valid DateTime<Utc> here that matches the UTC start time
-    // of the local resolution
-    local_resolution: R,
-    // store the offset of the local_resolution so that we can reconstruct the local time infallibly
-    current_offset: FixedOffset,
-    zone: Z,
-}
-
-
+// /// `Zoned` stores a `TimeResolution` representing the local time in the zone, plus the relevant
+// /// offset and zone itself. This is intended to allow assertion that a given resolution is in a certain
+// /// timezone and thus allow finding the start and end times of that resolution with their correct UTC offsets.
+// ///
+// /// warning: this should not be used for `SubDateResolution`s larger than `Minutes<60>` or equivalent. (Ideally
+// /// this restriction will be removed later)
+// ///
+// /// note: this works perfectly well with _fixed_ and _non-fixed_ timezones, but many implementations are only
+// /// available for fixed timezones.
+// pub struct ZonedLocal<R, Z>
+// where
+//     R: TimeResolution,
+//     Z: TimeZone + Copy + fmt::Debug,
+// {
+//     // we store local rather than utc here.
+//     // this is because we want start time validation (relevant for Minutes<N>) to be applied to the
+//     // local time, not the UTC time.
+//     // we could alternatively just store a valid DateTime<Utc> here that matches the UTC start time
+//     // of the local resolution
+//     local_resolution: R,
+//     // store the offset of the local_resolution so that we can reconstruct the local time infallibly
+//     current_offset: FixedOffset,
+//     zone: Z,
+// }
 
 pub struct ZonedUtc<R, Z>
 where
@@ -64,8 +62,6 @@ where
     // where the R is a Minutes<N>:
     // where the R is not a Minutes<N>: no difference between utc and local anyway
     utc_resolution: R,
-    // store the offset of the local_resolution so that we can reconstruct the local time infallibly
-    current_offset: FixedOffset,
     zone: Z,
 }
 
@@ -145,8 +141,7 @@ where
     Z: TimeZone + Copy + fmt::Debug,
 {
     fn cmp(&self, other: &Self) -> core::cmp::Ordering {
-        self.utc_resolution
-            .cmp(&other.utc_resolution)
+        self.utc_resolution.cmp(&other.utc_resolution)
     }
 }
 
@@ -159,7 +154,6 @@ where
         Some(self.cmp(other))
     }
 }
-
 
 impl<R, Z> Monotonic for ZonedUtc<R, Z>
 where
@@ -191,7 +185,7 @@ where
             ..self
         }
     }
-    
+
     const NAME: &str = const {
         // if any::type_name::<R>() == "Year" {
 
@@ -201,24 +195,22 @@ where
 
         "ZonedLocal"
     };
-    
+
     fn start_minute(self) -> crate::Minute {
-        todo!()
-    }
-    
-    fn day(self) -> crate::Day {
-        todo!()
-    }
-    
-    fn month(self) -> crate::Month {
-        todo!()
-    }
-    
-    fn year(self) -> crate::Year {
-        todo!()
+        self.local_resolution().start_minute()
     }
 
-    
+    fn day(self) -> crate::Day {
+        self.local_resolution().day()
+    }
+
+    fn month(self) -> crate::Month {
+        self.local_resolution().month()
+    }
+
+    fn year(self) -> crate::Year {
+        self.local_resolution().year()
+    }
 }
 
 impl<R, Z> ZonedUtc<R, Z>
@@ -243,20 +235,15 @@ where
     Z: TimeZone + Copy + fmt::Debug,
 {
     pub fn local_start_datetime(&self) -> DateTime<Z> {
-        self.utc_resolution
-            .start_datetime()
-            .naive_utc()
-            .and_local_timezone(self.current_offset)
-            .single()
-            // unwrap will never panic becuase calling
-            // `and_local_timezone` with a fixed offset will
-            // always reuturn a valid local time
-            .unwrap()
-            .with_timezone(&self.zone)
+        self.utc_start_datetime().with_timezone(&self.zone)
     }
 
     pub fn utc_start_datetime(&self) -> DateTime<Utc> {
-        self.utc_resolution.start_minute()
+        self.utc_resolution
+            .start_minute()
+            .local_time()
+            .chrono_datetime()
+            .and_utc()
     }
 
     pub fn zone(&self) -> Z {
@@ -266,7 +253,6 @@ where
         todo!()
     }
 }
-
 
 impl<R, Z> ZonedUtc<R, Z>
 where
@@ -287,7 +273,6 @@ where
     }
 }
 
-
 impl<R, Z> TimeResolution for ZonedLocal<R, Z>
 where
     R: TimeResolution,
@@ -305,7 +290,7 @@ where
             ..self
         }
     }
-    
+
     const NAME: &str = const {
         // if any::type_name::<R>() == "Year" {
 
@@ -315,24 +300,22 @@ where
 
         "ZonedLocal"
     };
-    
+
     fn start_minute(self) -> crate::Minute {
         todo!()
     }
-    
+
     fn day(self) -> crate::Day {
         todo!()
     }
-    
+
     fn month(self) -> crate::Month {
         todo!()
     }
-    
+
     fn year(self) -> crate::Year {
         todo!()
     }
-
-    
 }
 
 impl<R, Z> ZonedLocal<R, Z>
@@ -381,7 +364,6 @@ where
     }
 }
 
-
 impl<R, Z> ZonedLocal<R, Z>
 where
     R: SubDateResolution<Params = ()>,
@@ -400,8 +382,6 @@ where
             .into()
     }
 }
-
-
 
 impl<R, Z> fmt::Debug for ZonedLocal<R, Z>
 where
@@ -686,12 +666,14 @@ mod tests {
             for start_timestamp in start_timestamps {
                 assert_eq!(
                     start_timestamp.clone(),
-                    ZonedLocal::<Minutes<N>, _>::from(start_timestamp.clone()).local_start_datetime(),
+                    ZonedLocal::<Minutes<N>, _>::from(start_timestamp.clone())
+                        .local_start_datetime(),
                 );
 
                 assert_eq!(
                     ZonedLocal::from_local(
-                        ZonedLocal::<Minutes<N>, _>::from(start_timestamp.clone()).local_resolution(),
+                        ZonedLocal::<Minutes<N>, _>::from(start_timestamp.clone())
+                            .local_resolution(),
                         tz
                     ),
                     ZonedLocal::<Minutes<N>, _>::from(start_timestamp.clone())
