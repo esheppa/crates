@@ -310,20 +310,20 @@ pub type Result<T> = std::result::Result<T, Error>;
 /// * Dispatch periods in the Australian Electricity Market (and similar concepts in other energy markets)
 pub trait TimeResolution: Monotonic {
     const NAME: &str;
-    fn succ(self) -> Self {
+    fn succ(self) -> Option<Self> {
         self.succ_n(1)
     }
 
-    fn pred(self) -> Self {
+    fn pred(self) -> Option<Self> {
         self.pred_n(1)
     }
 
     // the default impls are probably inefficient
     // makes sense to require just the n
     // and give the 1 for free
-    fn succ_n(self, n: u16) -> Self;
+    fn succ_n(self, n: u16) -> Option<Self>;
 
-    fn pred_n(self, n: u16) -> Self;
+    fn pred_n(self, n: u16) -> Option<Self>;
     // fn add(self, n: i32) -> Self;
 
     fn start_minute(self) -> Minute;

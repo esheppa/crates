@@ -69,10 +69,10 @@ impl DateResolution for Day {
 }
 
 impl TimeResolution for Day {
-    fn succ_n(self, n: u16) -> Self {
+    fn succ_n(self, n: u16) -> Option<Self> {
         self.succ_n(n)
     }
-    fn pred_n(self, n: u16) -> Self {
+    fn pred_n(self, n: u16) -> Option<Self> {
         self.pred_n(n)
     }
     // #[cfg(feature = "chrono")]
