@@ -1,7 +1,7 @@
 use core::ops::{Add, AddAssign, Sub, SubAssign};
 
 use alloc::{format, string::String};
-
+pub mod time_of_day;
 use crate::time_of_day::{LocalDateTime, LocalTimeOfDay};
 
 extern crate alloc;
@@ -12,51 +12,51 @@ mod tests;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 // days since 1900-01-01
-pub struct Day(pub(super) i32);
+pub struct Date(i32);
 
-impl Day {
-    pub const fn succ_n(self, n: u16) -> Option<Day> {
+impl Date {
+    pub const fn succ_n(self, n: u16) -> Option<Date> {
         let Some(d) = self.0.checked_add(n as i32) else {
             return None;
         };
-        Some(Day(d))
+        Some(Date(d))
     }
-    pub const fn pred_n(self, n: u16) -> Option<Day> {
+    pub const fn pred_n(self, n: u16) -> Option<Date> {
         let Some(d) = self.0.checked_sub(n as i32) else {
             return None;
         };
-        Some(Day(d))
+        Some(Date(d))
     }
-    pub const fn succ(self) -> Option<Day> {
+    pub const fn succ(self) -> Option<Date> {
         let Some(d) = self.0.checked_add(1) else {
             return None;
         };
-        Some(Day(d))
+        Some(Date(d))
     }
-    pub const fn pred(self) -> Option<Day> {
+    pub const fn pred(self) -> Option<Date> {
         let Some(d) = self.0.checked_sub(1) else {
             return None;
         };
-        Some(Day(d))
+        Some(Date(d))
     }
-    pub const fn first_on_year(year: i32) -> Option<Day> {
+    pub const fn first_on_year(year: i32) -> Option<Date> {
         first_on_year_internal(year)
     }
-    pub const fn last_on_year(year: i32) -> Option<Day> {
-        let Some(y) = Day::first_on_year(year + 1) else {
+    pub const fn last_on_year(year: i32) -> Option<Date> {
+        let Some(y) = Date::first_on_year(year + 1) else {
             return None;
         };
         y.pred_n(1)
     }
 
-    pub const fn first_on_month(year: i32, month: MonthOfYear) -> Option<Day> {
-        let Some(d) = Day::first_on_year(year) else {
+    pub const fn first_on_month(year: i32, month: MonthOfYear) -> Option<Date> {
+        let Some(d) = Date::first_on_year(year) else {
             return None;
         };
         d.succ_n(month.cumulative_days(year))
     }
 
-    pub const fn last_on_month(year: i32, month: MonthOfYear) -> Option<Day> {
+    pub const fn last_on_month(year: i32, month: MonthOfYear) -> Option<Date> {
         let Some(d) = Self::first_on_month(year, month) else {
             return None;
         };
@@ -67,15 +67,17 @@ impl Day {
         d.succ_n(sub)
     }
     // this is limited to only the 28th day
-    pub const fn ymd(year: i32, month: MonthOfYear, day: DayOfMonth) -> Option<Day> {
-        let Some(first) = Self::first_on_month(year, month) else {return None};
+    pub const fn ymd(year: i32, month: MonthOfYear, day: DayOfMonth) -> Option<Date> {
+        let Some(first) = Self::first_on_month(year, month) else {
+            return None;
+        };
         let Some(sub) = (day.number() as u16).checked_sub(1) else {
             return None;
         };
 
         first.succ_n(sub)
     }
-    pub const fn with_day(self, day: DayOfMonth) -> Option<Day> {
+    pub const fn with_day(self, day: DayOfMonth) -> Option<Date> {
         let current_day = self.day_of_month();
         if current_day == day.number() {
             return Some(self);
@@ -98,8 +100,8 @@ impl Day {
     pub const fn through(&self) -> YearAndDays {
         YearAndDays::calculate(*self)
     }
-    pub const fn new(days: i32) -> Day {
-        Day(days)
+    pub const fn new(days: i32) -> Date {
+        Date(days)
     }
     pub const fn inner(self) -> i32 {
         self.0
@@ -129,39 +131,39 @@ impl Day {
     }
 }
 
-impl Add<i32> for Day {
-    type Output = Day;
+impl Add<i32> for Date {
+    type Output = Date;
 
     fn add(self, rhs: i32) -> Self::Output {
-        Day(self.0 + rhs)
+        Date(self.0 + rhs)
     }
 }
 
-impl Add<Day> for i32 {
-    type Output = Day;
+impl Add<Date> for i32 {
+    type Output = Date;
 
-    fn add(self, rhs: Day) -> Self::Output {
-        Day(self + rhs.0)
+    fn add(self, rhs: Date) -> Self::Output {
+        Date(self + rhs.0)
     }
 }
 
-impl AddAssign<i32> for Day {
+impl AddAssign<i32> for Date {
     fn add_assign(&mut self, rhs: i32) {
         self.0 += rhs;
     }
 }
 
-impl SubAssign<i32> for Day {
+impl SubAssign<i32> for Date {
     fn sub_assign(&mut self, rhs: i32) {
         self.0 -= rhs;
     }
 }
 
-impl Sub<i32> for Day {
-    type Output = Day;
+impl Sub<i32> for Date {
+    type Output = Date;
 
     fn sub(self, rhs: i32) -> Self::Output {
-        Day(self.0 - rhs)
+        Date(self.0 - rhs)
     }
 }
 
@@ -539,11 +541,7 @@ pub const fn is_leap_year(year: i32) -> bool {
     !is_not_leap_year(year)
 }
 pub const fn days_in_year(year: i32) -> i32 {
-    if is_leap_year(year) {
-        366
-    } else {
-        365
-    }
+    if is_leap_year(year) { 366 } else { 365 }
 }
 
 #[derive(Debug)]
@@ -576,24 +574,26 @@ impl CycleSplit {
     }
 }
 
-const fn first_on_year_internal(year: i32) -> Option<Day> {
-    // if year < 1900 {
-    //     panic!("Out of range")
-    // }
-
-    // let adj = year - 1900;
-
-    // if adj == 0 {
-    //     return Date(0);
-    // }
+const fn first_on_year_internal(year: i32) -> Option<Date> {
     // how many 400ys - we subtract one because it is about how many of these that we have passed
-    let long_cycles = (year - 1).div_euclid(400);
+    let Some(long_cycles) = year.checked_sub(1) else {
+        return None;
+    };
+
+    let long_cycles = long_cycles.div_euclid(400);
 
     // how many 100ys - we subtract one because it is about how many of these that we have passed
-    let mid_cycles = (year - 1).div_euclid(100);
+    let Some(mid_cycles) = year.checked_sub(1) else {
+        return None;
+    };
+
+    let mid_cycles = mid_cycles.div_euclid(100);
 
     // how many 4ys - we subtract one because it is about how many of these that we have passed
-    let cycles = (year - 1).div_euclid(4);
+    let Some(cycles) = year.checked_sub(1) else {
+        return None;
+    };
+    let cycles = cycles.div_euclid(4);
 
     let Some(a) = year.checked_mul(365) else {
         return None;
@@ -611,7 +611,7 @@ const fn first_on_year_internal(year: i32) -> Option<Day> {
         return None;
     };
 
-    Some(Day(a))
+    Some(Date(a))
 }
 
 const B1: i32 = 1 * DAYS_PER_MOST_100Y + 1;
@@ -620,7 +620,7 @@ const B3: i32 = 3 * DAYS_PER_MOST_100Y + 1;
 const B4: i32 = 4 * DAYS_PER_MOST_100Y + 1;
 
 impl YearAndDays {
-    const fn calculate(date: Day) -> YearAndDays {
+    const fn calculate(date: Date) -> YearAndDays {
         // figure out which 400y block we are in
         let block = date.0.div_euclid(DAYS_PER_400Y);
         let remainder = date.0.rem_euclid(DAYS_PER_400Y);
@@ -714,7 +714,7 @@ impl YearAndDays {
 #[kani::proof]
 pub fn verify_roundtrip() {
     let x: i32 = kani::any();
-    let date = Day::new(x);
+    let date = Date::new(x);
     let calculated = YearAndDays::calculate(date);
     let roundtrip = first_on_year_internal(calculated.year).succ_n(calculated.days_through as u16);
     assert_eq!(date, roundtrip);

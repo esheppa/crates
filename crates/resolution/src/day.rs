@@ -1,16 +1,20 @@
-use crate::{Error, FiveMinute, HalfHour, Hour, Minute};
+use crate::{Error, FiveMinute, HalfHour, Hour, Minute, unwrap};
 
-use crate::{
-    DateResolution, FromMonotonic, Monotonic, Month, Quarter, StartDay, TimeResolution, Week, Year,
-};
+use crate::{DateResolution, FromMonotonic, Monotonic, TimeResolution};
+
+// use crate::{
+// Month, Quarter, StartDay, Week, Year,
+// };
+
 use alloc::{fmt, str};
 #[cfg(feature = "chrono")]
 use chrono::{DateTime, NaiveTime, Utc};
-use date_impl::Day;
+use date::Date;
 #[cfg(feature = "serde")]
 use {alloc::string::String, alloc::string::ToString, core::result, serde::de};
 
-pub mod date_impl;
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
+pub struct Day(i32);
 
 const DATE_FORMAT: &str = "%Y-%m-%d";
 
@@ -50,14 +54,14 @@ impl str::FromStr for Day {
 
 impl fmt::Display for Day {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let (year, month, day) = self.to_ymd();
+        let (year, month, day) = Date::new(self.0).to_ymd();
         write!(f, "{year:04}-{month:02}-{day:02}")
     }
 }
 
 impl DateResolution for Day {
-    fn start_day(self) -> Day {
-        self
+    fn start_day(self) -> Option<Day> {
+        Some(self)
     }
     type Params = ();
 
@@ -70,10 +74,10 @@ impl DateResolution for Day {
 
 impl TimeResolution for Day {
     fn succ_n(self, n: u16) -> Option<Self> {
-        self.succ_n(n)
+        Day::succ_n(self, n)
     }
     fn pred_n(self, n: u16) -> Option<Self> {
-        self.pred_n(n)
+        Day::pred_n(self, n)
     }
     // #[cfg(feature = "chrono")]
     // fn start_datetime(self) -> DateTime<Utc> {
@@ -83,22 +87,22 @@ impl TimeResolution for Day {
     //         .and_utc()
     // }
 
-    fn start_minute(self) -> Minute {
+    fn start_minute(self) -> Option<Minute> {
         self.start_minute()
     }
 
-    const NAME: &str = "Year";
-    fn day(self) -> Day {
-        self.day()
-    }
+    const NAME: &str = "Day";
+    // fn day(self) -> Day {
+    //     self.day()
+    // }
 
-    fn month(self) -> Month {
-        self.month()
-    }
+    // fn month(self) -> Month {
+    //     self.month()
+    // }
 
-    fn year(self) -> Year {
-        self.year()
-    }
+    // fn year(self) -> Year {
+    //     self.year()
+    // }
 }
 
 impl Monotonic for Day {
@@ -116,6 +120,9 @@ impl FromMonotonic for Day {
     }
 }
 impl Day {
+    pub const fn new(idx: i32) -> Self {
+        Day(idx)
+    }
     pub const fn from_monotonic(idx: i32) -> Self {
         Day(idx)
     }
@@ -126,38 +133,45 @@ impl Day {
         other.0 - self.0
     }
 
+    pub const fn date(self) -> Date {
+        Date::new(self.0)
+    }
+    pub const fn from_date(date: Date) -> Day {
+        Day(date.inner())
+    }
+
     // pub const fn start_datetime(self) -> DateTime<Utc> {
     //     self.date().and_time(NaiveTime::MIN).and_utc()
     // }
 
-    pub const fn year(self) -> super::Year {
-        super::Year::new(self.year_num())
-    }
-    pub const fn quarter(self) -> super::Quarter {
-        Quarter::from_day(self)
-    }
+    // pub const fn year(self) -> super::Year {
+    //     super::Year::new(self.year_num())
+    // }
+    // pub const fn quarter(self) -> super::Quarter {
+    //     Quarter::from_day(self)
+    // }
 
-    pub const fn week<D: StartDay>(self) -> Week<D> {
-        Week::from_day(self)
-    }
+    // pub const fn week<D: StartDay>(self) -> Week<D> {
+    //     Week::from_day(self)
+    // }
 
     pub const fn month_num(self) -> u8 {
-        self.month_of_year().number()
+        self.date().month_of_year().number()
     }
 
-    pub const fn start_minute(self) -> Minute {
+    pub const fn start_minute(self) -> Option<Minute> {
         todo!()
     }
 
-    pub const fn five_minute(self) -> FiveMinute {
+    pub const fn five_minute(self) -> Option<FiveMinute> {
         todo!()
     }
 
-    pub const fn half_hour(self) -> HalfHour {
+    pub const fn half_hour(self) -> Option<HalfHour> {
         todo!()
     }
 
-    pub const fn hour(self) -> Hour {
+    pub const fn hour(self) -> Option<Hour> {
         todo!()
     }
 
@@ -165,8 +179,21 @@ impl Day {
         self
     }
 
-    pub const fn month(self) -> Month {
-        Month::from_day(self)
+    // pub const fn month(self) -> Month {
+    //     Month::from_day(self)
+    // }
+
+    pub const fn succ(self) -> Option<Day> {
+        self.succ_n(1)
+    }
+    pub const fn pred(self) -> Option<Day> {
+        self.pred_n(1)
+    }
+    pub const fn succ_n(self, n: u16) -> Option<Day> {
+        Some(Day(unwrap!(self.0.checked_add(n as i32))))
+    }
+    pub const fn pred_n(self, n: u16) -> Option<Day> {
+        Some(Day(unwrap!(self.0.checked_sub(n as i32))))
     }
 }
 
@@ -179,11 +206,8 @@ impl Day {
 
 #[cfg(test)]
 mod tests {
-
-    use date_impl::{DayOfMonth, MonthOfYear};
-
     use super::*;
-    use crate::DateResolutionExt;
+    use date::{DayOfMonth, MonthOfYear};
 
     #[cfg(feature = "serde")]
     #[test]
@@ -204,24 +228,50 @@ mod tests {
     fn test_parse_date_syntax() {
         assert_eq!(
             "2021-01-01".parse::<Day>().unwrap(),
-            Day::first_on_year(2021),
+            Day::from_date(Date::first_on_year(2021).unwrap()),
         );
         assert_eq!(
-            "2021-01-01".parse::<Day>().unwrap().succ(),
-            Day::ymd(2021, MonthOfYear::Jan, DayOfMonth::D2),
+            "2021-01-01".parse::<Day>().unwrap().succ().unwrap(),
+            Day::from_date(Date::ymd(2021, MonthOfYear::Jan, DayOfMonth::D2).unwrap()),
         );
         assert_eq!(
-            "2021-01-01".parse::<Day>().unwrap().succ().pred(),
-            Day::first_on_year(2021),
+            "2021-01-01"
+                .parse::<Day>()
+                .unwrap()
+                .succ()
+                .unwrap()
+                .pred()
+                .unwrap(),
+            Day::from_date(Date::first_on_year(2021).unwrap()),
         );
     }
 
     #[test]
     fn test_start() {
-        assert_eq!(Day(2), Day::ymd(0, MonthOfYear::Jan, DayOfMonth::D3));
-        assert_eq!(Day(1), Day::ymd(0, MonthOfYear::Jan, DayOfMonth::D2));
-        assert_eq!(Day(0), Day::ymd(0, MonthOfYear::Jan, DayOfMonth::D1));
-        assert_eq!(Day(-1), Day::last_on_month(-1, MonthOfYear::Dec));
-        assert_eq!(Day(-2), Day::last_on_month(-1, MonthOfYear::Dec).pred_n(1));
+        assert_eq!(
+            Day(2),
+            Day::from_date(Date::ymd(0, MonthOfYear::Jan, DayOfMonth::D3).unwrap())
+        );
+        assert_eq!(
+            Day(1),
+            Day::from_date(Date::ymd(0, MonthOfYear::Jan, DayOfMonth::D2).unwrap())
+        );
+        assert_eq!(
+            Day(0),
+            Day::from_date(Date::ymd(0, MonthOfYear::Jan, DayOfMonth::D1).unwrap())
+        );
+        assert_eq!(
+            Day(-1),
+            Day::from_date(Date::last_on_month(-1, MonthOfYear::Dec).unwrap())
+        );
+        assert_eq!(
+            Day(-2),
+            Day::from_date(
+                Date::last_on_month(-1, MonthOfYear::Dec)
+                    .unwrap()
+                    .pred_n(1)
+                    .unwrap()
+            )
+        );
     }
 }

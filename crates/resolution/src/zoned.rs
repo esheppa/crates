@@ -1,5 +1,3 @@
-use crate::time_of_day::LocalDateTime;
-use crate::time_of_day::LocalTimeOfDay;
 use crate::DateResolution;
 use crate::DateResolutionExt;
 use crate::Day;
@@ -9,6 +7,8 @@ use crate::Minute;
 use crate::Monotonic;
 use crate::SubDateResolution;
 use crate::TimeResolution;
+use crate::time_of_day::LocalDateTime;
+use crate::time_of_day::LocalTimeOfDay;
 use alloc::format;
 use alloc::string::String;
 use chrono::DateTime;
@@ -255,7 +255,6 @@ where
 impl<R, Z> Zoned<R, Z>
 where
     R: SubDateResolution<Params = ()>,
-
     // this is critical
     // as otherwise from_local would need to be fallible
     Z: FixedTimeZone,

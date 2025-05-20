@@ -1,14 +1,15 @@
 use crate::alloc::string::ToString;
-use crate::date_impl::MonthOfYear;
-use crate::time_of_day::{LocalDateTime, LocalTimeOfDay};
 use crate::{
-    Convert, Day, FromMonotonic, Minute, Monotonic, Month, SubDateResolution, TimeResolution, Year,
+    Convert, Day, FromMonotonic, Minute, Monotonic, SubDateResolution, TimeResolution, unwrap,
 };
 use alloc::{fmt, format, str, string::String};
 #[cfg(feature = "chrono")]
 use chrono::{DateTime, Utc};
 use core::fmt::Debug;
 use core::num::NonZeroU16;
+use core::ops::{Bound, RangeBounds};
+use date::MonthOfYear;
+use date::time_of_day::{LocalDateTime, LocalTimeOfDay};
 
 // leap seconds are ignored here
 const NUM_SECS: i32 = 60;
@@ -129,58 +130,58 @@ impl<const N: u16> Convert<Day> for Minutes<N> {
         todo!()
     }
 }
-impl<const N: u16> Convert<Month> for Minutes<N> {
-    fn convert(self) -> Month {
-        todo!()
-    }
-}
+// impl<const N: u16> Convert<Month> for Minutes<N> {
+//     fn convert(self) -> Month {
+//         todo!()
+//     }
+// }
 
-impl<const N: u16> Convert<Year> for Minutes<N> {
-    fn convert(self) -> Year {
-        todo!()
-    }
-}
+// impl<const N: u16> Convert<Year> for Minutes<N> {
+//     fn convert(self) -> Year {
+//         todo!()
+//     }
+// }
 
 impl<const N: u16> TimeResolution for Minutes<N> {
-    fn succ_n(self, n: u16) -> Minutes<N> {
-        self.succ_n(n)
+    fn succ_n(self, n: u16) -> Option<Minutes<N>> {
+        Minutes::<N>::succ_n(self, n)
     }
-    fn pred_n(self, n: u16) -> Minutes<N> {
-        self.pred_n(n)
+    fn pred_n(self, n: u16) -> Option<Minutes<N>> {
+        Minutes::<N>::pred_n(self, n)
     }
 
     const NAME: &str = Self::NAME;
 
-    fn start_minute(self) -> Minute {
-        self.start_minute()
+    fn start_minute(self) -> Option<Minute> {
+        Minutes::<N>::start_minute(self)
     }
 
-    fn succ(self) -> Self {
+    fn succ(self) -> Option<Self> {
         self.succ_n(1)
     }
 
-    fn pred(self) -> Self {
+    fn pred(self) -> Option<Self> {
         self.pred_n(1)
     }
 
-    fn convert<Out>(self) -> Out
+    fn convert<Out>(self) -> Option<Out>
     where
         Out: TimeResolution + From<crate::Minute>,
     {
-        Out::from(self.start_minute())
+        Some(Out::from(unwrap!(self.start_minute())))
     }
 
-    fn day(self) -> Day {
-        self.day()
-    }
+    // fn day(self) -> Day {
+    //     self.day()
+    // }
 
-    fn month(self) -> Month {
-        self.month()
-    }
+    // fn month(self) -> Month {
+    //     self.month()
+    // }
 
-    fn year(self) -> Year {
-        self.year()
-    }
+    // fn year(self) -> Year {
+    //     self.year()
+    // }
 }
 
 // #[cfg(feature = "chrono")]
@@ -196,7 +197,7 @@ impl<const N: u16> SubDateResolution for Minutes<N> {
     fn occurs_on_day(self) -> Day {
         self.occurs_on_day()
     }
-    fn first_on_day(day: Day, _params: Self::Params) -> Self {
+    fn first_on_day(day: Day, _params: Self::Params) -> Option<Self> {
         Self::first_on_day(day)
     }
 
@@ -214,15 +215,16 @@ impl<const N: u16> SubDateResolution for Minutes<N> {
     }
 }
 
-impl<const N: u16> fmt::Display for Minutes<N> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let day = self.day();
-        let sub = self.relative().index();
-        let periods = Self::PERIODS_PER_DAY;
+// impl<const N: u16> fmt::Display for Minutes<N> {
+//     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+//         let day = self.day();
+//         let sub = self.relative().index();
+//         let periods = Self::PERIODS_PER_DAY;
 
-        write!(f, "{day}P{sub:04}/{periods:04}")
-    }
-}
+//         write!(f, "{day}P{sub:04}/{periods:04}")
+//     }
+// }
+
 impl<const N: u16> str::FromStr for Minutes<N> {
     type Err = ParseError;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
@@ -237,40 +239,42 @@ impl<const N: u16> str::FromStr for Minutes<N> {
 }
 
 impl<const N: u16> Minutes<N> {
-    pub const fn relative(self) -> DaySubdivison<N> {
-        let idx = Minutes::<N>::first_on_day(self.occurs_on_day()).between(self);
-        assert!(idx >= 0 && idx <= u16::MAX as i32);
-        DaySubdivison { index: idx as u16 }
+    pub const fn relative(self) -> Option<DaySubdivison<N>> {
+        let idx = unwrap!(Minutes::<N>::first_on_day(self.occurs_on_day())).between(self);
+        if idx < 0 || idx >= 1440 {
+            return None;
+        }
+        Some(DaySubdivison { index: idx as u16 })
     }
 
     pub const fn day(self) -> Day {
         self.occurs_on_day()
     }
 
-    pub const fn month(self) -> Month {
-        self.occurs_on_day().month()
-    }
+    // pub const fn month(self) -> Month {
+    //     self.occurs_on_day().month()
+    // }
 
-    pub const fn year(self) -> Year {
-        self.occurs_on_day().year()
-    }
+    // pub const fn year(self) -> Year {
+    //     self.occurs_on_day().year()
+    // }
 
     const PERIODS_PER_DAY: i32 = MINUTES_PER_DAY / N as i32;
 
-    pub const fn succ_n(self, n: u16) -> Minutes<N> {
-        Minutes {
-            index: self.index + n as i32,
-        }
+    pub const fn succ_n(self, n: u16) -> Option<Minutes<N>> {
+        Some(Minutes {
+            index: unwrap!(self.index.checked_add(n as i32)),
+        })
     }
-    pub const fn pred_n(self, n: u16) -> Minutes<N> {
-        Minutes {
-            index: self.index - n as i32,
-        }
+    pub const fn pred_n(self, n: u16) -> Option<Minutes<N>> {
+        Some(Minutes {
+            index: unwrap!(self.index.checked_sub(n as i32)),
+        })
     }
-    pub const fn succ(self) -> Minutes<N> {
+    pub const fn succ(self) -> Option<Minutes<N>> {
         self.succ_n(1)
     }
-    pub const fn pred(self) -> Minutes<N> {
+    pub const fn pred(self) -> Option<Minutes<N>> {
         self.pred_n(1)
     }
     pub const fn to_monotonic(self) -> i32 {
@@ -285,18 +289,31 @@ impl<const N: u16> Minutes<N> {
     pub const fn occurs_on_day(self) -> Day {
         Day::new(self.index / Self::PERIODS_PER_DAY)
     }
-    pub const fn first_on_day(day: Day) -> Self {
-        Self::from_monotonic(day.to_monotonic() * Self::PERIODS_PER_DAY)
+    pub const fn first_on_day(day: Day) -> Option<Self> {
+        Some(Self::from_monotonic(unwrap!(
+            day.to_monotonic().checked_mul(Self::PERIODS_PER_DAY)
+        )))
     }
 
-    pub const fn from_local_time(local: LocalDateTime) -> Self {
-        let through_day =
-            local.time().hour().number() as u16 + 60 * (local.time().minute().number() as u16);
-        Self::from_minute(Minute::first_on_day(local.day()).succ_n(through_day))
+    pub const fn from_local_time(local: LocalDateTime) -> Option<Self> {
+        let Some(through_day) = (local.time().hour().number() as u16)
+            .checked_add(60 * (local.time().minute().number() as u16))
+        else {
+            return None;
+        };
+        Some(Self::from_minute(unwrap!(Minute::first_on_day(unwrap!(
+            Day::from_date(local.day()).succ_n(through_day)
+        ),))))
     }
 
-    pub const fn local_time(self) -> LocalDateTime {
-        LocalDateTime::from_minutes(self)
+    pub const fn local_time(self) -> Option<LocalDateTime> {
+        // subtract N at the end to get the minutes at the _start_ of the period
+        let total_minutes = unwrap!(self.relative()).index().get() * N - N;
+
+        Some(LocalDateTime::new(
+            self.day().date(),
+            unwrap!(LocalTimeOfDay::from_total_minutes(total_minutes)),
+        ))
     }
 
     // TODO: improve or remove
@@ -318,8 +335,9 @@ impl<const N: u16> Minutes<N> {
         self.local_time().chrono_datetime().and_utc()
     }
 
-    pub const fn start_minute(self) -> Minute {
-        self.change_resolution()
+    pub const fn start_minute(self) -> Option<Minute> {
+        todo!()
+        // self.change_resolution()
     }
     pub const fn from_minute(minute: Minute) -> Self {
         minute.change_resolution()
@@ -343,7 +361,9 @@ impl<const N: u16> Minutes<N> {
             240 => "Minutes[Length:240]",
             360 => "Minutes[Length:360]",
             720 => "Minutes[Length:720]",
-            _ => panic!("Please choose a minutes impl within 1, 2, 3, 4, 5, 6, 10, 15, 20, 30, 60, 120, 180, 240, 360, 720")
+            _ => panic!(
+                "Please choose a minutes impl within 1, 2, 3, 4, 5, 6, 10, 15, 20, 30, 60, 120, 180, 240, 360, 720"
+            ),
         }
     };
 
@@ -388,7 +408,9 @@ impl<const N: u16> Minutes<N> {
 
         loop {
             if idx >= sensible.len() {
-                panic!("Please choose a minutes impl within 1, 2, 3, 4, 5, 6, 10, 15, 20, 30, 60, 120, 180, 240, 360, 720")
+                panic!(
+                    "Please choose a minutes impl within 1, 2, 3, 4, 5, 6, 10, 15, 20, 30, 60, 120, 180, 240, 360, 720"
+                )
             }
 
             if N == sensible[idx] {
@@ -499,16 +521,18 @@ impl<const N: u16> Minutes<N> {
             todo!();
         };
 
-        let day = Year::new(year)
-            .with_month(month)
-            .first_day()
-            .succ_n(day as u16 - 1);
+        todo!();
 
-        Ok(subdivision.on_date(day))
+        // let day = Year::new(year)
+        //     .with_month(month)
+        //     .first_day()
+        //     .succ_n(day as u16 - 1);
+
+        // Ok(subdivision.on_date(day))
     }
 }
 
-impl<const N: u16> Debug for DaySubdivison<N> {
+impl<const N: u16> fmt::Debug for DaySubdivison<N> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("DaySubdivison")
             .field("index", &self.index())
@@ -520,10 +544,11 @@ impl<const N: u16> Debug for DaySubdivison<N> {
 
 impl<const N: u16> DaySubdivison<N> {
     pub const PERIODS: u16 = 1440 / N;
-    pub const fn on_date(self, date: Day) -> Minutes<N> {
-        Minutes::<N>::from_monotonic(
-            self.index as i32 + Minutes::<N>::first_on_day(date).to_monotonic(),
-        )
+    pub const fn on_date(self, date: Day) -> Option<Minutes<N>> {
+        Some(Minutes::<N>::from_monotonic(unwrap!(
+            (self.index as i32)
+                .checked_add(unwrap!(Minutes::<N>::first_on_day(date)).to_monotonic())
+        )))
     }
     pub const fn new(period_no: NonZeroU16) -> Option<DaySubdivison<N>> {
         if period_no.get() > Self::PERIODS as u16 {
@@ -557,11 +582,22 @@ mod tests {
 
         for i in 0..1440 {
             assert_eq!(
-                base.succ_n(i).relative(),
+                base.succ_n(i).unwrap().relative().unwrap(),
                 DaySubdivison::<1>::new(NonZeroU16::new(i + 1).unwrap()).unwrap()
             );
-            assert_eq!(base.succ_n(i * 1440).relative().index().get(), 1);
-            assert_eq!(base.succ_n(i).relative().index().get(), i + 1,);
+            assert_eq!(
+                base.succ_n(i * 1440)
+                    .unwrap()
+                    .relative()
+                    .unwrap()
+                    .index()
+                    .get(),
+                1
+            );
+            assert_eq!(
+                base.succ_n(i).unwrap().relative().unwrap().index().get(),
+                i + 1,
+            );
         }
 
         let base = "2021-01-01 00:00 => 2021-01-01 00:02"
@@ -569,11 +605,22 @@ mod tests {
             .unwrap();
         for i in 0..720 {
             assert_eq!(
-                base.succ_n(i).relative(),
+                base.succ_n(i).unwrap().relative().unwrap(),
                 DaySubdivison::<2>::new(NonZeroU16::new(i + 1).unwrap()).unwrap()
             );
-            assert_eq!(base.succ_n(i * 720).relative().index().get(), 1);
-            assert_eq!(base.succ_n(i).relative().index().get(), i + 1,);
+            assert_eq!(
+                base.succ_n(i * 720)
+                    .unwrap()
+                    .relative()
+                    .unwrap()
+                    .index()
+                    .get(),
+                1
+            );
+            assert_eq!(
+                base.succ_n(i).unwrap().relative().unwrap().index().get(),
+                i + 1,
+            );
         }
 
         let base = "2021-01-01 00:00 => 2021-01-01 00:05"
@@ -581,11 +628,22 @@ mod tests {
             .unwrap();
         for i in 0..288 {
             assert_eq!(
-                base.succ_n(i).relative(),
+                base.succ_n(i).unwrap().relative().unwrap(),
                 DaySubdivison::<5>::new(NonZeroU16::new(i + 1).unwrap()).unwrap()
             );
-            assert_eq!(base.succ_n(i * 288).relative().index().get(), 1);
-            assert_eq!(base.succ_n(i).relative().index().get(), i + 1,);
+            assert_eq!(
+                base.succ_n(i * 288)
+                    .unwrap()
+                    .relative()
+                    .unwrap()
+                    .index()
+                    .get(),
+                1
+            );
+            assert_eq!(
+                base.succ_n(i).unwrap().relative().unwrap().index().get(),
+                i + 1,
+            );
         }
 
         let base = "2021-01-01 00:00 => 2021-01-01 00:30"
@@ -593,11 +651,22 @@ mod tests {
             .unwrap();
         for i in 0..48 {
             assert_eq!(
-                base.succ_n(i).relative(),
+                base.succ_n(i).unwrap().relative().unwrap(),
                 DaySubdivison::<30>::new(NonZeroU16::new(i + 1).unwrap()).unwrap()
             );
-            assert_eq!(base.succ_n(i * 48).relative().index().get(), 1);
-            assert_eq!(base.succ_n(i).relative().index().get(), i + 1,);
+            assert_eq!(
+                base.succ_n(i * 48)
+                    .unwrap()
+                    .relative()
+                    .unwrap()
+                    .index()
+                    .get(),
+                1
+            );
+            assert_eq!(
+                base.succ_n(i).unwrap().relative().unwrap().index().get(),
+                i + 1,
+            );
         }
 
         let base = "2021-01-01 00:00 => 2021-01-01 01:00"
@@ -605,11 +674,22 @@ mod tests {
             .unwrap();
         for i in 0..24 {
             assert_eq!(
-                base.succ_n(i).relative(),
+                base.succ_n(i).unwrap().relative().unwrap(),
                 DaySubdivison::<60>::new(NonZeroU16::new(i + 1).unwrap()).unwrap()
             );
-            assert_eq!(base.succ_n(i * 24).relative().index().get(), 1);
-            assert_eq!(base.succ_n(i).relative().index().get(), i + 1,);
+            assert_eq!(
+                base.succ_n(i * 24)
+                    .unwrap()
+                    .relative()
+                    .unwrap()
+                    .index()
+                    .get(),
+                1
+            );
+            assert_eq!(
+                base.succ_n(i).unwrap().relative().unwrap().index().get(),
+                i + 1,
+            );
         }
 
         let base = "2021-01-01 00:00 => 2021-01-01 02:00"
@@ -617,11 +697,22 @@ mod tests {
             .unwrap();
         for i in 0..12 {
             assert_eq!(
-                base.succ_n(i).relative(),
+                base.succ_n(i).unwrap().relative().unwrap(),
                 DaySubdivison::<120>::new(NonZeroU16::new(i + 1).unwrap()).unwrap()
             );
-            assert_eq!(base.succ_n(i * 12).relative().index().get(), 1);
-            assert_eq!(base.succ_n(i).relative().index().get(), i + 1,);
+            assert_eq!(
+                base.succ_n(i * 12)
+                    .unwrap()
+                    .relative()
+                    .unwrap()
+                    .index()
+                    .get(),
+                1
+            );
+            assert_eq!(
+                base.succ_n(i).unwrap().relative().unwrap().index().get(),
+                i + 1,
+            );
         }
     }
 
@@ -682,12 +773,16 @@ mod tests {
     #[cfg(feature = "chrono")]
     fn test_parse() {
         assert!("2021-01-01 10:05".parse::<Minutes<2>>().is_err());
-        assert!("2021-01-01 10:05 => 2021-01-01 10:06"
-            .parse::<Minutes<2>>()
-            .is_err());
-        assert!("2021-01-01 10:02 => 2021-01-01 10:04"
-            .parse::<Minutes<2>>()
-            .is_ok());
+        assert!(
+            "2021-01-01 10:05 => 2021-01-01 10:06"
+                .parse::<Minutes<2>>()
+                .is_err()
+        );
+        assert!(
+            "2021-01-01 10:02 => 2021-01-01 10:04"
+                .parse::<Minutes<2>>()
+                .is_ok()
+        );
 
         assert_eq!(
             "2021-01-01 10:05".parse::<Minutes<1>>().unwrap(),

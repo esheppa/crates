@@ -1,8 +1,6 @@
 extern crate std;
+use super::{Date, DayOfMonth, MonthOfYear, YearAndDays, first_on_year_internal, is_leap_year};
 use chrono::{self, Datelike, Days, NaiveDate};
-use std::dbg;
-
-use super::{first_on_year_internal, is_leap_year, Day, DayOfMonth, MonthOfYear, YearAndDays};
 
 #[test]
 fn test_helpers() {
@@ -22,7 +20,7 @@ fn test_date() {
         } else {
             chrono_base - Days::new(-i as u64)
         };
-        let date = Day(i);
+        let date = Date(i);
         assert_eq!(chrono_adj.year(), date.year_num());
         assert_eq!(chrono_adj.month() as u8, date.month_of_year().number());
         assert_eq!(chrono_adj.day() as u8, date.day_of_month());
@@ -30,29 +28,47 @@ fn test_date() {
         #[cfg(feature = "chrono")]
         {
             assert_eq!(chrono_adj, date.chrono_date());
-            assert_eq!(date, Day::from_chrono_date(chrono_adj));
+            assert_eq!(date, Date::from_chrono_date(chrono_adj));
         }
     }
 }
 
 #[test]
 fn test_roundtrip_neg() {
-    for i in (i32::MIN + 200000)..0 {
-        let date = Day::new(i);
+    for i in (i32::MIN + 44387)..0 {
+        let date = Date::new(i);
         let calculated = YearAndDays::calculate(date);
-   
-        let roundtrip = first_on_year_internal(calculated.year).unwrap().succ_n(calculated.days_through as u16).unwrap();
+
+        let roundtrip = first_on_year_internal(calculated.year)
+            .unwrap()
+            .succ_n(calculated.days_through as u16)
+            .unwrap();
         assert_eq!(date, roundtrip);
+    }
+
+    for i in i32::MIN..(i32::MIN + 44387) {
+        let date = Date::new(i);
+        let calculated = YearAndDays::calculate(date);
+        assert_eq!(first_on_year_internal(calculated.year), None);
     }
 }
 
 #[test]
 fn test_roundtrip_pos() {
-    for i in 0..(i32::MAX - 44500) {
-        let date = Day::new(i);
+    for i in 0..(i32::MAX - 44021) {
+        let date = Date::new(i);
         let calculated = YearAndDays::calculate(date);
-        let roundtrip = first_on_year_internal(calculated.year).unwrap().succ_n(calculated.days_through as u16).unwrap();
+        let roundtrip = first_on_year_internal(calculated.year)
+            .unwrap()
+            .succ_n(calculated.days_through as u16)
+            .unwrap();
         assert_eq!(date, roundtrip);
+    }
+
+    for i in (i32::MAX - 44021 + 1)..=i32::MAX {
+        let date = Date::new(i);
+        let calculated = YearAndDays::calculate(date);
+        assert_eq!(first_on_year_internal(calculated.year), None);
     }
 }
 
@@ -60,7 +76,7 @@ fn test_roundtrip_pos() {
 fn test_new() {
     for year in 1840..10_000 {
         let chrono_start = NaiveDate::from_ymd_opt(year, 1, 1).unwrap();
-        let date_start = Day::first_on_year(year);
+        let date_start = Date::first_on_year(year);
         // dbg!(
         //     chrono_start,
         //     date_start.to_ymd(),
@@ -76,7 +92,7 @@ fn test_new() {
         assert_eq!(chrono_start.day() as u8, date_start.unwrap().day_of_month());
 
         let chrono_end = NaiveDate::from_ymd_opt(year, 12, 31).unwrap();
-        let date_end = Day::last_on_year(year);
+        let date_end = Date::last_on_year(year);
 
         // dbg!(
         //     chrono_end,
@@ -88,7 +104,10 @@ fn test_new() {
         // );
 
         assert_eq!(chrono_end.year(), date_start.unwrap().year_num());
-        assert_eq!(chrono_end.month() as u8, date_end.unwrap().month_of_year().number());
+        assert_eq!(
+            chrono_end.month() as u8,
+            date_end.unwrap().month_of_year().number()
+        );
         assert_eq!(chrono_end.day() as u8, date_end.unwrap().day_of_month());
 
         for month in [
@@ -106,7 +125,7 @@ fn test_new() {
             MonthOfYear::Dec,
         ] {
             let chrono_start = NaiveDate::from_ymd_opt(year, month.number() as u32, 1).unwrap();
-            let date_start = Day::first_on_month(year, month);
+            let date_start = Date::first_on_month(year, month);
             // dbg!(chrono_start, date_start.unwrap().to_ymd());
 
             assert_eq!(chrono_start.year(), date_start.unwrap().year_num());
@@ -119,17 +138,22 @@ fn test_new() {
             let chrono_end =
                 NaiveDate::from_ymd_opt(year, month.number() as u32, month.num_days(year) as u32)
                     .unwrap();
-            let date_end = Day::last_on_month(year, month);
+            let date_end = Date::last_on_month(year, month);
             // dbg!(chrono_end, date_end.to_ymd());
 
             assert_eq!(chrono_end.year(), date_start.unwrap().year_num());
-            assert_eq!(chrono_end.month() as u8, date_end.unwrap().month_of_year().number());
+            assert_eq!(
+                chrono_end.month() as u8,
+                date_end.unwrap().month_of_year().number()
+            );
             assert_eq!(chrono_end.day() as u8, date_end.unwrap().day_of_month());
 
-            assert_eq!(date_start, Day::ymd(year, month, DayOfMonth::D1));
+            assert_eq!(date_start, Date::ymd(year, month, DayOfMonth::D1));
             assert_eq!(
                 date_end,
-                Day::first_on_month(year, month).unwrap().succ_n(month.num_days(year) as u16 - 1)
+                Date::first_on_month(year, month)
+                    .unwrap()
+                    .succ_n(month.num_days(year) as u16 - 1)
             );
         }
     }

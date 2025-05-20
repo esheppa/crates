@@ -4,16 +4,16 @@
 
 // represents the local time of day
 
-use crate::{Day, DaySubdivison, Minutes};
+use crate::Date;
 
 #[derive(Clone, Copy, Debug, PartialEq, PartialOrd, Eq, Ord)]
-pub struct LocalDateTime(Day, LocalTimeOfDay);
+pub struct LocalDateTime(Date, LocalTimeOfDay);
 
 impl LocalDateTime {
-    pub const fn new(day: Day, time: LocalTimeOfDay) -> Self {
+    pub const fn new(day: Date, time: LocalTimeOfDay) -> Self {
         Self(day, time)
     }
-    pub const fn day(self) -> Day {
+    pub const fn day(self) -> Date {
         self.0
     }
     pub const fn time(self) -> LocalTimeOfDay {
@@ -25,12 +25,12 @@ impl LocalDateTime {
         self.0.chrono_date().and_time(self.1.chrono_time())
     }
 
-    pub const fn from_minutes<const N: u16>(min: Minutes<N>) -> LocalDateTime {
-        LocalDateTime(
-            min.day(),
-            LocalTimeOfDay::from_day_subdivision(min.relative()),
-        )
-    }
+    // pub const fn from_minutes<const N: u16>(min: Minutes<N>) -> LocalDateTime {
+    //     LocalDateTime(
+    //         min.day(),
+    //         LocalTimeOfDay::from_day_subdivision(min.relative()),
+    //     )
+    // }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, PartialOrd, Eq, Ord)]
@@ -59,12 +59,10 @@ impl LocalTimeOfDay {
     // Minutes and DaySubdivision
     // but it also asserts their invariants
     // and this avoids exposing the constructor
-    pub const fn from_day_subdivision<const N: u16>(sub: DaySubdivison<N>) -> LocalTimeOfDay {
-        // subtract N at the end to get the minutes at the _start_ of the period
-        let total_minutes = sub.index().get() * N - N;
-
-        // guaranteed by Minutes & DaySubdivision impl
-        assert!(total_minutes < 1440);
+    pub const fn from_total_minutes(total_minutes: u16) -> Option<LocalTimeOfDay> {
+        if total_minutes >= 1440 {
+            return None;
+        }
 
         // guaranteed by above to be < 24
         let hours_through = total_minutes / 60;
@@ -165,7 +163,7 @@ impl LocalTimeOfDay {
             _ => unreachable!(),
         };
 
-        Self(hour, minute)
+        Some(Self(hour, minute))
     }
 }
 
