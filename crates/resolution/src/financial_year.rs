@@ -3,23 +3,16 @@ use date::Date;
 use crate::{minutes::MINUTES_PER_DAY, *};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct Day(i64);
+pub struct FinancialYear(i64);
 
-const MIN: i64 = -3652060;
-const MAX: i64 = 3652060; // TODO
+const MIN: i64 = -23639;
+const MAX: i64 = 96347; // TODO
 
-impl Day {
-    pub const fn date(self) -> Date {
-        // TODO!!!!!!!!!!!!!!!!
-        Date::new(self.0 as i32)
-    }
-    pub const fn from_date(date: Date) -> Day {
-        Day(date.inner() as i64)
-    }
+impl FinancialYear {
     pub const fn from_monotonic(idx: i64) -> Option<Self> {
         // TODO: use MIN..=MAX here when it is const
         if idx >= MIN && idx <= MAX {
-            Some(Day(idx))
+            Some(Self(idx))
         } else {
             None
         }
@@ -35,7 +28,7 @@ impl Day {
         let Some(new) = self.0.checked_add(n) else {
             return None;
         };
-        Some(Day(new))
+        Some(Self(new))
     }
     pub const fn start_minute(self) -> Minute {
         Minutes::<1>::from_monotonic(self.0 * MINUTES_PER_DAY).expect("")
@@ -46,8 +39,8 @@ impl Day {
     }
 }
 
-impl TimeResolution for Day {
-    const NAME: &str = "Day";
+impl TimeResolution for FinancialYear {
+    const NAME: &str = "FinancialYear";
 
     fn translate(self, n: i64) -> Option<Self> {
         self.translate(n)
@@ -62,25 +55,25 @@ impl TimeResolution for Day {
     }
 }
 
-impl DateResolution for Day {
+impl DateResolution for FinancialYear {
     type Params = ();
 
-    type FromDay = Day;
+    type FromDay = Option<Self>;
 
     fn params(self) -> Self::Params {
         ()
     }
 
-    fn from_day(day: Day, _params: Self::Params) -> Self::FromDay {
-        day
+    fn from_day(_day: Day, _params: Self::Params) -> Self::FromDay {
+        todo!()
     }
 
     fn start_day(self) -> Day {
-        self
+        Day::from_date(Date::first_on_year(self.to_monotonic() as i32).expect("Always valid"))
     }
 }
 
-impl Monotonic for Day {
+impl Monotonic for FinancialYear {
     fn to_monotonic(self) -> i64 {
         self.to_monotonic()
     }
@@ -90,7 +83,7 @@ impl Monotonic for Day {
     }
 }
 
-impl FromMonotonic for Day {
+impl FromMonotonic for FinancialYear {
     fn from_monotonic(idx: i64) -> Option<Self> {
         Self::from_monotonic(idx)
     }

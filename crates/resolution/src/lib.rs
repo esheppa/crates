@@ -17,12 +17,8 @@ use date::MonthOfYear;
 // pub use range::{Cache, CacheResponse, TimeRange, TimeRangeComparison, TimeRangeIter};
 
 mod minutes;
-pub use minutes::{DaySubdivison, Minutes};
-
-pub type Minute = Minutes<1>;
-pub type FiveMinute = Minutes<5>;
-pub type HalfHour = Minutes<30>;
-pub type Hour = Minutes<60>;
+// pub use minutes::{DaySubdivison};
+pub use minutes::{FiveMinute, HalfHour, Hour, Minute, Minutes};
 
 mod day;
 pub use day::Day;
@@ -30,27 +26,27 @@ pub use day::Day;
 // mod week;
 // pub use week::{Friday, Monday, Saturday, StartDay, Sunday, Thursday, Tuesday, Wednesday, Week};
 
-// mod month;
-// pub use month::Month;
-// mod quarter;
-// pub use quarter::Quarter;
-// mod year;
-// pub use year::Year;
+mod month;
+pub use month::Month;
 
-#[cfg(feature = "chrono")]
-mod zoned;
-#[cfg(feature = "chrono")]
-pub use zoned::{FixedTimeZone, Zoned};
+mod quarter;
+pub use quarter::Quarter;
 
-#[macro_export]
-macro_rules! unwrap {
-    ($x:expr) => {{
-        let Some(unwrapped) = $x else {
-            return None;
-        };
-        unwrapped
-    }};
-}
+mod year;
+pub use year::Year;
+
+mod financial_year;
+pub use financial_year::FinancialYear;
+
+mod iso_week;
+pub use iso_week::IsoWeek;
+
+// #[cfg(feature = "chrono")]
+// mod zoned;
+// #[cfg(feature = "chrono")]
+// pub use zoned::{FixedTimeZone, Zoned};
+
+// TODO: log warnings for when close to edge of range - should likely never be used
 
 // pub trait LongerThan<T>: LongerThanOrEqual<T> {}
 
@@ -160,13 +156,13 @@ macro_rules! unwrap {
 // impl LongerThan<Quarter> for Year {}
 
 // /// This function is useful for formatting types implementing `Monotonic` when they are stored
-// /// in their `i32` form instead of their `TimeResolution` form. Provided you have the `TypeId` handy
+// /// in their `i64` form instead of their `TimeResolution` form. Provided you have the `TypeId` handy
 // /// you can find out what they were intended to be. This function handeles all the cases implemented
 // /// in this library and users can handle others via the function in the `handle_unknown` parameter.
 // pub fn format_erased_resolution(
-//     handle_unknown: fn(any::TypeId, i32) -> String,
+//     handle_unknown: fn(any::TypeId, i64) -> String,
 //     tid: any::TypeId,
-//     val: i32,
+//     val: i64,
 // ) -> String {
 //     if tid == any::TypeId::of::<Minute>() {
 //         format!("Minute:{}", Minute::from_monotonic(val))
@@ -315,56 +311,55 @@ pub type Result<T> = std::result::Result<T, Error>;
 /// occurring at regular times. Some examples are:
 /// * A cash-flow report aggregated to days or months
 /// * Dispatch periods in the Australian Electricity Market (and similar concepts in other energy markets)
-pub trait TimeResolution: Monotonic {
+pub trait TimeResolution: Monotonic + Copy {
     const NAME: &str;
     fn succ(self) -> Option<Self> {
-        self.succ_n(1)
+        self.translate(1)
     }
 
     fn pred(self) -> Option<Self> {
-        self.pred_n(1)
+        self.translate(-1)
     }
 
-    // the default impls are probably inefficient
-    // makes sense to require just the n
-    // and give the 1 for free
-    fn succ_n(self, n: u16) -> Option<Self>;
+    fn translate(self, n: i64) -> Option<Self>;
 
-    fn pred_n(self, n: u16) -> Option<Self>;
-    // fn add(self, n: i32) -> Self;
-
-    fn start_minute(self) -> Option<Minute>;
+    fn start_minute(self) -> Minute;
+    fn end_minute(self) -> Minute;
 
     // #[cfg(feature = "chrono")]
     // fn start_datetime(self) -> DateTime<Utc>;
 
-    fn convert<Out>(self) -> Option<Out>
+    fn convert<Out>(self) -> Out
     where
         Out: TimeResolution + From<Minute>,
     {
-        Some(Out::from(unwrap!(self.start_minute())))
+        Out::from(self.start_minute())
     }
 
     // handy functions.... to avoid turbofishing when it's a pain
     // fn day(self) -> Day;
     // fn month(self) -> Month;
+    // fn quarter(self) -> Month;
     // fn year(self) -> Year;
+    // no week/finyear becuase they don't fill the period
 }
 
+// we may decide later to use i64 or even i128 instead
+// however this would only be to increase detail below Minute, eg Second, MilliSecond, etc.
 /// `Monotonic` is used to enable multiple different resolutions to be stored together
 ///
 /// It is named monotonic as it is intended to provide a monotonic (order preserving) function
 /// from a given implementor of `TimeResolution`, to allow converting backwards and forwards
-/// between the values of the `TimeResolution` implementor and `i32`s
+/// between the values of the `TimeResolution` implementor and `i64`s
 pub trait Monotonic: Copy + Eq + Ord {
-    // we choose i32 rather than u32
+    // we choose i64 rather than u32
     // as the behaviour on subtraction is nicer!
-    fn to_monotonic(self) -> i32;
-    fn between(self, other: Self) -> i32;
+    fn to_monotonic(self) -> i64;
+    fn between(self, other: Self) -> i64;
 }
 
 pub trait FromMonotonic: Monotonic {
-    fn from_monotonic(idx: i32) -> Self;
+    fn from_monotonic(idx: i64) -> Option<Self>;
 }
 
 /// `SubDateResolution` should only be implemented for periods of strictly less than one day in length
@@ -387,19 +382,19 @@ pub trait SubDateResolution: TimeResolution {
     fn first_on_day(day: Day, params: Self::Params) -> Option<Self>;
 
     fn last_on_day(day: Day, params: Self::Params) -> Option<Self> {
-        unwrap!(Self::first_on_day(unwrap!(day.succ()), params)).pred()
+        Self::first_on_day(day.succ()?, params)?.pred()
     }
 }
 
 /// `DateResolution` should only be implemented for periods of one or more days in length
 pub trait DateResolution: TimeResolution {
+    // for timezones
     type Params;
-
+    // eg, Self, or Option<Self> ... other choices would be less useful...
+    type FromDay;
     fn params(self) -> Self::Params;
-
-    fn from_day(day: Day, params: Self::Params) -> Self;
-
-    fn start_day(self) -> Option<Day>;
+    fn from_day(day: Day, params: Self::Params) -> Self::FromDay;
+    fn start_day(self) -> Day;
 }
 
 // /// `DateResolutionExt` implements some convenience methods for types that implement `DateResolution`
@@ -409,7 +404,7 @@ pub trait DateResolution: TimeResolution {
 //         self.succ().start_day().pred()
 //     }
 
-//     fn num_days(self) -> i32 {
+//     fn num_days(self) -> i64 {
 //         self.start_day().between(self.end_day())
 //     }
 
@@ -457,16 +452,16 @@ pub trait DateResolution: TimeResolution {
 // }
 // impl DateResolutionBuilder for i16 {
 //     fn q1(self) -> Quarter {
-//         Quarter::from_parts(Year::new(self as i32), quarter::QuarterOfYear::Q1)
+//         Quarter::from_parts(Year::new(self as i64), quarter::QuarterOfYear::Q1)
 //     }
 //     fn q2(self) -> Quarter {
-//         Quarter::from_parts(Year::new(self as i32), quarter::QuarterOfYear::Q2)
+//         Quarter::from_parts(Year::new(self as i64), quarter::QuarterOfYear::Q2)
 //     }
 //     fn q3(self) -> Quarter {
-//         Quarter::from_parts(Year::new(self as i32), quarter::QuarterOfYear::Q3)
+//         Quarter::from_parts(Year::new(self as i64), quarter::QuarterOfYear::Q3)
 //     }
 //     fn q4(self) -> Quarter {
-//         Quarter::from_parts(Year::new(self as i32), quarter::QuarterOfYear::Q4)
+//         Quarter::from_parts(Year::new(self as i64), quarter::QuarterOfYear::Q4)
 //     }
 //     fn jan(self) -> Month {
 //         Month::from_year_month(self.into(), MonthOfYear::Jan)

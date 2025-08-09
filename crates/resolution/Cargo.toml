@@ -3,10 +3,6 @@ name = "resolution"
 version = "0.1.0"
 edition = "2024"
 
-[[bench]]
-name = "calc-ymd"
-harness = false
-path = "src/calc-ymd.rs"
 
 [dependencies.serde]
 workspace = true
@@ -32,5 +28,5 @@ criterion = "0.5.0"
 serde = ["dep:serde","chrono/serde", "date/serde"]
 std = ["chrono/std","date/std"]
 chrono = ["dep:chrono", "date/chrono"]
-
+default = ["std","serde","chrono"]
 
