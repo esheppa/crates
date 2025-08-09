@@ -10,6 +10,10 @@ extern crate alloc;
 #[cfg(test)]
 mod tests;
 
+
+// 0000 through 9999
+pub struct Year(i32);  
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 // days since 1900-01-01
 pub struct Date(i32);
