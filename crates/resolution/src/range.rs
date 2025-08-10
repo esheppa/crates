@@ -9,9 +9,6 @@ use crate::prelude::*;
 use iter::FusedIterator;
 use num::NonZeroU64;
 
-#[cfg(feature = "serde")]
-use serde::de;
-
 // the `Step` trait may be interesting later
 // https://doc.rust-lang.org/std/iter/trait.Step.html
 /// `TimeRange` stores a contigious sequence of underlying periods of a given `TimeResolution`.
@@ -127,6 +124,7 @@ impl<P: TimeResolution + Monotonic + FromMonotonic> TimeRange<P> {
             self.end()
                 .to_monotonic()
                 .sub(self.start().to_monotonic())
+                .add(1)
                 .try_into()
                 .unwrap(),
         )
@@ -356,6 +354,15 @@ mod tests {
         let mth = Month::new(Year::from_monotonic(2024).unwrap(), MonthOfYear::Jan);
 
         let day_range = mth.rescale::<Day>();
+
+        extern crate std;
+        use std::dbg;
+        dbg!(
+            mth.start_day().date().to_ymd(),
+            mth.end_day().date().to_ymd(),
+            day_range.start().date().to_ymd(),
+            day_range.end().date().to_ymd()
+        );
 
         let mut iter = day_range.iter();
 

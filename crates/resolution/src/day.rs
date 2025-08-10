@@ -5,6 +5,7 @@ use crate::{minutes::MINUTES_PER_DAY, *};
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Day(i64);
 
+#[cfg(feature = "serde")]
 impl<'de> Deserialize<'de> for Day {
     fn deserialize<D>(deserializer: D) -> core::result::Result<Self, D::Error>
     where
@@ -16,6 +17,7 @@ impl<'de> Deserialize<'de> for Day {
     }
 }
 
+#[cfg(feature = "serde")]
 impl Serialize for Day {
     fn serialize<S>(&self, serializer: S) -> core::result::Result<S::Ok, S::Error>
     where
@@ -25,7 +27,7 @@ impl Serialize for Day {
     }
 }
 
-const MIN: i64 = -3652060;
+const MIN: i64 = 0;
 const MAX: i64 = 3652060; // TODO
 
 impl Day {
@@ -55,7 +57,7 @@ impl Day {
         let Some(new) = self.0.checked_add(n) else {
             return None;
         };
-        Some(Day(new))
+        Day::from_monotonic(new)
     }
     pub const fn start_minute(self) -> Minute {
         Minutes::<1>::from_monotonic(self.0 * MINUTES_PER_DAY).expect("")
@@ -191,6 +193,22 @@ mod tests {
     }
 
     #[test]
+    fn min_max_year_roundtrip_ok() {
+        assert!(Year::MIN.start_day().pred().is_none());
+        assert_eq!(
+            Year::MIN.start_day(),
+            Day::from_date(Date::first_on_year(date::Year::new(0).unwrap()).unwrap())
+        );
+
+        assert_eq!(
+            Year::MAX.end_day(),
+            Day::from_date(Date::last_on_year(date::Year::new(9999).unwrap()).unwrap())
+        );
+
+        assert!(Year::MAX.end_day().succ().is_none());
+    }
+
+    #[test]
 
     fn test_parse_date_syntax() {
         let year = date::Year::new(2021).unwrap();
@@ -219,29 +237,24 @@ mod tests {
         let year = date::Year::new(0).unwrap();
 
         assert_eq!(
-            Day(2),
-            Day::from_date(Date::ymd(year, MonthOfYear::Jan, DayOfMonth::D3).unwrap())
+            Day::from_monotonic(2),
+            Some(Day::from_date(
+                Date::ymd(year, MonthOfYear::Jan, DayOfMonth::D3).unwrap()
+            ))
         );
         assert_eq!(
-            Day(1),
-            Day::from_date(Date::ymd(year, MonthOfYear::Jan, DayOfMonth::D2).unwrap())
+            Day::from_monotonic(1),
+            Some(Day::from_date(
+                Date::ymd(year, MonthOfYear::Jan, DayOfMonth::D2).unwrap()
+            ))
         );
         assert_eq!(
-            Day(0),
-            Day::from_date(Date::ymd(year, MonthOfYear::Jan, DayOfMonth::D1).unwrap())
+            Day::from_monotonic(0),
+            Some(Day::from_date(
+                Date::ymd(year, MonthOfYear::Jan, DayOfMonth::D1).unwrap()
+            ))
         );
-        assert_eq!(
-            Day(-1),
-            Day::from_date(Date::last_on_month(year.pred().unwrap(), MonthOfYear::Dec).unwrap())
-        );
-        assert_eq!(
-            Day(-2),
-            Day::from_date(
-                Date::last_on_month(year.pred().unwrap(), MonthOfYear::Dec)
-                    .unwrap()
-                    .translate(-1)
-                    .unwrap()
-            )
-        );
+        assert_eq!(Day::from_monotonic(-1), None);
+        assert_eq!(Day::from_monotonic(-2), None,);
     }
 }

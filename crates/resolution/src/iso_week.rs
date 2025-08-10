@@ -27,7 +27,7 @@ impl IsoWeek {
         let Some(new) = self.0.checked_add(n) else {
             return None;
         };
-        Some(Self(new))
+        Self::from_monotonic(new)
     }
     pub const fn start_minute(self) -> Minute {
         Minutes::<1>::from_monotonic(self.0 * MINUTES_PER_DAY).expect("")

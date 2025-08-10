@@ -455,7 +455,6 @@ impl MonthOfYear {
             MonthOfYear::Dec => 12,
         }
     }
-
     pub const fn months_from_jan(self) -> u8 {
         self.number() - 1
     }

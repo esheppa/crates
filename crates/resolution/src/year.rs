@@ -4,6 +4,7 @@ use crate::{minutes::MINUTES_PER_DAY, *};
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Year(i64);
 
+#[cfg(feature = "serde")]
 impl<'de> Deserialize<'de> for Year {
     fn deserialize<D>(deserializer: D) -> core::result::Result<Self, D::Error>
     where
@@ -15,6 +16,7 @@ impl<'de> Deserialize<'de> for Year {
     }
 }
 
+#[cfg(feature = "serde")]
 impl Serialize for Year {
     fn serialize<S>(&self, serializer: S) -> core::result::Result<S::Ok, S::Error>
     where
@@ -28,6 +30,11 @@ const MIN: i64 = -1970;
 const MAX: i64 = 8029; // TODO
 
 impl Year {
+    const fn date_year(self) -> date::Year {
+        date::Year::new(self.to_monotonic() as i32 + 1970).unwrap()
+    }
+    pub const MIN: Year = Year(MIN);
+    pub const MAX: Year = Year(MAX);
     pub const fn from_monotonic(idx: i64) -> Option<Self> {
         // TODO: use MIN..=MAX here when it is const
         if idx >= MIN && idx <= MAX {
@@ -47,7 +54,7 @@ impl Year {
         let Some(new) = self.0.checked_add(n) else {
             return None;
         };
-        Some(Self(new))
+        Self::from_monotonic(new)
     }
     pub const fn start_minute(self) -> Minute {
         Minutes::<1>::from_monotonic(self.0 * MINUTES_PER_DAY).expect("")
@@ -137,17 +144,13 @@ impl DateResolution for Year {
     }
 
     fn start_day(self) -> Day {
-        Day::from_date(
-            Date::first_on_year(date::Year::new(self.to_monotonic() as i32).unwrap())
-                .expect("Always valid"),
-        )
+        extern crate std;
+        std::dbg!(self.to_monotonic());
+        Day::from_date(Date::first_on_year(self.date_year()).expect("Always valid"))
     }
 
     fn end_day(self) -> Day {
-        Day::from_date(
-            Date::last_on_year(date::Year::new(self.to_monotonic() as i32).unwrap())
-                .expect("Always valid"),
-        )
+        Day::from_date(Date::last_on_year(self.date_year()).expect("Always valid"))
     }
 }
 

@@ -18,6 +18,7 @@ mod prelude {
         ops::*,
         str,
     };
+    #[cfg(feature = "serde")]
     pub use serde::{Deserialize, Serialize};
 }
 use prelude::*;

@@ -4,6 +4,7 @@ use crate::{Year, minutes::MINUTES_PER_DAY, *};
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Quarter(i64);
 
+#[cfg(feature = "serde")]
 impl<'de> Deserialize<'de> for Quarter {
     fn deserialize<D>(deserializer: D) -> core::result::Result<Self, D::Error>
     where
@@ -15,6 +16,7 @@ impl<'de> Deserialize<'de> for Quarter {
     }
 }
 
+#[cfg(feature = "serde")]
 impl Serialize for Quarter {
     fn serialize<S>(&self, serializer: S) -> core::result::Result<S::Ok, S::Error>
     where
@@ -101,7 +103,7 @@ impl Quarter {
         let Some(new) = self.0.checked_add(n) else {
             return None;
         };
-        Some(Self(new))
+        Self::from_monotonic(new)
     }
     pub const fn start_minute(self) -> Minute {
         Minutes::<1>::from_monotonic(self.0 * MINUTES_PER_DAY).expect("")

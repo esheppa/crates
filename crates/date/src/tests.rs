@@ -17,11 +17,7 @@ fn test_date() {
     let chrono_base = NaiveDate::from_ymd_opt(0, 1, 1).unwrap();
 
     for i in 0..2_000_000_i32 {
-        let chrono_adj = if i >= 0 {
-            chrono_base + Days::new(i as u64)
-        } else {
-            chrono_base - Days::new(-i as u64)
-        };
+        let chrono_adj = chrono_base + Days::new(i as u64);
         let date = Date(i);
         assert_eq!(chrono_adj.year(), date.year().num());
         assert_eq!(chrono_adj.month() as u8, date.month_of_year().number());

@@ -25,6 +25,7 @@ const NUM_SECS: i32 = 60;
 pub struct Minutes<const N: u16>(i64);
 pub(crate) const MINUTES_PER_DAY: i64 = 24 * 60;
 
+#[cfg(feature = "serde")]
 impl<'de, const N: u16> Deserialize<'de> for Minutes<N> {
     fn deserialize<D>(deserializer: D) -> core::result::Result<Self, D::Error>
     where
@@ -36,6 +37,7 @@ impl<'de, const N: u16> Deserialize<'de> for Minutes<N> {
     }
 }
 
+#[cfg(feature = "serde")]
 impl<const N: u16> Serialize for Minutes<N> {
     fn serialize<S>(&self, serializer: S) -> core::result::Result<S::Ok, S::Error>
     where
@@ -130,7 +132,7 @@ impl<const N: u16> Minutes<N> {
         let Some(new) = self.0.checked_add(n) else {
             return None;
         };
-        Some(Minutes(new))
+        Self::from_monotonic(new)
     }
 
     pub const fn start_minute(self) -> Minute {
@@ -560,9 +562,7 @@ mod tests {
             );
         }
 
-        let base = "2021-01-01 00:00 => 2021-01-01 00:02"
-            .parse::<Minutes<2>>()
-            .unwrap();
+        let base = "2021-01-01P0001/0720".parse::<Minutes<2>>().unwrap();
         for i in 0..720 {
             assert_eq!(
                 base.translate(i).unwrap().relative(),
@@ -576,9 +576,7 @@ mod tests {
             );
         }
 
-        let base = "2021-01-01 00:00 => 2021-01-01 00:05"
-            .parse::<Minutes<5>>()
-            .unwrap();
+        let base = "2021-01-01P0001/0288".parse::<Minutes<5>>().unwrap();
         for i in 0..288 {
             assert_eq!(
                 base.translate(i).unwrap().relative(),
@@ -592,9 +590,7 @@ mod tests {
             );
         }
 
-        let base = "2021-01-01 00:00 => 2021-01-01 00:30"
-            .parse::<Minutes<30>>()
-            .unwrap();
+        let base = "2021-01-01P0001/0048".parse::<Minutes<30>>().unwrap();
         for i in 0..48 {
             assert_eq!(
                 base.translate(i).unwrap().relative(),
@@ -608,9 +604,7 @@ mod tests {
             );
         }
 
-        let base = "2021-01-01 00:00 => 2021-01-01 01:00"
-            .parse::<Minutes<60>>()
-            .unwrap();
+        let base = "2021-01-01P0001/0024".parse::<Minutes<60>>().unwrap();
         for i in 0..24 {
             assert_eq!(
                 base.translate(i).unwrap().relative(),
@@ -624,9 +618,7 @@ mod tests {
             );
         }
 
-        let base = "2021-01-01 00:00 => 2021-01-01 02:00"
-            .parse::<Minutes<120>>()
-            .unwrap();
+        let base = "2021-01-01P0001/0012".parse::<Minutes<120>>().unwrap();
         for i in 0..12 {
             assert_eq!(
                 base.translate(i).unwrap().relative(),
