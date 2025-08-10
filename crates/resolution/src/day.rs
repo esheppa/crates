@@ -78,6 +78,9 @@ impl DateResolution for Day {
     fn start_day(self) -> Day {
         self
     }
+    fn end_day(self) -> Day {
+        self
+    }
 }
 
 impl Monotonic for Day {

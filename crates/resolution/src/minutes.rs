@@ -71,11 +71,11 @@ impl<const N: u16> Minutes<N> {
     // pub const fn occurs_on_day(self) -> Day {
     //     Day::new(self.index / Self::PERIODS_PER_DAY)
     // }
-    pub const fn first_on_day(day: Day) -> Option<Self> {
+    pub const fn first_on_day(day: Day) -> Self {
         let Some(x) = day.to_monotonic().checked_mul(Self::PERIODS_PER_DAY) else {
-            return None;
+            panic!("TODO");
         };
-        Self::from_monotonic(x)
+        Self::from_monotonic(x).expect("TODO")
     }
     pub const fn from_monotonic(idx: i64) -> Option<Self> {
         // TODO: use MIN..=MAX here when it is const
@@ -179,7 +179,12 @@ impl<const N: u16> SubDateResolution for Minutes<N> {
         minute.change_resolution()
     }
 
-    fn first_on_day(day: Day, _params: Self::Params) -> Option<Self> {
+    fn first_on_day(day: Day, _params: Self::Params) -> Self {
         Self::first_on_day(day)
+    }
+    fn last_on_day(day: Day, _params: Self::Params) -> Self {
+        Self::first_on_day(day.succ().expect("TODO"))
+            .pred()
+            .expect("TODO")
     }
 }

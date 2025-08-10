@@ -102,6 +102,12 @@ impl DateResolution for Month {
                 .expect("Always valid"),
         )
     }
+    fn end_day(self) -> Day {
+        Day::from_date(
+            Date::last_on_month(self.year().to_monotonic() as i32, self.month_of_year())
+                .expect("Always valid"),
+        )
+    }
 }
 
 impl Monotonic for Month {

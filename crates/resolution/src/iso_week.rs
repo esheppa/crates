@@ -68,7 +68,10 @@ impl DateResolution for IsoWeek {
     }
 
     fn start_day(self) -> Day {
-        Day::from_date(Date::first_on_year(self.to_monotonic() as i32).expect("Always valid"))
+       todo!()
+    }
+    fn end_day(self) -> Day {
+        todo!()
     }
 }
 

@@ -71,6 +71,10 @@ impl DateResolution for Year {
     fn start_day(self) -> Day {
         Day::from_date(Date::first_on_year(self.to_monotonic() as i32).expect("Always valid"))
     }
+
+    fn end_day(self) -> Day {
+        Day::from_date(Date::last_on_year(self.to_monotonic() as i32).expect("Always valid"))
+    }
 }
 
 impl Monotonic for Year {

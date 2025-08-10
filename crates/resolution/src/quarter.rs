@@ -37,6 +37,14 @@ impl QuarterOfYear {
             QuarterOfYear::Q4 => MonthOfYear::Oct,
         }
     }
+    const fn end_month(self) -> MonthOfYear {
+        match self {
+            QuarterOfYear::Q1 => MonthOfYear::Mar,
+            QuarterOfYear::Q2 => MonthOfYear::Jun,
+            QuarterOfYear::Q3 => MonthOfYear::Sep,
+            QuarterOfYear::Q4 => MonthOfYear::Dec,
+        }
+    }
 }
 
 const MIN: i64 = -7880;
@@ -127,6 +135,16 @@ impl DateResolution for Quarter {
             Date::first_on_month(
                 self.year().to_monotonic() as i32,
                 self.quarter_of_year().start_month(),
+            )
+            .expect("Always valid"),
+        )
+    }
+
+    fn end_day(self) -> Day {
+        Day::from_date(
+            Date::last_on_month(
+                self.year().to_monotonic() as i32,
+                self.quarter_of_year().end_month(),
             )
             .expect("Always valid"),
         )
