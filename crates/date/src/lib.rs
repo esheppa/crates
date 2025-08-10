@@ -10,27 +10,50 @@ extern crate alloc;
 #[cfg(test)]
 mod tests;
 
-
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 // 0000 through 9999
-pub struct Year(i32);  
+pub struct Year(i32);
+
+impl Year {
+    const MIN: i32 = 0;
+    const MAX: i32 = 9999;
+    pub const fn num(self) -> i32 {
+        self.0
+    }
+    pub const fn new(y: i32) -> Option<Self> {
+        if y >= Self::MIN && y <= Self::MAX {
+            Some(Year(y))
+        } else {
+            None
+        }
+    }
+    pub const fn succ(self) -> Option<Self> {
+        self.translate(1)
+    }
+
+    pub const fn pred(self) -> Option<Self> {
+        self.translate(-1)
+    }
+    pub const fn translate(self, years: i32) -> Option<Self> {
+        let Some(y) = self.0.checked_add(years) else {
+            return None;
+        };
+        Year::new(y)
+    }
+}
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 // days since 1900-01-01
 pub struct Date(i32);
 
 impl Date {
-    pub const fn succ_n(self, n: u16) -> Option<Date> {
-        let Some(d) = self.0.checked_add(n as i32) else {
+    pub const fn translate(self, i: i32) -> Option<Date> {
+        let Some(d) = self.0.checked_add(i) else {
             return None;
         };
         Some(Date(d))
     }
-    pub const fn pred_n(self, n: u16) -> Option<Date> {
-        let Some(d) = self.0.checked_sub(n as i32) else {
-            return None;
-        };
-        Some(Date(d))
-    }
+
     pub const fn succ(self) -> Option<Date> {
         let Some(d) = self.0.checked_add(1) else {
             return None;
@@ -43,57 +66,50 @@ impl Date {
         };
         Some(Date(d))
     }
-    pub const fn first_on_year(year: i32) -> Option<Date> {
-        first_on_year_internal(year)
+    pub const fn first_on_year(year: Year) -> Option<Date> {
+        first_on_year_internal(year.0)
     }
-    pub const fn last_on_year(year: i32) -> Option<Date> {
-        let Some(y) = Date::first_on_year(year + 1) else {
-            return None;
-        };
-        y.pred_n(1)
+    pub const fn last_on_year(year: Year) -> Option<Date> {
+        Self::last_on_month(year, MonthOfYear::Dec)
     }
 
-    pub const fn first_on_month(year: i32, month: MonthOfYear) -> Option<Date> {
+    pub const fn first_on_month(year: Year, month: MonthOfYear) -> Option<Date> {
         let Some(d) = Date::first_on_year(year) else {
             return None;
         };
-        d.succ_n(month.cumulative_days(year))
+        d.translate(month.cumulative_days(year))
     }
 
-    pub const fn last_on_month(year: i32, month: MonthOfYear) -> Option<Date> {
+    pub const fn last_on_month(year: Year, month: MonthOfYear) -> Option<Date> {
         let Some(d) = Self::first_on_month(year, month) else {
             return None;
         };
-        let Some(sub) = (month.num_days(year) as u16).checked_sub(1) else {
+        let Some(sub) = (month.num_days(year) as i32).checked_sub(1) else {
             return None;
         };
 
-        d.succ_n(sub)
+        d.translate(sub)
     }
     // this is limited to only the 28th day
-    pub const fn ymd(year: i32, month: MonthOfYear, day: DayOfMonth) -> Option<Date> {
+    pub const fn ymd(year: Year, month: MonthOfYear, day: DayOfMonth) -> Option<Date> {
         let Some(first) = Self::first_on_month(year, month) else {
             return None;
         };
-        let Some(sub) = (day.number() as u16).checked_sub(1) else {
+        let Some(sub) = (day.number() as i32).checked_sub(1) else {
             return None;
         };
 
-        first.succ_n(sub)
+        first.translate(sub)
     }
     pub const fn with_day(self, day: DayOfMonth) -> Option<Date> {
         let current_day = self.day_of_month();
         if current_day == day.number() {
             return Some(self);
         }
-        if current_day < day.number() {
-            self.succ_n((day.number() - current_day) as u16)
-        } else {
-            self.pred_n((current_day - day.number()) as u16)
-        }
+        self.translate((day.number() - current_day) as i32)
     }
-    pub const fn year_num(&self) -> i32 {
-        self.through().year
+    pub const fn year(&self) -> Year {
+        Year::new(self.through().year).unwrap()
     }
     pub const fn month_of_year(&self) -> MonthOfYear {
         self.through().month()
@@ -339,10 +355,10 @@ impl MonthOfYear {
             chrono::Month::December => MonthOfYear::Dec,
         }
     }
-    pub const fn num_days(self, year: i32) -> u8 {
+    pub const fn num_days(self, year: Year) -> u8 {
         match self {
             MonthOfYear::Jan => 31,
-            MonthOfYear::Feb if is_leap_year(year) => 29,
+            MonthOfYear::Feb if is_leap_year(year.0) => 29,
             MonthOfYear::Feb => 28,
             MonthOfYear::Mar => 31,
             MonthOfYear::Apr => 30,
@@ -357,8 +373,8 @@ impl MonthOfYear {
         }
     }
 
-    pub const fn cumulative_days(self, year: i32) -> u16 {
-        if is_leap_year(year) {
+    pub const fn cumulative_days(self, year: Year) -> i32 {
+        if is_leap_year(year.0) {
             match self {
                 MonthOfYear::Jan => 0,
                 MonthOfYear::Feb => 31,

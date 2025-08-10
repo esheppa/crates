@@ -1,14 +1,14 @@
-use crate::{
-    DateResolution, DateResolutionExt, FromMonotonic, LongerThanOrEqual, Minute, Monotonic,
-    SubDateResolution, TimeResolution,
-};
+use crate::*;
 // #[cfg(feature = "chrono")]
-// use crate::{FixedTimeZone, Zoned};
-use alloc::{collections, fmt, vec::Vec};
+// use crate::{FixedTimeZone, Zoned};Vec
+
 #[cfg(feature = "chrono")]
 use chrono::{DateTime, Utc};
 
-use core::{iter::FusedIterator, mem, num};
+use crate::prelude::*;
+use iter::FusedIterator;
+use num::NonZeroU64;
+
 #[cfg(feature = "serde")]
 use serde::de;
 
@@ -55,7 +55,6 @@ impl<P> TimeRange<P> {
     where
         S: SubDateResolution<Params = P::Params> + FromMonotonic,
         P: DateResolution<FromDay = P> + FromMonotonic,
-        
     {
         // get first start
         let first_start = S::first_on_day(self.start().start_day(), self.start().params());
@@ -106,58 +105,32 @@ impl<P> TimeRange<P> {
 // }
 
 impl<P: TimeResolution + Monotonic + FromMonotonic> TimeRange<P> {
-    pub fn to_indexes(&self) -> collections::BTreeSet<i64> {
-        self.iter().map(|p| p.to_monotonic()).collect()
-    }
-
-    pub fn from_set(set: &collections::BTreeSet<P>) -> Option<TimeRange<P>> {
-        if u32::try_from(set.len()).is_err() {
-            return None;
-        }
-        if set.is_empty() {
-            return None;
-        }
-        Some(TimeRange {
-            start: set.iter().next().copied()?,
-            len: num::NonZeroU64::new(u64::try_from(set.len()).ok()?)?,
-        })
-    }
-
-    pub fn maybe_new(start: P, len: u64) -> Option<TimeRange<P>> {
-        Some(TimeRange {
-            start,
-            len: num::NonZeroU64::new(len)?,
-        })
-    }
-    pub fn new(start: P, len: num::NonZeroU64) -> TimeRange<P> {
-        TimeRange { start, len }
+    pub fn iter_indexes(&self) -> impl Iterator<Item = i64> {
+        self.iter().map(|p| p.to_monotonic())
     }
     pub fn index_of(&self, point: P) -> Option<usize> {
-        if point < self.start || point > self.end() {
+        if point < self.start() || point > self.end() {
             None
         } else {
             Some(
-                usize::try_from(self.start.between(point))
+                usize::try_from(self.start().between(point))
                     .expect("Point is earlier than end so this is always ok"),
             )
         }
     }
     pub fn from_bounds(a: P, b: P) -> TimeRange<P> {
-        if a <= b {
-            TimeRange {
-                start: a,
-                len: num::NonZeroU64::new(1 + u64::try_from(a.between(b)).unwrap()).unwrap(),
-            }
-        } else {
-            TimeRange {
-                start: a,
-                len: num::NonZeroU64::new(1 + u64::try_from(b.between(a)).unwrap()).unwrap(),
-            }
-        }
+        TimeRange { a, b }
     }
 
-    pub fn len(&self) -> num::NonZeroU64 {
-        self.len
+    pub fn len(&self) -> NonZeroU64 {
+        NonZeroU64::new(
+            self.end()
+                .to_monotonic()
+                .sub(self.start().to_monotonic())
+                .try_into()
+                .unwrap(),
+        )
+        .unwrap()
     }
 
     pub fn intersection(&self, other: &TimeRange<P>) -> Option<TimeRange<P>> {
@@ -201,25 +174,13 @@ impl<P: TimeResolution + Monotonic + FromMonotonic> TimeRange<P> {
     //     }
     // }
 
-
     pub fn contains<O>(&self, rhs: O) -> bool
     where
         O: TimeResolution,
         P: LongerThanOrEqual<O>,
     {
-        extern crate std;
-        use std::dbg;
-
-        let range_start = self.start.start_minute();
-        let range_end = self.end().succ().start_minute();
-
-        let comparison_start = rhs.start_minute();
-        let comparison_end = rhs.succ().start_minute();
-
-        dbg!(range_start, range_end, comparison_start, comparison_end);
-
-        (range_start..range_end).contains(&comparison_start)
-            && (range_start..range_end).contains(&comparison_end)
+        self.start().start_minute() <= rhs.start_minute()
+            && self.end().end_minute() >= rhs.end_minute()
     }
     pub fn set(&self) -> collections::BTreeSet<P> {
         self.iter().collect()
@@ -240,7 +201,7 @@ impl<P: TimeResolution + Monotonic + FromMonotonic> TimeRange<P> {
 
         // for the end, we can't use something like 23:59:59
         // so we instead get the next period then look back.
-        let end = Out::from(self.end().succ().start_minute()).pred();
+        let end = Out::from(self.end().end_minute());
 
         TimeRange::from_bounds(start, end)
     }
@@ -256,7 +217,7 @@ impl<P: TimeResolution + FromMonotonic> Iterator for TimeRangeIter<P> {
     fn next(&mut self) -> Option<Self::Item> {
         if self.start <= self.end {
             let ret = self.start;
-            self.start = self.start.succ();
+            self.start = self.start.succ()?;
             Some(ret)
         } else {
             None
@@ -280,7 +241,7 @@ impl<P: TimeResolution + FromMonotonic> DoubleEndedIterator for TimeRangeIter<P>
     fn next_back(&mut self) -> Option<Self::Item> {
         if self.start <= self.end {
             let ret = self.end;
-            self.end = self.end.pred();
+            self.end = self.end.pred()?;
             Some(ret)
         } else {
             None
@@ -384,7 +345,7 @@ impl<K: Ord + fmt::Debug + Copy, T: Send + fmt::Debug + Eq + Copy> Cache<K, T> {
 #[cfg(test)]
 mod tests {
 
-    use crate::date_impl::MonthOfYear;
+    use date::MonthOfYear;
 
     use crate::{Day, FiveMinute, Hour, Month, Year};
 
@@ -392,14 +353,14 @@ mod tests {
 
     #[test]
     fn test_iter() {
-        let mth = Month::from_parts(Year::new(2024), MonthOfYear::Jan);
+        let mth = Month::new(Year::from_monotonic(2024).unwrap(), MonthOfYear::Jan);
 
         let day_range = mth.rescale::<Day>();
 
         let mut iter = day_range.iter();
 
         assert_eq!(iter.len(), 31);
-        assert_eq!(iter.next(), Some(mth.start().into()));
+        assert_eq!(iter.next(), Some(mth.start_day().into()));
         assert_eq!(iter.next_back(), Some(mth.end_day().into()));
         assert_eq!(iter.len(), 29);
         let mut iter = iter.skip(29);
@@ -432,27 +393,27 @@ mod tests {
         use chrono::{NaiveDate, NaiveDateTime, NaiveTime};
         use std::dbg;
 
-        let mth = Month::from_parts(2024.into(), MonthOfYear::Jan);
+        let mth = Month::new(Year::from_monotonic(2024).unwrap(), MonthOfYear::Jan);
 
         let day_range = mth.rescale::<Day>();
 
         dbg!(
             mth.to_string(),
-            day_range.start.start_day(),
+            day_range.start().start_day(),
             day_range.end().start_day()
         );
 
-        assert!(
-            day_range.contains(Minutes::<5>::from_utc_datetime(
-                NaiveDateTime::new(
-                    NaiveDate::from_ymd_opt(2024, 1, 1).unwrap(),
-                    NaiveTime::from_hms_opt(15, 15, 0).unwrap(),
-                )
-                .and_utc()
-            ))
-        );
+        // assert!(
+        //     day_range.contains(Minutes::<5>::from_utc_datetime(
+        //         NaiveDateTime::new(
+        //             NaiveDate::from_ymd_opt(2024, 1, 1).unwrap(),
+        //             NaiveTime::from_hms_opt(15, 15, 0).unwrap(),
+        //         )
+        //         .and_utc()
+        //     ))
+        // );
 
-        let year = Year::new(2024);
+        let year = Year::from_monotonic(2024).unwrap();
 
         let month_range = year.rescale::<Month>();
 

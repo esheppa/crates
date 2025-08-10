@@ -6,7 +6,6 @@ edition = "2024"
 
 [dependencies.serde]
 workspace = true
-features = ["derive"]
 optional = true
 
 [dependencies.chrono]

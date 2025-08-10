@@ -5,6 +5,26 @@ use crate::{minutes::MINUTES_PER_DAY, *};
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Day(i64);
 
+impl<'de> Deserialize<'de> for Day {
+    fn deserialize<D>(deserializer: D) -> core::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let s = String::deserialize(deserializer)?;
+
+        s.parse().map_err(serde::de::Error::custom)
+    }
+}
+
+impl Serialize for Day {
+    fn serialize<S>(&self, serializer: S) -> core::result::Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_str(&self.to_string())
+    }
+}
+
 const MIN: i64 = -3652060;
 const MAX: i64 = 3652060; // TODO
 
@@ -96,5 +116,132 @@ impl Monotonic for Day {
 impl FromMonotonic for Day {
     fn from_monotonic(idx: i64) -> Option<Self> {
         Self::from_monotonic(idx)
+    }
+}
+
+impl str::FromStr for Day {
+    type Err = Error;
+    fn from_str(s: &str) -> core::result::Result<Self, Self::Err> {
+        let mut parts = s.split('-');
+
+        let Some(year) = parts
+            .next()
+            .and_then(|y| y.parse::<i32>().ok())
+            .and_then(date::Year::new)
+        else {
+            return Err(Error::ParseCustom {
+                ty_name: "date",
+                input: s.to_string(),
+            });
+        };
+
+        let Some(month) = parts
+            .next()
+            .and_then(|m| MonthOfYear::from_number(m.parse::<u8>().ok()?))
+        else {
+            return Err(Error::ParseCustom {
+                ty_name: "date",
+                input: s.to_string(),
+            });
+        };
+
+        let Some(day) = parts.next().and_then(|y| y.parse::<u16>().ok()) else {
+            return Err(Error::ParseCustom {
+                ty_name: "date",
+                input: s.to_string(),
+            });
+        };
+
+        let Some(date) = Date::first_on_month(year, month)
+            .and_then(|d| d.translate(day.saturating_sub(1) as i32))
+        else {
+            return Err(Error::ParseCustom {
+                ty_name: "date",
+                input: s.to_string(),
+            });
+        };
+
+        Ok(Day::from_date(date))
+    }
+}
+
+impl fmt::Display for Day {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let (year, month, day) = self.date().to_ymd();
+        write!(f, "{year:04}-{month:02}-{day:02}")
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use date::{DayOfMonth, MonthOfYear};
+
+    #[cfg(feature = "serde")]
+    #[test]
+    fn test_roundtrip() {
+        let dt = chrono::NaiveDate::from_ymd_opt(2021, 12, 6).unwrap();
+
+        let wk = Day::from_date(Date::from_chrono_date(dt));
+
+        assert_eq!(
+            wk,
+            serde_json::from_str(&serde_json::to_string(&wk).unwrap()).unwrap()
+        )
+    }
+
+    #[test]
+
+    fn test_parse_date_syntax() {
+        let year = date::Year::new(2021).unwrap();
+        assert_eq!(
+            "2021-01-01".parse::<Day>().unwrap(),
+            Day::from_date(Date::first_on_year(year).unwrap()),
+        );
+        assert_eq!(
+            "2021-01-01".parse::<Day>().unwrap().succ().unwrap(),
+            Day::from_date(Date::ymd(year, MonthOfYear::Jan, DayOfMonth::D2).unwrap()),
+        );
+        assert_eq!(
+            "2021-01-01"
+                .parse::<Day>()
+                .unwrap()
+                .succ()
+                .unwrap()
+                .pred()
+                .unwrap(),
+            Day::from_date(Date::first_on_year(year).unwrap()),
+        );
+    }
+
+    #[test]
+    fn test_start() {
+        let year = date::Year::new(0).unwrap();
+
+        assert_eq!(
+            Day(2),
+            Day::from_date(Date::ymd(year, MonthOfYear::Jan, DayOfMonth::D3).unwrap())
+        );
+        assert_eq!(
+            Day(1),
+            Day::from_date(Date::ymd(year, MonthOfYear::Jan, DayOfMonth::D2).unwrap())
+        );
+        assert_eq!(
+            Day(0),
+            Day::from_date(Date::ymd(year, MonthOfYear::Jan, DayOfMonth::D1).unwrap())
+        );
+        assert_eq!(
+            Day(-1),
+            Day::from_date(Date::last_on_month(year.pred().unwrap(), MonthOfYear::Dec).unwrap())
+        );
+        assert_eq!(
+            Day(-2),
+            Day::from_date(
+                Date::last_on_month(year.pred().unwrap(), MonthOfYear::Dec)
+                    .unwrap()
+                    .translate(-1)
+                    .unwrap()
+            )
+        );
     }
 }

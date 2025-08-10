@@ -3,14 +3,26 @@ extern crate alloc;
 #[cfg(feature = "std")]
 extern crate std;
 
-use core::{
-    any, error, fmt,
-    num::{self, ParseIntError},
-    str,
-};
+mod prelude {
+    pub use alloc::{
+        collections::{self},
+        format,
+        string::{String, ToString},
+        vec::Vec,
+    };
+    pub use core::{
+        any, error,
+        fmt::{self, Display},
+        iter, mem,
+        num::{self, ParseIntError},
+        ops::*,
+        str,
+    };
+    pub use serde::{Deserialize, Serialize};
+}
+use prelude::*;
 
 // mod range;
-use alloc::{format, string::String};
 #[cfg(feature = "chrono")]
 use chrono::{DateTime, NaiveDate, Utc};
 use date::MonthOfYear;
@@ -39,8 +51,9 @@ pub use year::Year;
 mod financial_year;
 pub use financial_year::FinancialYear;
 
-mod iso_week;
-pub use iso_week::IsoWeek;
+// TODO
+// mod iso_week;
+// pub use iso_week::IsoWeek;
 
 // #[cfg(feature = "chrono")]
 // mod zoned;
@@ -72,7 +85,7 @@ impl LongerThanOrEqual<Minute> for FiveMinute {}
 impl LongerThanOrEqual<Minute> for HalfHour {}
 impl LongerThanOrEqual<Minute> for Hour {}
 impl LongerThanOrEqual<Minute> for Day {}
-impl LongerThanOrEqual<Minute> for IsoWeek {}
+// impl LongerThanOrEqual<Minute> for IsoWeek {}
 impl LongerThanOrEqual<Minute> for Month {}
 impl LongerThanOrEqual<Minute> for Quarter {}
 impl LongerThanOrEqual<Minute> for Year {}
@@ -81,7 +94,7 @@ impl LongerThan<Minute> for FiveMinute {}
 impl LongerThan<Minute> for HalfHour {}
 impl LongerThan<Minute> for Hour {}
 impl LongerThan<Minute> for Day {}
-impl LongerThan<Minute> for IsoWeek {}
+// impl LongerThan<Minute> for IsoWeek {}
 impl LongerThan<Minute> for Month {}
 impl LongerThan<Minute> for Quarter {}
 impl LongerThan<Minute> for Year {}
@@ -89,7 +102,7 @@ impl LongerThan<Minute> for Year {}
 impl LongerThanOrEqual<FiveMinute> for HalfHour {}
 impl LongerThanOrEqual<FiveMinute> for Hour {}
 impl LongerThanOrEqual<FiveMinute> for Day {}
-impl LongerThanOrEqual<FiveMinute> for IsoWeek {}
+// impl LongerThanOrEqual<FiveMinute> for IsoWeek {}
 impl LongerThanOrEqual<FiveMinute> for Month {}
 impl LongerThanOrEqual<FiveMinute> for Quarter {}
 impl LongerThanOrEqual<FiveMinute> for Year {}
@@ -97,54 +110,54 @@ impl LongerThanOrEqual<FiveMinute> for Year {}
 impl LongerThan<FiveMinute> for HalfHour {}
 impl LongerThan<FiveMinute> for Hour {}
 impl LongerThan<FiveMinute> for Day {}
-impl LongerThan<FiveMinute> for IsoWeek {}
+// impl LongerThan<FiveMinute> for IsoWeek {}
 impl LongerThan<FiveMinute> for Month {}
 impl LongerThan<FiveMinute> for Quarter {}
 impl LongerThan<FiveMinute> for Year {}
 
 impl LongerThanOrEqual<HalfHour> for Hour {}
 impl LongerThanOrEqual<HalfHour> for Day {}
-impl LongerThanOrEqual<HalfHour> for IsoWeek {}
+// impl LongerThanOrEqual<HalfHour> for IsoWeek {}
 impl LongerThanOrEqual<HalfHour> for Month {}
 impl LongerThanOrEqual<HalfHour> for Quarter {}
 impl LongerThanOrEqual<HalfHour> for Year {}
 
 impl LongerThan<HalfHour> for Hour {}
 impl LongerThan<HalfHour> for Day {}
-impl LongerThan<HalfHour> for IsoWeek {}
+// impl LongerThan<HalfHour> for IsoWeek {}
 impl LongerThan<HalfHour> for Month {}
 impl LongerThan<HalfHour> for Quarter {}
 impl LongerThan<HalfHour> for Year {}
 
 impl LongerThanOrEqual<Hour> for Day {}
-impl LongerThanOrEqual<Hour> for IsoWeek {}
+// impl LongerThanOrEqual<Hour> for IsoWeek {}
 impl LongerThanOrEqual<Hour> for Month {}
 impl LongerThanOrEqual<Hour> for Quarter {}
 impl LongerThanOrEqual<Hour> for Year {}
 
 impl LongerThan<Hour> for Day {}
-impl LongerThan<Hour> for IsoWeek {}
+// impl LongerThan<Hour> for IsoWeek {}
 impl LongerThan<Hour> for Month {}
 impl LongerThan<Hour> for Quarter {}
 impl LongerThan<Hour> for Year {}
 
-impl LongerThanOrEqual<Day> for IsoWeek {}
+// impl LongerThanOrEqual<Day> for IsoWeek {}
 impl LongerThanOrEqual<Day> for Month {}
 impl LongerThanOrEqual<Day> for Quarter {}
 impl LongerThanOrEqual<Day> for Year {}
 
-impl LongerThan<Day> for IsoWeek {}
+// impl LongerThan<Day> for IsoWeek {}
 impl LongerThan<Day> for Month {}
 impl LongerThan<Day> for Quarter {}
 impl LongerThan<Day> for Year {}
 
-impl LongerThanOrEqual<IsoWeek> for Quarter {}
-impl LongerThanOrEqual<IsoWeek> for Month {}
-impl LongerThanOrEqual<IsoWeek> for Year {}
+// impl LongerThanOrEqual<IsoWeek> for Quarter {}
+// impl LongerThanOrEqual<IsoWeek> for Month {}
+// impl LongerThanOrEqual<IsoWeek> for Year {}
 
-impl LongerThan<IsoWeek> for Month {}
-impl LongerThan<IsoWeek> for Quarter {}
-impl LongerThan<IsoWeek> for Year {}
+// impl LongerThan<IsoWeek> for Month {}
+// impl LongerThan<IsoWeek> for Quarter {}
+// impl LongerThan<IsoWeek> for Year {}
 
 impl LongerThanOrEqual<Month> for Quarter {}
 impl LongerThanOrEqual<Month> for Year {}
@@ -427,101 +440,3 @@ pub trait DateResolutionExt: DateResolution {
 }
 
 impl<T> DateResolutionExt for T where T: DateResolution {}
-
-trait DateResolutionBuilder {
-    fn q1(self) -> Quarter;
-    fn q2(self) -> Quarter;
-    fn q3(self) -> Quarter;
-    fn q4(self) -> Quarter;
-    fn jan(self) -> Month;
-    fn feb(self) -> Month;
-    fn mar(self) -> Month;
-    fn apr(self) -> Month;
-    fn may(self) -> Month;
-    fn jun(self) -> Month;
-    fn jul(self) -> Month;
-    fn aug(self) -> Month;
-    fn sep(self) -> Month;
-    fn oct(self) -> Month;
-    fn nov(self) -> Month;
-    fn dec(self) -> Month;
-}
-impl DateResolutionBuilder for i16 {
-    fn q1(self) -> Quarter {
-        Quarter::new(
-            Year::from_monotonic(self as i64).unwrap(),
-            quarter::QuarterOfYear::Q1,
-        )
-    }
-    fn q2(self) -> Quarter {
-        Quarter::new(
-            Year::from_monotonic(self as i64).unwrap(),
-            quarter::QuarterOfYear::Q2,
-        )
-    }
-    fn q3(self) -> Quarter {
-        Quarter::new(
-            Year::from_monotonic(self as i64).unwrap(),
-            quarter::QuarterOfYear::Q3,
-        )
-    }
-    fn q4(self) -> Quarter {
-        Quarter::new(
-            Year::from_monotonic(self as i64).unwrap(),
-            quarter::QuarterOfYear::Q4,
-        )
-    }
-    fn jan(self) -> Month {
-        Month::new(Year::from_monotonic(self as i64).unwrap(), MonthOfYear::Jan)
-    }
-    fn feb(self) -> Month {
-        Month::new(Year::from_monotonic(self as i64).unwrap(), MonthOfYear::Feb)
-    }
-    fn mar(self) -> Month {
-        Month::new(Year::from_monotonic(self as i64).unwrap(), MonthOfYear::Mar)
-    }
-    fn apr(self) -> Month {
-        Month::new(Year::from_monotonic(self as i64).unwrap(), MonthOfYear::Apr)
-    }
-    fn may(self) -> Month {
-        Month::new(Year::from_monotonic(self as i64).unwrap(), MonthOfYear::May)
-    }
-    fn jun(self) -> Month {
-        Month::new(Year::from_monotonic(self as i64).unwrap(), MonthOfYear::Jun)
-    }
-    fn jul(self) -> Month {
-        Month::new(Year::from_monotonic(self as i64).unwrap(), MonthOfYear::Jul)
-    }
-    fn aug(self) -> Month {
-        Month::new(Year::from_monotonic(self as i64).unwrap(), MonthOfYear::Aug)
-    }
-    fn sep(self) -> Month {
-        Month::new(Year::from_monotonic(self as i64).unwrap(), MonthOfYear::Sep)
-    }
-    fn oct(self) -> Month {
-        Month::new(Year::from_monotonic(self as i64).unwrap(), MonthOfYear::Oct)
-    }
-    fn nov(self) -> Month {
-        Month::new(Year::from_monotonic(self as i64).unwrap(), MonthOfYear::Nov)
-    }
-    fn dec(self) -> Month {
-        Month::new(Year::from_monotonic(self as i64).unwrap(), MonthOfYear::Dec)
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use quarter::QuarterOfYear;
-
-    use super::*;
-
-    #[test]
-    fn test_builder() {
-        assert_eq!(
-            2024.q1(),
-            Quarter::from_parts(Year::new(2024), QuarterOfYear::Q1)
-        );
-        assert_eq!(2024.q1(), Year::new(2024).first_quarter());
-        assert_eq!(Year::new(2024).q1(), Year::new(2024).first_quarter());
-    }
-}

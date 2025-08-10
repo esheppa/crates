@@ -90,3 +90,86 @@ impl FromMonotonic for IsoWeek {
         Self::from_monotonic(idx)
     }
 }
+
+
+// #[cfg(test)]
+// mod tests {
+//     use crate::date_impl::{DayOfMonth, MonthOfYear};
+
+//     use super::*;
+//     use crate::DateResolution;
+
+//     #[test]
+//     #[cfg(feature = "serde")]
+//     fn test_roundtrip() {
+//         use crate::DateResolutionExt;
+
+//         let dt = Day::ymd(2021, MonthOfYear::Dec, DayOfMonth::D6);
+
+//         let wk = Week::<Monday>::from_day(dt);
+//         assert!(wk.start_day() <= dt && wk.end_day() >= dt);
+
+//         let wk = Week::<Tuesday>::from_day(dt);
+//         assert!(wk.start_day() <= dt && wk.end_day() >= dt);
+
+//         let wk = Week::<Wednesday>::from_day(dt);
+//         assert!(wk.start_day() <= dt && wk.end_day() >= dt);
+
+//         let wk = Week::<Thursday>::from_day(dt);
+//         assert!(wk.start_day() <= dt && wk.end_day() >= dt);
+
+//         let wk = Week::<Friday>::from_day(dt);
+//         assert!(wk.start_day() <= dt && wk.end_day() >= dt);
+
+//         let wk = Week::<Saturday>::from_day(dt);
+//         assert!(wk.start_day() <= dt && wk.end_day() >= dt);
+
+//         let wk = Week::<Sunday>::from_day(dt);
+//         assert!(wk.start_day() <= dt && wk.end_day() >= dt);
+
+//         assert_eq!(
+//             wk,
+//             serde_json::from_str(&serde_json::to_string(&wk).unwrap()).unwrap()
+//         )
+//     }
+//     #[test]
+//     fn test_parse() {
+//         assert_eq!(
+//             "Week starting 2021-12-06"
+//                 .parse::<Week<Monday>>()
+//                 .unwrap()
+//                 .start(),
+//             Day::ymd(2021, MonthOfYear::Dec, DayOfMonth::D6),
+//         );
+//         assert_eq!(
+//             "Week starting 2021-12-06"
+//                 .parse::<Week<Monday>>()
+//                 .unwrap()
+//                 .succ()
+//                 .start(),
+//             Day::ymd(2021, MonthOfYear::Dec, DayOfMonth::D13),
+//         );
+//         assert_eq!(
+//             "Week starting 2021-12-06"
+//                 .parse::<Week<Monday>>()
+//                 .unwrap()
+//                 .succ()
+//                 .pred()
+//                 .start(),
+//             Day::ymd(2021, MonthOfYear::Dec, DayOfMonth::D6),
+//         );
+
+//         assert!("Week starting 2021-12-06".parse::<Week<Tuesday>>().is_err(),);
+//         assert!("Week starting 2021-12-06"
+//             .parse::<Week<Wednesday>>()
+//             .is_err(),);
+//         assert!("Week starting 2021-12-06"
+//             .parse::<Week<Thursday>>()
+//             .is_err(),);
+//         assert!("Week starting 2021-12-06".parse::<Week<Friday>>().is_err(),);
+//         assert!("Week starting 2021-12-06"
+//             .parse::<Week<Saturday>>()
+//             .is_err(),);
+//         assert!("Week starting 2021-12-06".parse::<Week<Sunday>>().is_err(),);
+//     }
+// }

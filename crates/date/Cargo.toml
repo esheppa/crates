@@ -10,7 +10,6 @@ path = "src/calc-ymd.rs"
 
 [dependencies.serde]
 workspace = true
-features = ["derive"]
 optional = true
 
 [dependencies.chrono]

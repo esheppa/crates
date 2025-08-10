@@ -13,7 +13,7 @@ fn date_impl_narrow_benchmark(c: &mut Criterion) {
         b.iter(|| {
             for i in 36524..58439_i32 {
                 let date = Date::new(black_box(i));
-                _ = date.year_num();
+                _ = date.year();
                 _ = date.month_of_year();
                 _ = date.day_of_month();
             }
@@ -38,7 +38,7 @@ fn date_impl_pre_benchmark(c: &mut Criterion) {
     c.bench_function("date-impl-pre", |b| {
         b.iter(|| {
             let date = Date::new(black_box(11255));
-            _ = date.year_num();
+            _ = date.year();
             _ = date.month_of_year();
             _ = date.day_of_month();
         })
@@ -49,7 +49,7 @@ fn date_impl_1_benchmark(c: &mut Criterion) {
     c.bench_function("date-impl-1", |b| {
         b.iter(|| {
             let date = Date::new(black_box(36557));
-            _ = date.year_num();
+            _ = date.year();
             _ = date.month_of_year();
             _ = date.day_of_month();
         })
