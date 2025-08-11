@@ -431,12 +431,27 @@ pub trait DateResolutionExt: DateResolution {
     fn rescale<Out>(self) -> range::TimeRange<Out>
     where
         Out: DateResolution<Params = Self::Params, FromDay = Out> + FromMonotonic,
-        Self: LongerThan<Out>,
+        Self: LongerThan<Out>, // TODO: could be LongerThanOrEqual?
     {
         range::TimeRange::from_bounds(
-            Out::from_day(self.start_day(), self.params()),
-            Out::from_day(self.end_day(), self.params()),
+            self.start_p(),
+            self.end_p(),
         )
+    }
+
+    fn start_p<Out>(self) -> Out
+    where
+        Out: DateResolution<Params = Self::Params, FromDay = Out> + FromMonotonic,
+        Self: LongerThan<Out>, // TODO: could be LongerThanOrEqual?
+    {
+        Out::from_day(self.start_day(), self.params())
+    }
+    fn end_p<Out>(self) -> Out
+    where
+        Out: DateResolution<Params = Self::Params, FromDay = Out> + FromMonotonic,
+        Self: LongerThan<Out>, // TODO: could be LongerThanOrEqual?
+    {
+        Out::from_day(self.end_day(), self.params())
     }
 }
 

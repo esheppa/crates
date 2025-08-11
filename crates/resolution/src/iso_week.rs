@@ -8,6 +8,8 @@ const MIN: i64 = -521722;
 const MAX: i64 = 521722; // TODO
 
 impl IsoWeek {
+       pub const MIN: Self = Self(MIN);
+    pub const MAX: Self = Self(MAX);
     pub const fn from_monotonic(idx: i64) -> Option<Self> {
         // TODO: use MIN..=MAX here when it is const
         if idx >= MIN && idx <= MAX {

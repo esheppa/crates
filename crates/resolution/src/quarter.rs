@@ -81,6 +81,8 @@ const MIN: i64 = -7880;
 const MAX: i64 = 32116; // TODO
 
 impl Quarter {
+       pub const MIN: Self = Self(MIN);
+    pub const MAX: Self = Self(MAX);
     pub const fn new(year: Year, q: QuarterOfYear) -> Self {
         Self(year.to_monotonic() * 4 + q.number() as i64)
     }

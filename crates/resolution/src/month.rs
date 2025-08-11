@@ -31,6 +31,8 @@ const MIN: i64 = -23640;
 const MAX: i64 = 96348; // TODO
 
 impl Month {
+       pub const MIN: Self = Self(MIN);
+    pub const MAX: Self = Self(MAX);
     pub const fn from_monotonic(idx: i64) -> Option<Self> {
         // TODO: use MIN..=MAX here when it is const
         if idx >= MIN && idx <= MAX {

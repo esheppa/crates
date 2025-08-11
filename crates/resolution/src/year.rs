@@ -202,4 +202,24 @@ mod tests {
             Quarter::new(Year::from_monotonic(2024).unwrap(), QuarterOfYear::Q1)
         );
     }
+
+      #[test]
+    fn min_max_year_roundtrip_ok() {
+        assert!(Year::MIN.start_day().pred().is_none());
+        assert_eq!(
+            Year::MIN.start_day(),
+            Day::from_date(Date::first_on_year(date::Year::new(0).unwrap()).unwrap())
+        );
+
+        assert_eq!(
+            Year::MAX.end_day(),
+            Day::from_date(Date::last_on_year(date::Year::new(9999).unwrap()).unwrap())
+        );
+
+        assert!(Year::MAX.end_day().succ().is_none());
+
+        // extern crate std;
+        // std::dbg!(Year::MIN.start_day(), Year::MAX.start_day());
+        // panic!("bad")
+    }
 }

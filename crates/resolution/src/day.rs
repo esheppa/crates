@@ -31,6 +31,8 @@ const MIN: i64 = 0;
 const MAX: i64 = 3652060; // TODO
 
 impl Day {
+    pub const MIN: Self = Self(MIN);
+    pub const MAX: Self = Self(MAX);
     pub const fn date(self) -> Date {
         // TODO!!!!!!!!!!!!!!!!
         Date::new(self.0 as i32)
@@ -192,9 +194,11 @@ mod tests {
         )
     }
 
-    #[test]
+     #[test]
     fn min_max_year_roundtrip_ok() {
-        assert!(Year::MIN.start_day().pred().is_none());
+        assert!(Day::MIN.start_day().pred().is_none());
+        assert!(Day::MAX.end_day().succ().is_none());
+
         assert_eq!(
             Year::MIN.start_day(),
             Day::from_date(Date::first_on_year(date::Year::new(0).unwrap()).unwrap())
@@ -205,7 +209,10 @@ mod tests {
             Day::from_date(Date::last_on_year(date::Year::new(9999).unwrap()).unwrap())
         );
 
-        assert!(Year::MAX.end_day().succ().is_none());
+
+        // extern crate std;
+        // std::dbg!(Year::MIN.start_day(), Year::MAX.start_day());
+        // panic!("bad")
     }
 
     #[test]
