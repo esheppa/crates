@@ -26,12 +26,12 @@ impl Serialize for Year {
     }
 }
 
-const MIN: i64 = -1970;
-const MAX: i64 = 8029; // TODO
+const MIN: i64 = 0;
+const MAX: i64 = 9999; // TODO
 
 impl Year {
     const fn date_year(self) -> date::Year {
-        date::Year::new(self.to_monotonic() as i32 + 1970).unwrap()
+        date::Year::new(self.to_monotonic() as i32).unwrap()
     }
     pub const MIN: Year = Year(MIN);
     pub const MAX: Year = Year(MAX);
@@ -203,23 +203,38 @@ mod tests {
         );
     }
 
-      #[test]
+    #[test]
     fn min_max_year_roundtrip_ok() {
         assert!(Year::MIN.start_day().pred().is_none());
         assert_eq!(
             Year::MIN.start_day(),
             Day::from_date(Date::first_on_year(date::Year::new(0).unwrap()).unwrap())
         );
-
         assert_eq!(
             Year::MAX.end_day(),
             Day::from_date(Date::last_on_year(date::Year::new(9999).unwrap()).unwrap())
         );
-
         assert!(Year::MAX.end_day().succ().is_none());
+    }
 
-        // extern crate std;
-        // std::dbg!(Year::MIN.start_day(), Year::MAX.start_day());
-        // panic!("bad")
+    #[test]
+    fn exhaustive() {
+        for i in MIN..=MAX {
+            let y = Year::from_monotonic(i).unwrap();
+            assert_eq!(Year::MIN.translate(i).unwrap(), y);
+
+            assert_eq!(Year::from_day(y.start_day(), ()), y);
+            assert_eq!(Year::from_day(y.end_day(), ()), y);
+            _ = y.start_minute();
+            _ = y.start_day();
+            _ = y.start_p::<Quarter>();
+            _ = y.start_p::<Month>();
+            _ = y.start_p::<Day>();
+            _ = y.end_minute();
+            _ = y.end_day();
+            _ = y.end_p::<Quarter>();
+            _ = y.end_p::<Month>();
+            _ = y.end_p::<Day>();
+        }
     }
 }

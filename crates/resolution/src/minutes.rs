@@ -12,8 +12,8 @@ pub type FiveMinute = Minutes<5>;
 pub type HalfHour = Minutes<30>;
 pub type Hour = Minutes<60>;
 
-const MIN: i64 = -4_000_000_000;
-const MAX: i64 = 4_000_000_000; // TODO
+const MIN: i64 = 0;
+const MAX: i64 = 5_258_967_840; // TODO
 // leap seconds are ignored here
 const NUM_SECS: i32 = 60;
 

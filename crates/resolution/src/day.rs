@@ -194,25 +194,30 @@ mod tests {
         )
     }
 
-     #[test]
+    #[test]
     fn min_max_year_roundtrip_ok() {
         assert!(Day::MIN.start_day().pred().is_none());
         assert!(Day::MAX.end_day().succ().is_none());
+        assert!(Year::MIN.start_p::<Day>().pred().is_none());
+        assert!(Year::MAX.end_p::<Day>().succ().is_none());
+        assert_eq!(Day::MIN, Year::MIN.start_p(),);
+        assert_eq!(Day::MAX, Year::MAX.start_p(),);
+    }
 
-        assert_eq!(
-            Year::MIN.start_day(),
-            Day::from_date(Date::first_on_year(date::Year::new(0).unwrap()).unwrap())
-        );
+    #[test]
+    fn exhaustive() {
+        extern crate std;
+        for i in MAX - 10..=MAX {
+            let y = Day::from_monotonic(i).unwrap();
+            assert_eq!(Day::MIN.translate(i).unwrap(), y);
 
-        assert_eq!(
-            Year::MAX.end_day(),
-            Day::from_date(Date::last_on_year(date::Year::new(9999).unwrap()).unwrap())
-        );
-
-
-        // extern crate std;
-        // std::dbg!(Year::MIN.start_day(), Year::MAX.start_day());
-        // panic!("bad")
+            assert_eq!(Day::from_day(y.start_day(), ()), y);
+            assert_eq!(Day::from_day(y.end_day(), ()), y);
+            _ = std::dbg!(i, y.start_minute());
+            _ = y.start_day();
+            _ = std::dbg!(i, y.end_minute());
+            _ = y.end_day();
+        }
     }
 
     #[test]

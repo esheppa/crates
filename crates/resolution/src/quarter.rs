@@ -77,14 +77,14 @@ impl QuarterOfYear {
     }
 }
 
-const MIN: i64 = -7880;
-const MAX: i64 = 32116; // TODO
+const MIN: i64 = 0;
+const MAX: i64 = 9999 * 4; // TODO
 
 impl Quarter {
-       pub const MIN: Self = Self(MIN);
+    pub const MIN: Self = Self(MIN);
     pub const MAX: Self = Self(MAX);
     pub const fn new(year: Year, q: QuarterOfYear) -> Self {
-        Self(year.to_monotonic() * 4 + q.number() as i64)
+        Self(year.to_monotonic() * 4 + q.offset() as i64)
     }
     pub const fn from_monotonic(idx: i64) -> Option<Self> {
         // TODO: use MIN..=MAX here when it is const
@@ -195,14 +195,18 @@ impl DateResolution for Quarter {
     }
 
     fn from_day(day: Day, _params: Self::Params) -> Self::FromDay {
+        extern crate std;
         let date = day.date();
         Self::new(
-            Year::from_monotonic(date.year().num() as i64).expect("TODO"),
-            QuarterOfYear::from_month(date.month_of_year()),
+            std::dbg!(Year::from_monotonic(date.year().num() as i64).expect("TODO")),
+            std::dbg!(QuarterOfYear::from_month(date.month_of_year())),
         )
     }
 
     fn start_day(self) -> Day {
+        extern crate std;
+        std::dbg!(self, self.0 / 4);
+
         Day::from_date(
             Date::first_on_month(
                 date::Year::new(self.year().to_monotonic() as i32).unwrap(),
@@ -213,6 +217,9 @@ impl DateResolution for Quarter {
     }
 
     fn end_day(self) -> Day {
+        extern crate std;
+        std::dbg!(self, self.0 / 4);
+
         Day::from_date(
             Date::last_on_month(
                 date::Year::new(self.year().to_monotonic() as i32).unwrap(),
@@ -285,6 +292,34 @@ mod tests {
 
     use super::*;
 
+    #[test]
+    fn min_max_year_roundtrip_ok() {
+        assert_eq!(Quarter::MIN.start_day().pred(), None);
+        assert_eq!(Quarter::MAX.end_day().succ(), None);
+        assert_eq!(Year::MIN.start_p::<Quarter>().pred(), None);
+        assert_eq!(Year::MAX.end_p::<Quarter>().succ(), None);
+        assert_eq!(Quarter::MIN, Year::MIN.start_p(),);
+        assert_eq!(Quarter::MAX, Year::MAX.start_p(),);
+    }
+
+    #[test]
+    fn exhaustive() {
+        for i in MIN..=MAX {
+            let y = Quarter::from_monotonic(i).unwrap();
+            assert_eq!(Quarter::MIN.translate(i).unwrap(), y);
+            assert_eq!(Quarter::from_day(y.start_day(), ()), y);
+            assert_eq!(Quarter::from_day(y.end_day(), ()), y);
+            _ = y.start_minute();
+            _ = y.start_day();
+            _ = y.start_p::<Month>();
+            _ = y.start_p::<Day>();
+            _ = y.end_minute();
+            _ = y.end_day();
+            _ = y.end_p::<Month>();
+            _ = y.end_p::<Day>();
+        }
+    }
+
     // #[test]
     // #[cfg(feature = "serde")]
     // fn test_roundtrip() {
@@ -299,64 +334,11 @@ mod tests {
     //         serde_json::from_str(&serde_json::to_string(&wk).unwrap()).unwrap()
     //     )
     // }
-    // #[test]
-    // fn test_parse_quarter_syntax() {
-    //     assert_eq!(
-    //         "Q1-2021".parse::<Quarter>().unwrap().start(),
-    //         Day::ymd(2021, MonthOfYear::Jan, DayOfMonth::D1),
-    //     );
-    //     assert_eq!(
-    //         "Q1-2021".parse::<Quarter>().unwrap().succ().start(),
-    //         Day::ymd(2021, MonthOfYear::Apr, DayOfMonth::D1),
-    //     );
-    //     assert_eq!(
-    //         "Q1-2021".parse::<Quarter>().unwrap().succ().pred().start(),
-    //         Day::ymd(2021, MonthOfYear::Jan, DayOfMonth::D1),
-    //     );
-    // }
-
-    // #[test]
-    // fn test_parse_date_syntax() {
-    //     assert_eq!(
-    //         "2021-01-01".parse::<Quarter>().unwrap().start(),
-    //         Day::ymd(2021, MonthOfYear::Jan, DayOfMonth::D1),
-    //     );
-    //     assert_eq!(
-    //         "2021-01-01".parse::<Quarter>().unwrap().succ().start(),
-    //         Day::ymd(2021, MonthOfYear::Apr, DayOfMonth::D1),
-    //     );
-    //     assert_eq!(
-    //         "2021-01-01"
-    //             .parse::<Quarter>()
-    //             .unwrap()
-    //             .succ()
-    //             .pred()
-    //             .start(),
-    //         Day::ymd(2021, MonthOfYear::Jan, DayOfMonth::D1),
-    //     );
-    // }
-
-    // #[test]
-    // fn test_start() {
-    //     assert_eq!(
-    //         Quarter(2).start(),
-    //         Day::ymd(0, MonthOfYear::Jul, DayOfMonth::D1)
-    //     );
-    //     assert_eq!(
-    //         Quarter(1).start(),
-    //         Day::ymd(0, MonthOfYear::Apr, DayOfMonth::D1)
-    //     );
-    //     assert_eq!(
-    //         Quarter(0).start(),
-    //         Day::ymd(0, MonthOfYear::Jan, DayOfMonth::D1)
-    //     );
-    //     assert_eq!(
-    //         Quarter(-1).start(),
-    //         Day::ymd(-1, MonthOfYear::Dec, DayOfMonth::D1)
-    //     );
-    //     assert_eq!(
-    //         Quarter(-2).start(),
-    //         Day::ymd(-1, MonthOfYear::Jul, DayOfMonth::D1)
-    //     );
-    // }
+    #[test]
+    fn test_parse_quarter_syntax() {
+        assert_eq!(
+            "2021-Q1".parse::<Quarter>().unwrap(),
+            Quarter::new(Year::from_monotonic(2021).unwrap(), QuarterOfYear::Q1),
+        );
+    }
 }

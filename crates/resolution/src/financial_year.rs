@@ -27,10 +27,12 @@ impl Serialize for FinancialYear {
     }
 }
 
-const MIN: i64 = -23639;
-const MAX: i64 = 96347; // TODO
+const MIN: i64 = 1;
+const MAX: i64 = 9999; // TODO
 
 impl FinancialYear {
+    pub const MIN: Self = Self(MIN);
+    pub const MAX: Self = Self(MAX);
     pub const fn from_monotonic(idx: i64) -> Option<Self> {
         // TODO: use MIN..=MAX here when it is const
         if idx >= MIN && idx <= MAX {
@@ -159,6 +161,24 @@ mod tests {
     use super::*;
     use crate::DateResolution;
     use crate::DateResolutionExt;
+
+    #[test]
+    fn exhaustive() {
+        for i in MIN..=MAX {
+            let y = FinancialYear::from_monotonic(i).unwrap();
+            assert_eq!(FinancialYear::MIN.translate(i - MIN).unwrap(), y);
+            assert_eq!(FinancialYear::from_day(y.start_day(), ()), Some(y));
+            assert_eq!(FinancialYear::from_day(y.end_day(), ()), Some(y));
+            _ = y.start_minute();
+            _ = y.start_day();
+            _ = y.start_p::<Month>();
+            _ = y.start_p::<Day>();
+            _ = y.end_minute();
+            _ = y.end_day();
+            _ = y.end_p::<Month>();
+            _ = y.end_p::<Day>();
+        }
+    }
 
     // #[test]
     // #[cfg(feature = "serde")]

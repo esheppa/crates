@@ -27,11 +27,11 @@ impl Serialize for Month {
     }
 }
 
-const MIN: i64 = -23640;
-const MAX: i64 = 96348; // TODO
+const MIN: i64 = 0;
+const MAX: i64 = 9999 * 12; // TODO
 
 impl Month {
-       pub const MIN: Self = Self(MIN);
+    pub const MIN: Self = Self(MIN);
     pub const MAX: Self = Self(MAX);
     pub const fn from_monotonic(idx: i64) -> Option<Self> {
         // TODO: use MIN..=MAX here when it is const
@@ -185,8 +185,35 @@ impl fmt::Display for Month {
 mod tests {
     use date::{DayOfMonth, MonthOfYear};
 
-    use super::Month;
-    use crate::{DateResolution, Day};
+    use super::*;
+    use crate::{DateResolution, DateResolutionExt, Day, TimeResolution, Year};
+
+    #[test]
+    fn min_max_year_roundtrip_ok() {
+        assert!(Month::MIN.start_day().pred().is_none());
+        assert!(Month::MAX.end_day().succ().is_none());
+        assert!(Year::MIN.start_p::<Month>().pred().is_none());
+        assert!(Year::MAX.end_p::<Month>().succ().is_none());
+        assert_eq!(Month::MIN, Year::MIN.start_p(),);
+        assert_eq!(Month::MAX, Year::MAX.start_p(),);
+    }
+
+    #[test]
+    fn exhaustive() {
+        for i in MIN..=MAX {
+            let y = Month::from_monotonic(i).unwrap();
+            assert_eq!(Month::MIN.translate(i).unwrap(), y);
+
+            assert_eq!(Month::from_day(y.start_day(), ()), y);
+            assert_eq!(Month::from_day(y.end_day(), ()), y);
+            _ = y.start_minute();
+            _ = y.start_day();
+            _ = y.start_p::<Day>();
+            _ = y.end_minute();
+            _ = y.end_day();
+            _ = y.end_p::<Day>();
+        }
+    }
 
     // #[test]
     // #[cfg(feature = "serde")]

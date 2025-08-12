@@ -85,72 +85,46 @@ impl<Long, Short> ShorterThanOrEqual<Long> for Short where Long: LongerThan<Shor
 impl LongerThanOrEqual<Minute> for FiveMinute {}
 impl LongerThanOrEqual<Minute> for HalfHour {}
 impl LongerThanOrEqual<Minute> for Hour {}
-impl LongerThanOrEqual<Minute> for Day {}
-// impl LongerThanOrEqual<Minute> for IsoWeek {}
-impl LongerThanOrEqual<Minute> for Month {}
-impl LongerThanOrEqual<Minute> for Quarter {}
-impl LongerThanOrEqual<Minute> for Year {}
 
 impl LongerThan<Minute> for FiveMinute {}
 impl LongerThan<Minute> for HalfHour {}
 impl LongerThan<Minute> for Hour {}
-impl LongerThan<Minute> for Day {}
-// impl LongerThan<Minute> for IsoWeek {}
-impl LongerThan<Minute> for Month {}
-impl LongerThan<Minute> for Quarter {}
-impl LongerThan<Minute> for Year {}
 
 impl LongerThanOrEqual<FiveMinute> for HalfHour {}
 impl LongerThanOrEqual<FiveMinute> for Hour {}
-impl LongerThanOrEqual<FiveMinute> for Day {}
-// impl LongerThanOrEqual<FiveMinute> for IsoWeek {}
-impl LongerThanOrEqual<FiveMinute> for Month {}
-impl LongerThanOrEqual<FiveMinute> for Quarter {}
-impl LongerThanOrEqual<FiveMinute> for Year {}
 
 impl LongerThan<FiveMinute> for HalfHour {}
 impl LongerThan<FiveMinute> for Hour {}
-impl LongerThan<FiveMinute> for Day {}
-// impl LongerThan<FiveMinute> for IsoWeek {}
-impl LongerThan<FiveMinute> for Month {}
-impl LongerThan<FiveMinute> for Quarter {}
-impl LongerThan<FiveMinute> for Year {}
 
 impl LongerThanOrEqual<HalfHour> for Hour {}
-impl LongerThanOrEqual<HalfHour> for Day {}
-// impl LongerThanOrEqual<HalfHour> for IsoWeek {}
-impl LongerThanOrEqual<HalfHour> for Month {}
-impl LongerThanOrEqual<HalfHour> for Quarter {}
-impl LongerThanOrEqual<HalfHour> for Year {}
 
 impl LongerThan<HalfHour> for Hour {}
-impl LongerThan<HalfHour> for Day {}
-// impl LongerThan<HalfHour> for IsoWeek {}
-impl LongerThan<HalfHour> for Month {}
-impl LongerThan<HalfHour> for Quarter {}
-impl LongerThan<HalfHour> for Year {}
 
-impl LongerThanOrEqual<Hour> for Day {}
-// impl LongerThanOrEqual<Hour> for IsoWeek {}
-impl LongerThanOrEqual<Hour> for Month {}
-impl LongerThanOrEqual<Hour> for Quarter {}
-impl LongerThanOrEqual<Hour> for Year {}
+impl<const N: u16> LongerThanOrEqual<Minutes<N>> for Day {}
+// impl<const N: u16> LongerThanOrEqual<Minutes<N>> for IsoWeek {}
+impl<const N: u16> LongerThanOrEqual<Minutes<N>> for Month {}
+impl<const N: u16> LongerThanOrEqual<Minutes<N>> for Quarter {}
+impl<const N: u16> LongerThanOrEqual<Minutes<N>> for Year {}
+impl<const N: u16> LongerThanOrEqual<Minutes<N>> for FinancialYear {}
 
-impl LongerThan<Hour> for Day {}
-// impl LongerThan<Hour> for IsoWeek {}
-impl LongerThan<Hour> for Month {}
-impl LongerThan<Hour> for Quarter {}
-impl LongerThan<Hour> for Year {}
+impl<const N: u16> LongerThan<Minutes<N>> for Day {}
+// impl<const N: u16> LongerThan<Minutes<N>> for IsoWeek {}
+impl<const N: u16> LongerThan<Minutes<N>> for Month {}
+impl<const N: u16> LongerThan<Minutes<N>> for Quarter {}
+impl<const N: u16> LongerThan<Minutes<N>> for Year {}
+impl<const N: u16> LongerThan<Minutes<N>> for FinancialYear {}
 
 // impl LongerThanOrEqual<Day> for IsoWeek {}
 impl LongerThanOrEqual<Day> for Month {}
 impl LongerThanOrEqual<Day> for Quarter {}
 impl LongerThanOrEqual<Day> for Year {}
+impl LongerThanOrEqual<Day> for FinancialYear {}
 
 // impl LongerThan<Day> for IsoWeek {}
 impl LongerThan<Day> for Month {}
 impl LongerThan<Day> for Quarter {}
 impl LongerThan<Day> for Year {}
+impl LongerThan<Day> for FinancialYear {}
 
 // impl LongerThanOrEqual<IsoWeek> for Quarter {}
 // impl LongerThanOrEqual<IsoWeek> for Month {}
@@ -162,11 +136,14 @@ impl LongerThan<Day> for Year {}
 
 impl LongerThanOrEqual<Month> for Quarter {}
 impl LongerThanOrEqual<Month> for Year {}
+impl LongerThanOrEqual<Month> for FinancialYear {}
 
 impl LongerThan<Month> for Quarter {}
 impl LongerThan<Month> for Year {}
+impl LongerThan<Month> for FinancialYear {}
 
 impl LongerThanOrEqual<Quarter> for Year {}
+impl LongerThanOrEqual<Quarter> for FinancialYear {}
 
 impl LongerThan<Quarter> for Year {}
 
@@ -433,10 +410,7 @@ pub trait DateResolutionExt: DateResolution {
         Out: DateResolution<Params = Self::Params, FromDay = Out> + FromMonotonic,
         Self: LongerThan<Out>, // TODO: could be LongerThanOrEqual?
     {
-        range::TimeRange::from_bounds(
-            self.start_p(),
-            self.end_p(),
-        )
+        range::TimeRange::from_bounds(self.start_p(), self.end_p())
     }
 
     fn start_p<Out>(self) -> Out
