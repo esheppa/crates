@@ -13,7 +13,7 @@ pub type HalfHour = Minutes<30>;
 pub type Hour = Minutes<60>;
 
 const MIN: i64 = 0;
-const MAX: i64 = 5_258_967_840; // TODO
+const MAX: i64 = 5_259_491_999; // TODO
 // leap seconds are ignored here
 const NUM_SECS: i32 = 60;
 
@@ -48,10 +48,13 @@ impl<const N: u16> Serialize for Minutes<N> {
 }
 
 impl<const N: u16> Minutes<N> {
+    pub const MIN: Self = Self(MIN);
+    pub const MAX: Self = Self(MAX / N as i64);
+
     const PERIODS_PER_DAY: i64 = MINUTES_PER_DAY / N as i64;
     const SENSIBLE: () = {
         let sensible = [
-            1, 2, 3, 4, 5, 6, 10, 15, 20, 30, 60, 120, 180, 240, 360, 720,
+            1, 2, 3, 4, 5, 6, 10, 15, 20, 30, 60, 120, 180, 240, 360, 480, 720,
         ];
 
         let mut idx = 0;
@@ -59,7 +62,7 @@ impl<const N: u16> Minutes<N> {
         loop {
             if idx >= sensible.len() {
                 panic!(
-                    "Please choose a minutes impl within 1, 2, 3, 4, 5, 6, 10, 15, 20, 30, 60, 120, 180, 240, 360, 720"
+                    "Please choose a minutes impl within 1, 2, 3, 4, 5, 6, 10, 15, 20, 30, 60, 120, 180, 240, 360, 480, 720"
                 )
             }
 
@@ -140,7 +143,7 @@ impl<const N: u16> Minutes<N> {
     }
 
     pub const fn end_minute(self) -> Minute {
-        Minutes::<1>(self.0 * (N as i64) + (N as i64))
+        Minutes::<1>(self.0 * (N as i64) + (N as i64) - 1)
     }
     const NAME: &str = {
         match N {
@@ -159,6 +162,7 @@ impl<const N: u16> Minutes<N> {
             180 => "Minutes[Length:180]",
             240 => "Minutes[Length:240]",
             360 => "Minutes[Length:360]",
+            480 => "Minutes[Length:480]",
             720 => "Minutes[Length:720]",
             _ => panic!(
                 "Please choose a minutes impl within 1, 2, 3, 4, 5, 6, 10, 15, 20, 30, 60, 120, 180, 240, 360, 720"
@@ -541,6 +545,9 @@ pub struct DaySubdivison<const N: u16> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    extern crate std;
+
+    use rayon::iter::{IntoParallelIterator, ParallelIterator};
 
     #[test]
     fn test_relative() {
@@ -631,6 +638,66 @@ mod tests {
                 i + 1,
             );
         }
+    }
+
+    #[test]
+    fn min_max_year_roundtrip_ok_all() {
+        min_max_year_roundtrip_ok::<1>();
+        min_max_year_roundtrip_ok::<2>();
+        min_max_year_roundtrip_ok::<3>();
+        min_max_year_roundtrip_ok::<4>();
+        min_max_year_roundtrip_ok::<5>();
+        min_max_year_roundtrip_ok::<6>();
+        min_max_year_roundtrip_ok::<10>();
+        min_max_year_roundtrip_ok::<15>();
+        min_max_year_roundtrip_ok::<20>();
+        min_max_year_roundtrip_ok::<30>();
+        min_max_year_roundtrip_ok::<60>();
+        min_max_year_roundtrip_ok::<120>();
+        min_max_year_roundtrip_ok::<180>();
+        min_max_year_roundtrip_ok::<240>();
+        min_max_year_roundtrip_ok::<360>();
+        min_max_year_roundtrip_ok::<480>();
+        min_max_year_roundtrip_ok::<720>();
+    }
+
+    fn min_max_year_roundtrip_ok<const N: u16>() {
+        assert!(Year::MIN.start_minute().pred().is_none());
+        assert_eq!(Year::MIN.start_minute(), Minute::MIN);
+        assert_eq!(Year::MAX.end_minute(), Minute::MAX);
+        assert!(Year::MAX.end_minute().succ().is_none());
+    }
+
+    #[test]
+    fn exhaustive_all() {
+        // exhaustive::<1>();
+        // exhaustive::<2>();
+        // exhaustive::<3>();
+        // exhaustive::<4>();
+        // exhaustive::<5>();
+        // exhaustive::<6>();
+        // exhaustive::<10>();
+        // exhaustive::<15>();
+        // exhaustive::<20>();
+        // exhaustive::<30>();
+        // exhaustive::<60>();
+        // exhaustive::<120>();
+        // exhaustive::<180>();
+        // exhaustive::<240>();
+        // exhaustive::<360>();
+        // exhaustive::<480>();
+        // exhaustive::<720>();
+    }
+    fn exhaustive<const N: u16>() {
+        (MIN..=MAX).into_par_iter().for_each(|i| {
+            let y = Minute::from_monotonic(i).unwrap();
+            assert_eq!(Minute::MIN.translate(i).unwrap(), y);
+            assert_eq!(Minute::from_minute(y.start_minute(), ()), y);
+            assert_eq!(Minute::from_minute(y.end_minute(), ()), y);
+            _ = y.start_minute();
+
+            _ = y.end_minute();
+        });
     }
 
     // #[cfg(all(feature = "serde", feature = "chrono"))]

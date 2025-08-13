@@ -28,7 +28,7 @@ impl Serialize for Day {
 }
 
 const MIN: i64 = 0;
-const MAX: i64 = 3652060; // TODO
+const MAX: i64 = 3652424; // TODO
 
 impl Day {
     pub const MIN: Self = Self(MIN);
@@ -38,7 +38,11 @@ impl Day {
         Date::new(self.0 as i32)
     }
     pub const fn from_date(date: Date) -> Day {
-        Day(date.inner() as i64)
+        let monotonic = date.inner() as i64;
+        // if monotonic < MIN || monotonic > MAX {
+        //     panic!("nope")
+        // }
+        Day(monotonic)
     }
     pub const fn from_monotonic(idx: i64) -> Option<Self> {
         // TODO: use MIN..=MAX here when it is const
@@ -66,7 +70,7 @@ impl Day {
     }
 
     pub const fn end_minute(self) -> Minute {
-        Minutes::<1>::from_monotonic(self.0 * MINUTES_PER_DAY + MINUTES_PER_DAY).expect("")
+        Minutes::<1>::from_monotonic(self.0 * MINUTES_PER_DAY + MINUTES_PER_DAY - 1).expect("nah")
     }
 }
 
@@ -181,17 +185,39 @@ mod tests {
     use super::*;
     use date::{DayOfMonth, MonthOfYear};
 
-    #[cfg(feature = "serde")]
     #[test]
-    fn test_roundtrip() {
-        let dt = chrono::NaiveDate::from_ymd_opt(2021, 12, 6).unwrap();
+    #[cfg(feature = "serde")]
+    fn test_serde_roundtrip() {
+        for i in MIN..=MAX {
+            let y = Day::from_monotonic(i).unwrap();
+            let ser = serde_json::to_string(&y).unwrap();
+            assert_eq!(serde_json::from_str::<Day>(&ser).unwrap(), y);
+        }
+    }
 
-        let wk = Day::from_date(Date::from_chrono_date(dt));
-
+    #[test]
+    fn test_parse_fmt() {
         assert_eq!(
-            wk,
-            serde_json::from_str(&serde_json::to_string(&wk).unwrap()).unwrap()
-        )
+            Day::from_date(
+                Date::ymd(
+                    date::Year::new(2025).unwrap(),
+                    MonthOfYear::Aug,
+                    DayOfMonth::D13
+                )
+                .unwrap()
+            )
+            .to_string()
+            .as_str(),
+            "2025-08-13"
+        );
+
+        for x in MIN..=MAX {
+            let d = Day::from_monotonic(x).unwrap();
+            let (y, m, dt) = d.date().to_ymd();
+            assert_eq!(format!("{y:04}-{m:02}-{dt:02}",).parse::<Day>().unwrap(), d,);
+
+            assert_eq!(d.to_string().parse::<Day>().unwrap(), d);
+        }
     }
 
     #[test]
@@ -201,7 +227,7 @@ mod tests {
         assert!(Year::MIN.start_p::<Day>().pred().is_none());
         assert!(Year::MAX.end_p::<Day>().succ().is_none());
         assert_eq!(Day::MIN, Year::MIN.start_p(),);
-        assert_eq!(Day::MAX, Year::MAX.start_p(),);
+        assert_eq!(Day::MAX, Year::MAX.end_p(),);
     }
 
     #[test]

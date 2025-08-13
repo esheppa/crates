@@ -88,14 +88,37 @@ impl DateResolution for FinancialYear {
         ()
     }
 
-    fn from_day(_day: Day, _params: Self::Params) -> Self::FromDay {
-        todo!()
+    fn from_day(day: Day, _params: Self::Params) -> Self::FromDay {
+        let date = day.date();
+        let year = Year::from_monotonic(date.year().num() as i64).expect("TODO");
+        std::dbg!(date.to_ymd(), year);
+
+        if date.to_ymd() < (0, 7, 1) {
+            return None;
+        }
+
+        extern crate std;
+
+        match date.month_of_year() {
+            MonthOfYear::Jan
+            | MonthOfYear::Feb
+            | MonthOfYear::Mar
+            | MonthOfYear::Apr
+            | MonthOfYear::May
+            | MonthOfYear::Jun => Some(FinancialYear(year.to_monotonic())),
+            MonthOfYear::Jul
+            | MonthOfYear::Aug
+            | MonthOfYear::Sep
+            | MonthOfYear::Oct
+            | MonthOfYear::Nov
+            | MonthOfYear::Dec => Some(FinancialYear(year.succ()?.to_monotonic())),
+        }
     }
 
     fn start_day(self) -> Day {
         Day::from_date(
             Date::first_on_month(
-                date::Year::new(self.to_monotonic() as i32).unwrap(),
+                date::Year::new(self.to_monotonic() as i32 - 1).unwrap(),
                 MonthOfYear::Jul,
             )
             .expect("Always valid"),
@@ -164,9 +187,16 @@ mod tests {
 
     #[test]
     fn exhaustive() {
+        extern crate std;
         for i in MIN..=MAX {
             let y = FinancialYear::from_monotonic(i).unwrap();
             assert_eq!(FinancialYear::MIN.translate(i - MIN).unwrap(), y);
+            std::dbg!(
+                y.start_day().date().to_ymd(),
+                y.end_day().date().to_ymd(),
+                y,
+                i
+            );
             assert_eq!(FinancialYear::from_day(y.start_day(), ()), Some(y));
             assert_eq!(FinancialYear::from_day(y.end_day(), ()), Some(y));
             _ = y.start_minute();
@@ -180,35 +210,23 @@ mod tests {
         }
     }
 
-    // #[test]
-    // #[cfg(feature = "serde")]
-    // fn test_roundtrip() {
-    //     let dt = chrono::NaiveDate::from_ymd_opt(2021, 12, 6).unwrap();
+    #[test]
+    #[cfg(feature = "serde")]
+    fn test_roundtrip() {
+        for i in MIN..=MAX {
+            let y = FinancialYear::from_monotonic(i).unwrap();
+            let ser = serde_json::to_string(&y).unwrap();
+            assert_eq!(serde_json::from_str::<FinancialYear>(&ser).unwrap(), y);
+        }
+    }
 
-    //     let yr = Year::from_day(Day::from_chrono_date(dt));
-    //     assert!(yr.start_day().chrono_date() <= dt && yr.end_day().chrono_date() >= dt);
+    #[test]
+    fn test_parse_fmt() {
+        for x in MIN..=MAX {
+            let y = FinancialYear::from_monotonic(x).unwrap();
+            assert_eq!(format!("FY{x:04}").parse::<FinancialYear>().unwrap(), y,);
 
-    //     assert_eq!(
-    //         yr,
-    //         serde_json::from_str(&serde_json::to_string(&yr).unwrap()).unwrap()
-    //     )
-    // }
-
-    // #[test]
-    // fn test_parse() {
-    //     assert_eq!(
-    //         "2021".parse::<Year>().unwrap().start(),
-    //         Day::ymd(2021, MonthOfYear::Jan, DayOfMonth::D1),
-    //     );
-    //     assert_eq!(
-    //         "2021".parse::<Year>().unwrap().succ().start(),
-    //         Day::ymd(2022, MonthOfYear::Jan, DayOfMonth::D1),
-    //     );
-    //     assert_eq!(
-    //         "2021".parse::<Year>().unwrap().succ().pred().start(),
-    //         Day::ymd(2021, MonthOfYear::Jan, DayOfMonth::D1),
-    //     );
-
-    //     assert!("a2021".parse::<Year>().is_err(),);
-    // }
+            assert_eq!(y.to_string().parse::<FinancialYear>().unwrap(), y);
+        }
+    }
 }

@@ -57,12 +57,28 @@ impl Year {
         Self::from_monotonic(new)
     }
     pub const fn start_minute(self) -> Minute {
-        Minutes::<1>::from_monotonic(self.0 * MINUTES_PER_DAY).expect("")
+        self.start_day().start_minute()
+        // Minutes::<1>::from_monotonic(self.0 * MINUTES_PER_DAY).expect("")
     }
 
     pub const fn end_minute(self) -> Minute {
-        Minutes::<1>::from_monotonic(self.0 * MINUTES_PER_DAY + MINUTES_PER_DAY).expect("")
+        self.end_day().end_minute()
+        // Minutes::<1>::from_monotonic(self.0 * MINUTES_PER_DAY + MINUTES_PER_DAY).expect("")
     }
+
+    pub const fn from_day(day: Day) -> Year {
+        let date = day.date();
+        Year::from_monotonic(date.year().num() as i64).expect("TODO")
+    }
+
+    pub const fn start_day(self) -> Day {
+        Day::from_date(Date::first_on_year(self.date_year()).expect("Always valid"))
+    }
+
+    pub const fn end_day(self) -> Day {
+        Day::from_date(Date::last_on_year(self.date_year()).expect("Always valid"))
+    }
+
     pub const fn q1(self) -> Quarter {
         Quarter::new(self, quarter::QuarterOfYear::Q1)
     }
@@ -139,18 +155,15 @@ impl DateResolution for Year {
     }
 
     fn from_day(day: Day, _params: Self::Params) -> Self::FromDay {
-        let date = day.date();
-        Year::from_monotonic(date.year().num() as i64).expect("TODO")
+        Self::from_day(day)
     }
 
     fn start_day(self) -> Day {
-        extern crate std;
-        std::dbg!(self.to_monotonic());
-        Day::from_date(Date::first_on_year(self.date_year()).expect("Always valid"))
+        self.start_day()
     }
 
     fn end_day(self) -> Day {
-        Day::from_date(Date::last_on_year(self.date_year()).expect("Always valid"))
+        self.end_day()
     }
 }
 
@@ -191,6 +204,7 @@ impl str::FromStr for Year {
 
 #[cfg(test)]
 mod tests {
+    extern crate std;
     use quarter::QuarterOfYear;
 
     use super::*;
@@ -223,8 +237,8 @@ mod tests {
             let y = Year::from_monotonic(i).unwrap();
             assert_eq!(Year::MIN.translate(i).unwrap(), y);
 
-            assert_eq!(Year::from_day(y.start_day(), ()), y);
-            assert_eq!(Year::from_day(y.end_day(), ()), y);
+            assert_eq!(Year::from_day(y.start_day()), y);
+            assert_eq!(Year::from_day(y.end_day()), y);
             _ = y.start_minute();
             _ = y.start_day();
             _ = y.start_p::<Quarter>();
@@ -235,6 +249,26 @@ mod tests {
             _ = y.end_p::<Quarter>();
             _ = y.end_p::<Month>();
             _ = y.end_p::<Day>();
+        }
+    }
+
+    #[test]
+    #[cfg(feature = "serde")]
+    fn test_roundtrip() {
+        for i in MIN..=MAX {
+            let y = Year::from_monotonic(i).unwrap();
+            let ser = serde_json::to_string(&y).unwrap();
+            assert_eq!(serde_json::from_str::<Year>(&ser).unwrap(), y);
+        }
+    }
+
+    #[test]
+    fn test_parse_fmt() {
+        for x in MIN..=MAX {
+            let y = Year::from_monotonic(x).unwrap();
+            assert_eq!(format!("{x:04}").parse::<Year>().unwrap(), y,);
+
+            assert_eq!(y.to_string().parse::<Year>().unwrap(), y);
         }
     }
 }

@@ -28,7 +28,7 @@ impl Serialize for Month {
 }
 
 const MIN: i64 = 0;
-const MAX: i64 = 9999 * 12; // TODO
+const MAX: i64 = 9999 * 12 + 11; // TODO
 
 impl Month {
     pub const MIN: Self = Self(MIN);
@@ -195,7 +195,7 @@ mod tests {
         assert!(Year::MIN.start_p::<Month>().pred().is_none());
         assert!(Year::MAX.end_p::<Month>().succ().is_none());
         assert_eq!(Month::MIN, Year::MIN.start_p(),);
-        assert_eq!(Month::MAX, Year::MAX.start_p(),);
+        assert_eq!(Month::MAX, Year::MAX.end_p(),);
     }
 
     #[test]
@@ -215,81 +215,50 @@ mod tests {
         }
     }
 
-    // #[test]
-    // #[cfg(feature = "serde")]
-    // fn test_roundtrip() {
-    //     use crate::DateResolutionExt;
+    #[test]
+    #[cfg(feature = "serde")]
+    fn test_serde_roundtrip() {
+        for i in MIN..=MAX {
+            let y = Month::from_monotonic(i).unwrap();
+            let ser = serde_json::to_string(&y).unwrap();
+            assert_eq!(serde_json::from_str::<Month>(&ser).unwrap(), y);
+        }
+    }
 
-    //     let dt = chrono::NaiveDate::from_ymd_opt(2021, 12, 6).unwrap();
+    #[test]
+    fn test_parse_fmt() {
+        assert_eq!(
+            Month::new(Year::from_monotonic(2025).unwrap(), MonthOfYear::Aug)
+                .to_string()
+                .as_str(),
+            "2025-08"
+        );
 
-    //     let m1 = Month::from_day(Day::from_chrono_date(dt));
-    //     assert!(m1.start_day().chrono_date() <= dt && m1.end_day().chrono_date() >= dt);
+        for x in 0..=9999 {
+            for q in [
+                MonthOfYear::Jan,
+                MonthOfYear::Feb,
+                MonthOfYear::Mar,
+                MonthOfYear::Apr,
+                MonthOfYear::May,
+                MonthOfYear::Jun,
+                MonthOfYear::Jul,
+                MonthOfYear::Aug,
+                MonthOfYear::Sep,
+                MonthOfYear::Oct,
+                MonthOfYear::Nov,
+                MonthOfYear::Dec,
+            ] {
+                let qt = Month::new(Year::from_monotonic(x).unwrap(), q);
+                assert_eq!(
+                    format!("{x:04}-{:02}", q.number())
+                        .parse::<Month>()
+                        .unwrap(),
+                    qt,
+                );
 
-    //     let dt = chrono::NaiveDate::from_ymd_opt(2019, 7, 1).unwrap();
-
-    //     let m2 = Month::from_day(Day::from_chrono_date(dt));
-
-    //     assert!(m2.start_day().chrono_date() == dt);
-
-    //     assert_eq!(
-    //         m1,
-    //         serde_json::from_str(&serde_json::to_string(&m1).unwrap()).unwrap()
-    //     )
-    // }
-
-    // #[test]
-    // fn test_parse() {
-    //     assert_eq!(
-    //         "Jan-2021".parse::<Month>().unwrap().start(),
-    //         Day::ymd(2021, MonthOfYear::Jan, DayOfMonth::D1)
-    //     );
-    //     assert_eq!(
-    //         "Jan-2021".parse::<Month>().unwrap().succ().start(),
-    //         Day::ymd(2021, MonthOfYear::Feb, DayOfMonth::D1)
-    //     );
-    //     assert_eq!(
-    //         "Jan-2021".parse::<Month>().unwrap().succ().pred().start(),
-    //         Day::ymd(2021, MonthOfYear::Jan, DayOfMonth::D1)
-    //     );
-    // }
-
-    // #[test]
-    // fn test_start() {
-    //     assert_eq!(
-    //         Month(24240).start(),
-    //         Day::ymd(2020, MonthOfYear::Jan, DayOfMonth::D1)
-    //     );
-    //     assert_eq!(
-    //         Month(24249).start(),
-    //         Day::ymd(2020, MonthOfYear::Oct, DayOfMonth::D1)
-    //     );
-    //     assert_eq!(
-    //         Month(15).start(),
-    //         Day::ymd(1, MonthOfYear::Apr, DayOfMonth::D1)
-    //     );
-    //     assert_eq!(
-    //         Month(2).start(),
-    //         Day::ymd(0, MonthOfYear::Mar, DayOfMonth::D1)
-    //     );
-    //     assert_eq!(
-    //         Month(1).start(),
-    //         Day::ymd(0, MonthOfYear::Feb, DayOfMonth::D1)
-    //     );
-    //     assert_eq!(
-    //         Month(0).start(),
-    //         Day::ymd(0, MonthOfYear::Jan, DayOfMonth::D1)
-    //     );
-    //     assert_eq!(
-    //         Month(-1).start(),
-    //         Day::ymd(-1, MonthOfYear::Dec, DayOfMonth::D1)
-    //     );
-    //     assert_eq!(
-    //         Month(-2).start(),
-    //         Day::ymd(-1, MonthOfYear::Nov, DayOfMonth::D1)
-    //     );
-    //     assert_eq!(
-    //         Month(-15).start(),
-    //         Day::ymd(-2, MonthOfYear::Oct, DayOfMonth::D1)
-    //     );
-    // }
+                assert_eq!(qt.to_string().parse::<Month>().unwrap(), qt);
+            }
+        }
+    }
 }

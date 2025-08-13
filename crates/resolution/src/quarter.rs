@@ -78,7 +78,7 @@ impl QuarterOfYear {
 }
 
 const MIN: i64 = 0;
-const MAX: i64 = 9999 * 4; // TODO
+const MAX: i64 = 9999 * 4 + 3; // TODO
 
 impl Quarter {
     pub const MIN: Self = Self(MIN);
@@ -151,22 +151,6 @@ impl Quarter {
     // pub const fn quarter_num(self) -> u8 {
     //     (self.0.rem_euclid(4) + 1) as u8
     // }
-    // pub const fn from_day(d: Day) -> Self {
-    //     match d.month().month_of_year() {
-    //         MonthOfYear::Jan | MonthOfYear::Feb | MonthOfYear::Mar => {
-    //             Self::from_parts(d.year(), QuarterOfYear::Q1)
-    //         }
-    //         MonthOfYear::Apr | MonthOfYear::May | MonthOfYear::Jun => {
-    //             Self::from_parts(d.year(), QuarterOfYear::Q2)
-    //         }
-    //         MonthOfYear::Jul | MonthOfYear::Aug | MonthOfYear::Sep => {
-    //             Self::from_parts(d.year(), QuarterOfYear::Q3)
-    //         }
-    //         MonthOfYear::Oct | MonthOfYear::Nov | MonthOfYear::Dec => {
-    //             Self::from_parts(d.year(), QuarterOfYear::Q4)
-    //         }
-    //     }
-    // }
 }
 
 impl TimeResolution for Quarter {
@@ -198,15 +182,12 @@ impl DateResolution for Quarter {
         extern crate std;
         let date = day.date();
         Self::new(
-            std::dbg!(Year::from_monotonic(date.year().num() as i64).expect("TODO")),
-            std::dbg!(QuarterOfYear::from_month(date.month_of_year())),
+            Year::from_monotonic(date.year().num() as i64).expect("TODO"),
+            QuarterOfYear::from_month(date.month_of_year()),
         )
     }
 
     fn start_day(self) -> Day {
-        extern crate std;
-        std::dbg!(self, self.0 / 4);
-
         Day::from_date(
             Date::first_on_month(
                 date::Year::new(self.year().to_monotonic() as i32).unwrap(),
@@ -217,9 +198,6 @@ impl DateResolution for Quarter {
     }
 
     fn end_day(self) -> Day {
-        extern crate std;
-        std::dbg!(self, self.0 / 4);
-
         Day::from_date(
             Date::last_on_month(
                 date::Year::new(self.year().to_monotonic() as i32).unwrap(),
@@ -264,7 +242,7 @@ impl str::FromStr for QuarterOfYear {
 
 impl fmt::Display for Quarter {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}-Q{}", self.year(), self.quarter_of_year().number())
+        write!(f, "{:04}-Q{}", self.year(), self.quarter_of_year().number())
     }
 }
 
@@ -281,7 +259,10 @@ impl str::FromStr for Quarter {
                     }),
                 }
             }
-            None => s.parse::<Day>().map(|d| Quarter::from_day(d, ())),
+            None => Err(crate::Error::ParseCustom {
+                ty_name: "Quarter",
+                input: s.to_string(),
+            }),
         }
     }
 }
@@ -299,7 +280,7 @@ mod tests {
         assert_eq!(Year::MIN.start_p::<Quarter>().pred(), None);
         assert_eq!(Year::MAX.end_p::<Quarter>().succ(), None);
         assert_eq!(Quarter::MIN, Year::MIN.start_p(),);
-        assert_eq!(Quarter::MAX, Year::MAX.start_p(),);
+        assert_eq!(Quarter::MAX, Year::MAX.end_p(),);
     }
 
     #[test]
@@ -320,25 +301,42 @@ mod tests {
         }
     }
 
-    // #[test]
-    // #[cfg(feature = "serde")]
-    // fn test_roundtrip() {
-    //     use crate::{DateResolution, DateResolutionExt};
-    //     let dt = chrono::NaiveDate::from_ymd_opt(2021, 12, 6).unwrap();
-
-    //     let wk = Quarter::from_day(Day::from_chrono_date(dt));
-    //     assert!(wk.start_day().chrono_date() <= dt && wk.end_day().chrono_date() >= dt);
-
-    //     assert_eq!(
-    //         wk,
-    //         serde_json::from_str(&serde_json::to_string(&wk).unwrap()).unwrap()
-    //     )
-    // }
     #[test]
-    fn test_parse_quarter_syntax() {
+    #[cfg(feature = "serde")]
+    fn test_serde_roundtrip() {
+        for i in MIN..=MAX {
+            let y = Quarter::from_monotonic(i).unwrap();
+            let ser = serde_json::to_string(&y).unwrap();
+            assert_eq!(serde_json::from_str::<Quarter>(&ser).unwrap(), y);
+        }
+    }
+
+    #[test]
+    fn test_parse_fmt() {
         assert_eq!(
-            "2021-Q1".parse::<Quarter>().unwrap(),
-            Quarter::new(Year::from_monotonic(2021).unwrap(), QuarterOfYear::Q1),
+            Quarter::new(Year::from_monotonic(2025).unwrap(), QuarterOfYear::Q3)
+                .to_string()
+                .as_str(),
+            "2025-Q3"
         );
+
+        for x in 0..=9999 {
+            for q in [
+                QuarterOfYear::Q1,
+                QuarterOfYear::Q2,
+                QuarterOfYear::Q3,
+                QuarterOfYear::Q4,
+            ] {
+                let qt = Quarter::new(Year::from_monotonic(x).unwrap(), q);
+                assert_eq!(
+                    format!("{x:04}-Q{}", q.number())
+                        .parse::<Quarter>()
+                        .unwrap(),
+                    qt,
+                );
+
+                assert_eq!(qt.to_string().parse::<Quarter>().unwrap(), qt);
+            }
+        }
     }
 }
