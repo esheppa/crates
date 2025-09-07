@@ -183,7 +183,7 @@ impl fmt::Display for Month {
 
 #[cfg(test)]
 mod tests {
-    use date::{DayOfMonth, MonthOfYear};
+    use date::MonthOfYear;
 
     use super::*;
     use crate::{DateResolution, DateResolutionExt, Day, TimeResolution, Year};

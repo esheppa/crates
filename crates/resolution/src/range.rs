@@ -429,7 +429,7 @@ mod tests {
 
     // #[test]
     // fn test_rescale() {
-    //     let start = Year::new(2024);
+    //     let start = Year::from_monotonic(2024).unwrap();
     //     let year = TimeRange::from_bounds(start, start);
 
     //     let fiveminute = year.rescale::<FiveMinute>();

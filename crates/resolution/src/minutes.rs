@@ -670,23 +670,23 @@ mod tests {
 
     #[test]
     fn exhaustive_all() {
-        // exhaustive::<1>();
-        // exhaustive::<2>();
-        // exhaustive::<3>();
-        // exhaustive::<4>();
-        // exhaustive::<5>();
-        // exhaustive::<6>();
-        // exhaustive::<10>();
-        // exhaustive::<15>();
-        // exhaustive::<20>();
-        // exhaustive::<30>();
-        // exhaustive::<60>();
-        // exhaustive::<120>();
-        // exhaustive::<180>();
-        // exhaustive::<240>();
-        // exhaustive::<360>();
-        // exhaustive::<480>();
-        // exhaustive::<720>();
+        exhaustive::<1>();
+        exhaustive::<2>();
+        exhaustive::<3>();
+        exhaustive::<4>();
+        exhaustive::<5>();
+        exhaustive::<6>();
+        exhaustive::<10>();
+        exhaustive::<15>();
+        exhaustive::<20>();
+        exhaustive::<30>();
+        exhaustive::<60>();
+        exhaustive::<120>();
+        exhaustive::<180>();
+        exhaustive::<240>();
+        exhaustive::<360>();
+        exhaustive::<480>();
+        exhaustive::<720>();
     }
     fn exhaustive<const N: u16>() {
         (MIN..=MAX).into_par_iter().for_each(|i| {

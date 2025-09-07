@@ -1,6 +1,6 @@
 use date::Date;
 
-use crate::{minutes::MINUTES_PER_DAY, *};
+use crate::*;
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Year(i64);
 

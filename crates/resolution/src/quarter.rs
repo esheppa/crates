@@ -269,8 +269,6 @@ impl str::FromStr for Quarter {
 
 #[cfg(test)]
 mod tests {
-    use date::{DayOfMonth, MonthOfYear};
-
     use super::*;
 
     #[test]

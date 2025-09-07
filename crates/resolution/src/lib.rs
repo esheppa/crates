@@ -11,9 +11,7 @@ mod prelude {
         vec::Vec,
     };
     pub use core::{
-        any, error,
-        fmt::{self, Display},
-        iter, mem,
+        any, error, fmt, iter, mem,
         num::{self, ParseIntError},
         ops::*,
         str,
@@ -31,14 +29,11 @@ mod range;
 pub use range::{Cache, CacheResponse, TimeRange, TimeRangeComparison, TimeRangeIter};
 
 mod minutes;
-// pub use minutes::{DaySubdivison};
+pub use minutes::DaySubdivison;
 pub use minutes::{FiveMinute, HalfHour, Hour, Minute, Minutes};
 
 mod day;
 pub use day::Day;
-
-// mod week;
-// pub use week::{Friday, Monday, Saturday, StartDay, Sunday, Thursday, Tuesday, Wednesday, Week};
 
 mod month;
 pub use month::Month;
@@ -147,49 +142,35 @@ impl LongerThanOrEqual<Quarter> for FinancialYear {}
 
 impl LongerThan<Quarter> for Year {}
 
-// /// This function is useful for formatting types implementing `Monotonic` when they are stored
-// /// in their `i64` form instead of their `TimeResolution` form. Provided you have the `TypeId` handy
-// /// you can find out what they were intended to be. This function handeles all the cases implemented
-// /// in this library and users can handle others via the function in the `handle_unknown` parameter.
-// pub fn format_erased_resolution(
-//     handle_unknown: fn(any::TypeId, i64) -> String,
-//     tid: any::TypeId,
-//     val: i64,
-// ) -> String {
-//     if tid == any::TypeId::of::<Minute>() {
-//         format!("Minute:{}", Minute::from_monotonic(val))
-//     } else if tid == any::TypeId::of::<FiveMinute>() {
-//         format!("FiveMinute:{}", FiveMinute::from_monotonic(val))
-//     } else if tid == any::TypeId::of::<HalfHour>() {
-//         format!("HalfHour:{}", HalfHour::from_monotonic(val))
-//     } else if tid == any::TypeId::of::<Hour>() {
-//         format!("Hour:{}", Hour::from_monotonic(val))
-//     } else if tid == any::TypeId::of::<Day>() {
-//         format!("Day:{}", Day::from_monotonic(val))
-//     } else if tid == any::TypeId::of::<Week<week::Monday>>() {
-//         format!("Week:{}", Week::<week::Monday>::from_monotonic(val))
-//     } else if tid == any::TypeId::of::<Week<week::Tuesday>>() {
-//         format!("Week:{}", Week::<week::Tuesday>::from_monotonic(val))
-//     } else if tid == any::TypeId::of::<Week<week::Wednesday>>() {
-//         format!("Week:{}", Week::<week::Wednesday>::from_monotonic(val))
-//     } else if tid == any::TypeId::of::<Week<week::Thursday>>() {
-//         format!("Week:{}", Week::<week::Thursday>::from_monotonic(val))
-//     } else if tid == any::TypeId::of::<Week<week::Friday>>() {
-//         format!("Week:{}", Week::<week::Friday>::from_monotonic(val))
-//     } else if tid == any::TypeId::of::<Week<week::Saturday>>() {
-//         format!("Week:{}", Week::<week::Saturday>::from_monotonic(val))
-//     } else if tid == any::TypeId::of::<Week<week::Sunday>>() {
-//         format!("Week:{}", Week::<week::Sunday>::from_monotonic(val))
-//     } else if tid == any::TypeId::of::<Month>() {
-//         format!("Month:{}", Month::from_monotonic(val))
-//     } else if tid == any::TypeId::of::<Quarter>() {
-//         format!("Quarter:{}", Quarter::from_monotonic(val))
-//     } else if tid == any::TypeId::of::<Year>() {
-//         format!("Year:{}", Year::from_monotonic(val))
-//     } else {
-//         handle_unknown(tid, val)
-//     }
-// }
+/// This function is useful for formatting types implementing `Monotonic` when they are stored
+/// in their `i64` form instead of their `TimeResolution` form. Provided you have the `TypeId` handy
+/// you can find out what they were intended to be. This function handeles all the cases implemented
+/// in this library and users can handle others via the function in the `handle_unknown` parameter.
+pub fn format_erased_resolution(
+    handle_unknown: fn(any::TypeId, i64) -> Option<String>,
+    tid: any::TypeId,
+    val: i64,
+) -> Option<String> {
+    if tid == any::TypeId::of::<Minute>() {
+        Some(format!("Minute:{}", Minute::from_monotonic(val)?))
+    } else if tid == any::TypeId::of::<FiveMinute>() {
+        Some(format!("FiveMinute:{}", FiveMinute::from_monotonic(val)?))
+    } else if tid == any::TypeId::of::<HalfHour>() {
+        Some(format!("HalfHour:{}", HalfHour::from_monotonic(val)?))
+    } else if tid == any::TypeId::of::<Hour>() {
+        Some(format!("Hour:{}", Hour::from_monotonic(val)?))
+    } else if tid == any::TypeId::of::<Day>() {
+        Some(format!("Day:{}", Day::from_monotonic(val)?))
+    } else if tid == any::TypeId::of::<Month>() {
+        Some(format!("Month:{}", Month::from_monotonic(val)?))
+    } else if tid == any::TypeId::of::<Quarter>() {
+        Some(format!("Quarter:{}", Quarter::from_monotonic(val)?))
+    } else if tid == any::TypeId::of::<Year>() {
+        Some(format!("Year:{}", Year::from_monotonic(val)?))
+    } else {
+        handle_unknown(tid, val)
+    }
+}
 
 impl error::Error for Error {}
 #[derive(Debug)]

@@ -179,8 +179,6 @@ impl str::FromStr for FinancialYear {
 
 #[cfg(test)]
 mod tests {
-    use date::DayOfMonth;
-
     use super::*;
     use crate::DateResolution;
     use crate::DateResolutionExt;
