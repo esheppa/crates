@@ -7,6 +7,7 @@ edition = "2024"
 [dependencies.serde]
 workspace = true
 optional = true
+features = ["derive"]
 
 [dependencies.chrono]
 workspace = true
@@ -25,8 +26,8 @@ criterion = "0.5.0"
 rayon = "1.11"
 
 [features]
-serde = ["dep:serde","chrono/serde", "date/serde"]
-std = ["chrono/std","date/std"]
+serde = ["dep:serde","chrono/serde", "date/serde","std"]
+std = ["chrono/std","date/std","serde/std"]
 chrono = ["dep:chrono", "date/chrono"]
 default = ["std","serde","chrono"]
 

@@ -10,6 +10,8 @@ mod prelude {
         string::{String, ToString},
         vec::Vec,
     };
+    #[cfg(feature = "chrono")]
+    pub use chrono::{DateTime, NaiveDate, Utc};
     pub use core::{
         any, error, fmt, iter, mem,
         num::{self, ParseIntError},
@@ -22,8 +24,7 @@ mod prelude {
 use prelude::*;
 
 // mod range;
-#[cfg(feature = "chrono")]
-use chrono::{DateTime, NaiveDate, Utc};
+
 use date::MonthOfYear;
 mod range;
 pub use range::{Cache, CacheResponse, TimeRange, TimeRangeComparison, TimeRangeIter};

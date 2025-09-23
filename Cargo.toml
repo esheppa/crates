@@ -21,7 +21,9 @@ serde_json = { version = "1.0.128", default-features = false }
 tracing = { version = "0.1.40", default-features = false }
 tracing-subscriber = { version = "0.3.18", default-features = false }
 uuid = { version = "1.10.0", default-features = false }
-
+html5ever = { version = "0.35.0", default-features = false }
+futures = { version = "0.3", default-features = false }
+url = { version = "2.5.7", default-features = false }
 
 
 
