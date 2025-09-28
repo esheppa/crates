@@ -2,7 +2,10 @@
 use arrayvec::ArrayString;
 /// https://www.aemo.com.au/-/media/files/electricity/nem/retail_and_metering/metering-procedures/nmi-allocation-list.pdf?rev=e4c92faff5614b20933b16a4ff5784be&sc_lang=en
 /// https://www.aemo.com.au/-/media/files/electricity/nem/retail_and_metering/metering-procedures/2024/msats-national-metering-identifier-procedure-v73.pdf?rev=aefc0a9f2fcb406aa81df9ba77e9512a&sc_lang=en
-use core::{error::Error, fmt::Display, str::FromStr};
+use core::{error::Error, fmt::Display, ops::Mul, str::FromStr};
+
+extern crate std;
+use std::eprintln;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct Nmi([NmiChar; 10]);
@@ -72,9 +75,35 @@ impl Nmi {
         }
         u128::from_le_bytes(le_bytes)
     }
-    pub const fn from_bytes(bytes: &[u8]) -> Option<Self> {
-        if bytes.len() != 10 {
-            return None;
+    pub const fn from_bytes(bytes: &[u8]) -> Result<Self, NmiError> {
+        let Ok(input_str) = str::from_utf8(bytes) else {
+            return Err(NmiError {
+                input: ArrayString::new_const(),
+                kind: NmiErrorKind::NonAsciiCharacters,
+            });
+        };
+
+        let input = input_from_str(input_str);
+
+        if bytes.len() > 11 {
+            return Err(NmiError {
+                input,
+                kind: NmiErrorKind::TooLong,
+            });
+        } else if bytes.len() < 10 {
+            return Err(NmiError {
+                input,
+                kind: NmiErrorKind::TooShort,
+            });
+        }
+
+        for x in bytes.iter() {
+            if !x.is_ascii_alphanumeric() {
+                return Err(NmiError {
+                    input,
+                    kind: NmiErrorKind::NonAsciiCharacters,
+                });
+            }
         }
 
         let mut nmi = [NmiChar::Numeric(NmiNumeric(0)); 10];
@@ -83,25 +112,44 @@ impl Nmi {
         while i < 10 {
             let b = bytes[i];
             match b {
-                b'0'..b'9' => {
+                b'0'..=b'9' => {
                     nmi[i] = NmiChar::Numeric(NmiNumeric::new(b));
                 }
                 b'I' | b'O' => {
-                    return None;
+                    eprintln!("Danm I/O");
+                    return Err(NmiError {
+                        input,
+                        kind: NmiErrorKind::DisallowedCharacters,
+                    });
                 }
-                b'A'..b'Z' => {
+                b'A'..=b'Z' => {
                     nmi[i] = NmiChar::Alpha(NmiAlpha::new(b));
                 }
                 _ => {
-                    return None;
+                    eprintln!("Danm {b}");
+                    return Err(NmiError {
+                        input,
+                        kind: NmiErrorKind::DisallowedCharacters,
+                    });
                 }
             }
             i += 1;
         }
 
-        Some(Nmi(nmi))
+        let nmi = Nmi(nmi);
+
+        if bytes.len() == 11 && nmi.checksum() != bytes[10] {
+            return Err(NmiError {
+                input,
+                kind: NmiErrorKind::InvalidChecksum {
+                    expected: nmi.checksum(),
+                },
+            });
+        }
+
+        Ok(nmi)
     }
-    pub const fn from_u128(u: u128) -> Option<Self> {
+    pub const fn from_u128(u: u128) -> Result<Self, NmiError> {
         let le_bytes = u.to_le_bytes();
 
         const fn last_n_bytes_of<const N: usize>(input: &[u8]) -> [u8; N] {
@@ -130,33 +178,41 @@ impl Nmi {
         true
     }
     pub const fn checksum(self) -> u8 {
-
-        
-
+        // https://stripe.com/au/resources/more/how-to-use-the-luhn-algorithm-a-guide-in-applications-for-businesses
+        // https://en.wikipedia.org/wiki/Luhn_algorithm
         let mut checksum_counter = 0_u32;
         let mut i = 0;
         while i < 10 {
-           let val = u32::from(self.0[i].byte());
-            if i % 2 == 0 {
-                val.
+            // doubled ascii values up to Z are all less than 200
+            // so we only need 0th, 1st and 2nd digits.
 
-                checksum_counter += 2 * u32::from(self.0[i].byte());
+            let ascii_val = self.0[i].byte() as u32;
+
+            // instead of going backwards... we just double odd indexes
+            if i % 2 != 0 {
+                checksum_counter += sum_digits(2 * ascii_val);
             } else {
-                checksum_counter += u32::from(self.0[i].byte());
+                checksum_counter += sum_digits(ascii_val);
             }
             i += 1;
         }
 
-        while 
+        let next_highest_multiple_10 = 10 * (checksum_counter / 10 + 1);
+        let diff = next_highest_multiple_10 - checksum_counter;
 
-        for (idx, char) in self.0.iter().enumerate() {
-            if idx % 2 == 0 {
-                checksum_counter += 2 * u32::from(char.byte());
-            } else {
-                checksum_counter += u32::from(char.byte());
-            }
+        match nth_digit::<0>(diff) {
+            0 => b'0',
+            1 => b'1',
+            2 => b'2',
+            3 => b'3',
+            4 => b'4',
+            5 => b'5',
+            6 => b'6',
+            7 => b'7',
+            8 => b'8',
+            9 => b'9',
+            _ => panic!("danm!"),
         }
-        todo!()
     }
     pub const fn prefix_bytes<const N: usize>(self) -> [u8; N] {
         if N > 10 {
@@ -360,8 +416,8 @@ impl Display for NmiError {
 
 impl Error for NmiError {}
 
-fn input_from_str(s: &str) -> ArrayString<20> {
-    let mut input = ArrayString::new();
+const fn input_from_str(s: &str) -> ArrayString<20> {
+    let mut input = ArrayString::new_const();
     for i in s.chars().take(20) {
         input.push(i);
     }
@@ -372,60 +428,20 @@ impl FromStr for Nmi {
     type Err = NmiError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        if !s.is_ascii() {
-            return Err(NmiError {
-                input: input_from_str(&s),
-                kind: NmiErrorKind::NonAsciiCharacters,
-            });
-        }
+        Self::from_bytes(s.as_bytes())
+    }
+}
 
-        match s.len() {
-            // no checksum
-            10 => match Nmi::from_bytes(s.as_bytes()) {
-                Some(nmi) => Ok(nmi),
-                None => {
-                    return Err(NmiError {
-                        input: input_from_str(&s),
-                        kind: NmiErrorKind::DisallowedCharacters,
-                    })
-                }
-            },
-            // has checksum - verify it
-            11 => {
-                // TODO: verify checksum
+pub struct FixedAsciiStr {
+    data: [u8; 20]
+}
 
-                match Nmi::from_bytes(&s.as_bytes()[0..10]) {
-                    Some(nmi) => {
-                        let checksum = nmi.checksum();
-                        if checksum != s.as_bytes()[10] {
-                            return Err(NmiError {
-                                input: input_from_str(&s),
-                                kind: NmiErrorKind::InvalidChecksum { expected: checksum },
-                            });
-                        }
-                        Ok(nmi)
-                    }
-                    None => {
-                        return Err(NmiError {
-                            input: input_from_str(&s),
-                            kind: NmiErrorKind::DisallowedCharacters,
-                        })
-                    }
-                }
-            }
-            0..10 => {
-                return Err(NmiError {
-                    input: input_from_str(&s),
-                    kind: NmiErrorKind::TooShort,
-                })
-            }
-            12.. => {
-                return Err(NmiError {
-                    input: input_from_str(&s),
-                    kind: NmiErrorKind::TooLong,
-                })
-            }
-        }
+impl FixedAsciiStr {
+    pub fn from_bytes(b: &[u8]) -> FixedAsciiStr {
+
+    }
+      pub fn from_bytes(b: &[u8]) -> FixedAsciiStr {
+        
     }
 }
 
@@ -555,6 +571,18 @@ impl Classification {
     }
 }
 
+const fn nth_digit<const N: u32>(n: u32) -> u32 {
+    n % 10u32.pow(N + 1) / 10u32.pow(N)
+}
+
+const fn sum_digits(n: u32) -> u32 {
+    if n > 999 {
+        panic!("cannot sum digits for a number greater than 1000");
+    }
+
+    nth_digit::<0>(n) + nth_digit::<1>(n) + nth_digit::<2>(n)
+}
+
 impl Nmi {}
 
 #[cfg(test)]
@@ -563,7 +591,18 @@ mod tests {
     use super::*;
 
     #[test]
+    fn test_nth_digit() {
+        assert_eq!(nth_digit::<3>(5269), 5);
+        assert_eq!(nth_digit::<2>(5269), 2);
+        assert_eq!(nth_digit::<1>(5269), 6);
+        assert_eq!(nth_digit::<0>(5269), 9);
+    }
+    #[test]
     fn test_checksum() {
+        // assert_eq!(
+        //     Nmi::from_bytes("1234C6789A".as_bytes()).unwrap().checksum(),
+        //     b'3'
+        // );
         assert_eq!(
             Nmi::from_bytes("2001985732".as_bytes()).unwrap().checksum(),
             b'8'
