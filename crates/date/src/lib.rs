@@ -1,6 +1,11 @@
 use core::ops::{Add, AddAssign, Sub, SubAssign};
 
 use alloc::{format, string::String};
+use calendrical_calculations::{
+    helpers::i64_to_i32,
+    iso::{const_fixed_from_iso, iso_from_fixed},
+    rata_die::RataDie,
+};
 pub mod time_of_day;
 use crate::time_of_day::{LocalDateTime, LocalTimeOfDay};
 
@@ -593,44 +598,64 @@ impl CycleSplit {
     }
 }
 
+const fn ymd_to_date(year: i32, month: u8, day: u8) -> Option<Date> {
+    let rd = const_fixed_from_iso(year, month, day);
+
+    match i64_to_i32(rd.to_i64_date()) {
+        Ok(d) => Some(Date::new(d)),
+        Err(_) => None,
+    }
+}
+
+const fn date_to_ymd(date: Date) -> Option<(i32, u8, u8)> {
+    const_iso_from_fixed(RataDie::new(date.0 as i64)).ok()
+}
+
 const fn first_on_year_internal(year: i32) -> Option<Date> {
-    // how many 400ys - we subtract one because it is about how many of these that we have passed
-    let Some(long_cycles) = year.checked_sub(1) else {
-        return None;
-    };
+    let rd = const_fixed_from_iso(year, 1, 1);
 
-    let long_cycles = long_cycles.div_euclid(400);
+    match i64_to_i32(rd.to_i64_date()) {
+        Ok(d) => Some(Date::new(d)),
+        Err(_) => None,
+    }
 
-    // how many 100ys - we subtract one because it is about how many of these that we have passed
-    let Some(mid_cycles) = year.checked_sub(1) else {
-        return None;
-    };
+    // // how many 400ys - we subtract one because it is about how many of these that we have passed
+    // let Some(long_cycles) = year.checked_sub(1) else {
+    //     return None;
+    // };
 
-    let mid_cycles = mid_cycles.div_euclid(100);
+    // let long_cycles = long_cycles.div_euclid(400);
 
-    // how many 4ys - we subtract one because it is about how many of these that we have passed
-    let Some(cycles) = year.checked_sub(1) else {
-        return None;
-    };
-    let cycles = cycles.div_euclid(4);
+    // // how many 100ys - we subtract one because it is about how many of these that we have passed
+    // let Some(mid_cycles) = year.checked_sub(1) else {
+    //     return None;
+    // };
 
-    let Some(a) = year.checked_mul(365) else {
-        return None;
-    };
-    let Some(a) = a.checked_add(cycles) else {
-        return None;
-    };
-    let Some(a) = a.checked_sub(mid_cycles) else {
-        return None;
-    };
-    let Some(a) = a.checked_add(long_cycles) else {
-        return None;
-    };
-    let Some(a) = a.checked_add(1) else {
-        return None;
-    };
+    // let mid_cycles = mid_cycles.div_euclid(100);
 
-    Some(Date(a))
+    // // how many 4ys - we subtract one because it is about how many of these that we have passed
+    // let Some(cycles) = year.checked_sub(1) else {
+    //     return None;
+    // };
+    // let cycles = cycles.div_euclid(4);
+
+    // let Some(a) = year.checked_mul(365) else {
+    //     return None;
+    // };
+    // let Some(a) = a.checked_add(cycles) else {
+    //     return None;
+    // };
+    // let Some(a) = a.checked_sub(mid_cycles) else {
+    //     return None;
+    // };
+    // let Some(a) = a.checked_add(long_cycles) else {
+    //     return None;
+    // };
+    // let Some(a) = a.checked_add(1) else {
+    //     return None;
+    // };
+
+    // Some(Date(a))
 }
 
 const B1: i32 = 1 * DAYS_PER_MOST_100Y + 1;
