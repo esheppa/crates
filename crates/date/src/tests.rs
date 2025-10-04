@@ -2,6 +2,7 @@ extern crate std;
 use crate::Year;
 
 use super::{Date, DayOfMonth, MonthOfYear, YearAndDays, first_on_year_internal, is_leap_year};
+use calendrical_calculations::{iso::iso_from_fixed, rata_die::RataDie};
 use chrono::{self, Datelike, Days, NaiveDate};
 
 #[test]
@@ -23,11 +24,19 @@ fn test_date() {
         assert_eq!(chrono_adj.month() as u8, date.month_of_year().number());
         assert_eq!(chrono_adj.day() as u8, date.day_of_month());
 
-        #[cfg(feature = "chrono")]
         {
             assert_eq!(chrono_adj, date.chrono_date());
             assert_eq!(date, Date::from_chrono_date(chrono_adj));
         }
+    }
+
+    for i in 0..2_000_000_i32 {
+        let (year, month, day) = iso_from_fixed(RataDie::new(i as i64)).unwrap();
+        let date = Date(i);
+        assert_eq!(year, date.year().num());
+        assert_eq!(month, date.month_of_year().number());
+        assert_eq!(day, date.day_of_month());
+
     }
 }
 
