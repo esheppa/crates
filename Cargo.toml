@@ -24,6 +24,7 @@ uuid = { version = "1.10.0", default-features = false }
 html5ever = { version = "0.35.0", default-features = false }
 futures = { version = "0.3", default-features = false }
 url = { version = "2.5.7", default-features = false }
+calendrical_calculations = { version = "0.2.2",  default-features = false }
 
 
 
@@ -32,8 +33,9 @@ url = { version = "2.5.7", default-features = false }
 
 
 
-
-
+[patch.crates-io.calendrical_calculations]
+git = "https://github.com/esheppa/icu4x"
+rev = "41c1c4ad5d03f1a26cfb7a72b945eec937eb98b9"
 
 
 

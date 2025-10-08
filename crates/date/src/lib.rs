@@ -1,41 +1,34 @@
-use core::ops::{Add, AddAssign, Sub, SubAssign};
-
 use alloc::{format, string::String};
 use calendrical_calculations::{
     helpers::i64_to_i32,
-    iso::{const_fixed_from_iso, iso_from_fixed},
+    iso::{const_fixed_from_iso, is_leap_year, iso_from_fixed},
     rata_die::RataDie,
 };
-pub mod time_of_day;
+use core::ops::{Add, AddAssign, Sub, SubAssign};
+
 use crate::time_of_day::{LocalDateTime, LocalTimeOfDay};
 
 extern crate alloc;
+
+pub mod time_of_day;
 
 #[path = "tests.rs"]
 #[cfg(test)]
 mod tests;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
-// 0000 through 9999
 pub struct Year(i32);
 
 impl Year {
-    const MIN: i32 = 0;
-    const MAX: i32 = 9999;
     pub const fn num(self) -> i32 {
         self.0
     }
-    pub const fn new(y: i32) -> Option<Self> {
-        if y >= Self::MIN && y <= Self::MAX {
-            Some(Year(y))
-        } else {
-            None
-        }
+    pub const fn new(y: i32) -> Self {
+        Year(y)
     }
     pub const fn succ(self) -> Option<Self> {
         self.translate(1)
     }
-
     pub const fn pred(self) -> Option<Self> {
         self.translate(-1)
     }
@@ -43,7 +36,7 @@ impl Year {
         let Some(y) = self.0.checked_add(years) else {
             return None;
         };
-        Year::new(y)
+        Some(Year::new(y))
     }
 }
 
@@ -60,41 +53,26 @@ impl Date {
     }
 
     pub const fn succ(self) -> Option<Date> {
-        let Some(d) = self.0.checked_add(1) else {
-            return None;
-        };
-        Some(Date(d))
+        self.translate(1)
     }
     pub const fn pred(self) -> Option<Date> {
-        let Some(d) = self.0.checked_sub(1) else {
-            return None;
-        };
-        Some(Date(d))
+        self.translate(-1)
     }
     pub const fn first_on_year(year: Year) -> Option<Date> {
-        first_on_year_internal(year.0)
+        ymd_to_date(year.0, 1, 1)
     }
     pub const fn last_on_year(year: Year) -> Option<Date> {
         Self::last_on_month(year, MonthOfYear::Dec)
     }
 
     pub const fn first_on_month(year: Year, month: MonthOfYear) -> Option<Date> {
-        let Some(d) = Date::first_on_year(year) else {
-            return None;
-        };
-        d.translate(month.cumulative_days(year))
+        ymd_to_date(year.0, month.number(), 1)
     }
 
     pub const fn last_on_month(year: Year, month: MonthOfYear) -> Option<Date> {
-        let Some(d) = Self::first_on_month(year, month) else {
-            return None;
-        };
-        let Some(sub) = (month.num_days(year) as i32).checked_sub(1) else {
-            return None;
-        };
-
-        d.translate(sub)
+        ymd_to_date(year.0, month.number(), month.num_days(year))
     }
+
     // this is limited to only the 28th day
     pub const fn ymd(year: Year, month: MonthOfYear, day: DayOfMonth) -> Option<Date> {
         let Some(first) = Self::first_on_month(year, month) else {
@@ -113,17 +91,15 @@ impl Date {
         }
         self.translate((day.number() - current_day) as i32)
     }
-    pub const fn year(&self) -> Year {
-        Year::new(self.through().year).unwrap()
+    pub const fn year(self) -> Year {
+        Year::new(self.to_ymd().0)
     }
-    pub const fn month_of_year(&self) -> MonthOfYear {
-        self.through().month()
+    pub const fn month_of_year(self) -> MonthOfYear {
+        // NOTE: exhaustively tested
+        MonthOfYear::from_number(self.to_ymd().1).unwrap()
     }
-    pub const fn day_of_month(&self) -> u8 {
-        self.through().day()
-    }
-    pub const fn through(&self) -> YearAndDays {
-        YearAndDays::calculate(*self)
+    pub const fn day_of_month(self) -> u8 {
+        self.to_ymd().2
     }
     pub const fn new(days: i32) -> Date {
         Date(days)
@@ -132,20 +108,16 @@ impl Date {
         self.0
     }
     pub const fn to_ymd(self) -> (i32, u8, u8) {
-        let through = self.through();
-        (through.year, through.month().number(), through.day())
+        date_to_ymd(self)
     }
 
     #[cfg(feature = "chrono")]
-    pub const fn chrono_date(self) -> chrono::NaiveDate {
-        match chrono::NaiveDate::from_num_days_from_ce_opt(self.0 - 365) {
-            Some(d) => d,
-            None => panic!("Invalid date"),
-        }
+    pub const fn chrono_date(self) -> Option<chrono::NaiveDate> {
+        chrono::NaiveDate::from_num_days_from_ce_opt(self.0)
     }
     #[cfg(feature = "chrono")]
     pub fn from_chrono_date(d: chrono::NaiveDate) -> Self {
-        Self::new(chrono::Datelike::num_days_from_ce(&d) + 365)
+        Self::new(chrono::Datelike::num_days_from_ce(&d))
     }
 
     pub const fn and_time(self, time: LocalTimeOfDay) -> LocalDateTime {
@@ -465,139 +437,6 @@ impl MonthOfYear {
     }
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
-pub struct YearAndDays {
-    year: i32,
-    leap: bool,
-    days_through: i32,
-}
-
-impl YearAndDays {
-    pub const fn leap(self) -> bool {
-        self.leap
-    }
-    pub const fn days_through(self) -> i32 {
-        self.days_through
-    }
-    pub const fn month(&self) -> MonthOfYear {
-        if self.leap {
-            match self.days_through {
-                0..31 => MonthOfYear::Jan,
-                31..60 => MonthOfYear::Feb,
-                60..91 => MonthOfYear::Mar,
-                91..121 => MonthOfYear::Apr,
-                121..152 => MonthOfYear::May,
-                152..182 => MonthOfYear::Jun,
-                182..213 => MonthOfYear::Jul,
-                213..244 => MonthOfYear::Aug,
-                244..274 => MonthOfYear::Sep,
-                274..305 => MonthOfYear::Oct,
-                305..335 => MonthOfYear::Nov,
-                335..366 => MonthOfYear::Dec,
-                _ => panic!("out of range"),
-            }
-        } else {
-            match self.days_through {
-                0..31 => MonthOfYear::Jan,
-                31..59 => MonthOfYear::Feb,
-                59..90 => MonthOfYear::Mar,
-                90..120 => MonthOfYear::Apr,
-                120..151 => MonthOfYear::May,
-                151..181 => MonthOfYear::Jun,
-                181..212 => MonthOfYear::Jul,
-                212..243 => MonthOfYear::Aug,
-                243..273 => MonthOfYear::Sep,
-                273..304 => MonthOfYear::Oct,
-                304..334 => MonthOfYear::Nov,
-                334..365 => MonthOfYear::Dec,
-                _ => panic!("out of range"),
-            }
-        }
-    }
-    pub const fn day(&self) -> u8 {
-        let d = if self.leap {
-            match self.days_through {
-                0..31 => self.days_through + 1 - 0,
-                31..60 => self.days_through + 1 - 31,
-                60..91 => self.days_through + 1 - 60,
-                91..121 => self.days_through + 1 - 91,
-                121..152 => self.days_through + 1 - 121,
-                152..182 => self.days_through + 1 - 152,
-                182..213 => self.days_through + 1 - 182,
-                213..244 => self.days_through + 1 - 213,
-                244..274 => self.days_through + 1 - 244,
-                274..305 => self.days_through + 1 - 274,
-                305..335 => self.days_through + 1 - 305,
-                335..366 => self.days_through + 1 - 335,
-                _ => panic!("out of range"),
-            }
-        } else {
-            match self.days_through {
-                0..31 => self.days_through + 1 - 0,
-                31..59 => self.days_through + 1 - 31,
-                59..90 => self.days_through + 1 - 59,
-                90..120 => self.days_through + 1 - 90,
-                120..151 => self.days_through + 1 - 120,
-                151..181 => self.days_through + 1 - 151,
-                181..212 => self.days_through + 1 - 181,
-                212..243 => self.days_through + 1 - 212,
-                243..273 => self.days_through + 1 - 243,
-                273..304 => self.days_through + 1 - 273,
-                304..334 => self.days_through + 1 - 304,
-                334..365 => self.days_through + 1 - 334,
-                _ => panic!("out of range"),
-            }
-        };
-        d as u8
-    }
-}
-
-const DAYS_PER_400Y: i32 = 4 * DAYS_PER_MOST_100Y + 1;
-
-const DAYS_PER_MOST_100Y: i32 = 25 * DAYS_PER_MOST_4Y - 1;
-
-const DAYS_PER_MOST_4Y: i32 = 4 * 365 + 1;
-
-pub const fn is_not_leap_year(year: i32) -> bool {
-    year % 4 != 0 || (year % 100 == 0 && year % 400 != 0)
-}
-pub const fn is_leap_year(year: i32) -> bool {
-    !is_not_leap_year(year)
-}
-pub const fn days_in_year(year: i32) -> i32 {
-    if is_leap_year(year) { 366 } else { 365 }
-}
-
-#[derive(Debug)]
-struct CycleSplit {
-    year_diff: i32,
-    days_thru_year: i32,
-}
-
-impl CycleSplit {
-    const fn new(days: i32) -> CycleSplit {
-        match days {
-            0..366 => CycleSplit {
-                year_diff: 0,
-                days_thru_year: days,
-            },
-            366..731 => CycleSplit {
-                year_diff: 1,
-                days_thru_year: days - 366,
-            },
-            731..1096 => CycleSplit {
-                year_diff: 2,
-                days_thru_year: days - 731,
-            },
-            1096..1461 => CycleSplit {
-                year_diff: 3,
-                days_thru_year: days - 1096,
-            },
-            _ => panic!("out of range"),
-        }
-    }
-}
-
 const fn ymd_to_date(year: i32, month: u8, day: u8) -> Option<Date> {
     let rd = const_fixed_from_iso(year, month, day);
 
@@ -607,150 +446,10 @@ const fn ymd_to_date(year: i32, month: u8, day: u8) -> Option<Date> {
     }
 }
 
-const fn date_to_ymd(date: Date) -> Option<(i32, u8, u8)> {
-    const_iso_from_fixed(RataDie::new(date.0 as i64)).ok()
-}
-
-const fn first_on_year_internal(year: i32) -> Option<Date> {
-    let rd = const_fixed_from_iso(year, 1, 1);
-
-    match i64_to_i32(rd.to_i64_date()) {
-        Ok(d) => Some(Date::new(d)),
-        Err(_) => None,
-    }
-
-    // // how many 400ys - we subtract one because it is about how many of these that we have passed
-    // let Some(long_cycles) = year.checked_sub(1) else {
-    //     return None;
-    // };
-
-    // let long_cycles = long_cycles.div_euclid(400);
-
-    // // how many 100ys - we subtract one because it is about how many of these that we have passed
-    // let Some(mid_cycles) = year.checked_sub(1) else {
-    //     return None;
-    // };
-
-    // let mid_cycles = mid_cycles.div_euclid(100);
-
-    // // how many 4ys - we subtract one because it is about how many of these that we have passed
-    // let Some(cycles) = year.checked_sub(1) else {
-    //     return None;
-    // };
-    // let cycles = cycles.div_euclid(4);
-
-    // let Some(a) = year.checked_mul(365) else {
-    //     return None;
-    // };
-    // let Some(a) = a.checked_add(cycles) else {
-    //     return None;
-    // };
-    // let Some(a) = a.checked_sub(mid_cycles) else {
-    //     return None;
-    // };
-    // let Some(a) = a.checked_add(long_cycles) else {
-    //     return None;
-    // };
-    // let Some(a) = a.checked_add(1) else {
-    //     return None;
-    // };
-
-    // Some(Date(a))
-}
-
-const B1: i32 = 1 * DAYS_PER_MOST_100Y + 1;
-const B2: i32 = 2 * DAYS_PER_MOST_100Y + 1;
-const B3: i32 = 3 * DAYS_PER_MOST_100Y + 1;
-const B4: i32 = 4 * DAYS_PER_MOST_100Y + 1;
-
-impl YearAndDays {
-    const fn calculate(date: Date) -> YearAndDays {
-        // figure out which 400y block we are in
-        let block = date.0.div_euclid(DAYS_PER_400Y);
-        let remainder = date.0.rem_euclid(DAYS_PER_400Y);
-        #[cfg(kani)]
-        assert!(remainder < DAYS_PER_400Y);
-
-        let (ext_years, split) = match remainder {
-            0..B1 => {
-                // extra leap
-                let days_thru_block = remainder;
-                let cycles_through_block = days_thru_block / DAYS_PER_MOST_4Y;
-                let days_through_cycle = days_thru_block % DAYS_PER_MOST_4Y;
-
-                #[cfg(kani)]
-                assert!(days_through_cycle <= 1460);
-
-                let split = CycleSplit::new(days_through_cycle);
-                (cycles_through_block * 4, split)
-            }
-            B1..B2 => {
-                // regular
-
-                // add extra day, will remove later...
-                let days_thru_block = remainder - B1 + 1;
-                let cycles_through_block = days_thru_block / DAYS_PER_MOST_4Y;
-                let days_through_cycle = days_thru_block % DAYS_PER_MOST_4Y;
-
-                #[cfg(kani)]
-                assert!(days_through_cycle <= 1460);
-
-                let mut split = CycleSplit::new(days_through_cycle);
-                if split.year_diff == 0 && cycles_through_block == 0 {
-                    split.days_thru_year -= 1;
-                }
-                (cycles_through_block * 4 + 100, split)
-            }
-            B2..B3 => {
-                // regular
-                // add extra day, will remove later...
-                let days_thru_block = remainder - B2 + 1;
-                let cycles_through_block = days_thru_block / DAYS_PER_MOST_4Y;
-                let days_through_cycle = days_thru_block % DAYS_PER_MOST_4Y;
-
-                #[cfg(kani)]
-                assert!(days_through_cycle <= 1460);
-
-                let mut split = CycleSplit::new(days_through_cycle);
-                if split.year_diff == 0 && cycles_through_block == 0 {
-                    split.days_thru_year -= 1;
-                }
-                (cycles_through_block * 4 + 200, split)
-            }
-            B3..B4 => {
-                // regular
-                // add extra day, will remove later...
-                let days_thru_block = remainder - B3 + 1;
-                let cycles_through_block = days_thru_block / DAYS_PER_MOST_4Y;
-                let days_through_cycle = days_thru_block % DAYS_PER_MOST_4Y;
-
-                #[cfg(kani)]
-                assert!(days_through_cycle <= 1460);
-
-                let mut split = CycleSplit::new(days_through_cycle);
-                if split.year_diff == 0 && cycles_through_block == 0 {
-                    split.days_thru_year -= 1;
-                }
-                (cycles_through_block * 4 + 300, split)
-            }
-            _ => {
-                panic!("Out of range!")
-            }
-        };
-
-        let proposed_year = 400 * block + ext_years + split.year_diff;
-
-        if is_leap_year(proposed_year) {
-            assert!(split.days_thru_year >= 0 && split.days_thru_year <= 366);
-        } else {
-            assert!(split.days_thru_year >= 0 && split.days_thru_year <= 365);
-        }
-
-        YearAndDays {
-            year: proposed_year,
-            leap: is_leap_year(proposed_year),
-            days_through: split.days_thru_year,
-        }
+const fn date_to_ymd(date: Date) -> (i32, u8, u8) {
+    match iso_from_fixed(RataDie::new(date.0 as i64)) {
+        Ok(x) => x,
+        Err(_) => panic!("unable to convert date to YMD"),
     }
 }
 

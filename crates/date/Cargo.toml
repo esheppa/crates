@@ -18,19 +18,12 @@ default-features = false
 optional = true 
 
 [dependencies.calendrical_calculations]
-#workspace = true
-default-features = false
-git = "https://github.com/esheppa/icu4x"
-rev = "41c1c4ad5d03f1a26cfb7a72b945eec937eb98b9"
-#optional = true 
-#version = "0.2.2"
-
+workspace = true
 
 [dev-dependencies]
 serde_json = "1.0.115"
 chrono-tz = "0.10.0"
 chrono = "0.4"
-calendrical_calculations = "0.2.2"
 jiff = "0.2.13"
 criterion = "0.5.0"
 
