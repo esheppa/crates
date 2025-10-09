@@ -40,9 +40,17 @@ impl Year {
     }
 }
 
+// NOTE: add MIN/MAX here??
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 // days since 1900-01-01
 pub struct Date(i32);
+
+impl core::fmt::Display for Date {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let (y, m, d) = self.to_ymd();
+        write!(f, "{y}-{m:02}-{d:02}")
+    }
+}
 
 impl Date {
     pub const fn translate(self, i: i32) -> Option<Date> {

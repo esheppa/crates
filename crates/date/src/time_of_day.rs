@@ -22,7 +22,9 @@ impl LocalDateTime {
 
     #[cfg(feature = "chrono")]
     pub const fn chrono_datetime(self) -> Option<chrono::NaiveDateTime> {
-        let Some(date) = self.0.chrono_date() else {return None; };
+        let Some(date) = self.0.chrono_date() else {
+            return None;
+        };
         Some(date.and_time(self.1.chrono_time()))
     }
 

@@ -1,8 +1,14 @@
 #![no_std]
 use arrayvec::ArrayString;
+use const_utils::{FixedArray, FixedAsciiString, FixedString};
 /// https://www.aemo.com.au/-/media/files/electricity/nem/retail_and_metering/metering-procedures/nmi-allocation-list.pdf?rev=e4c92faff5614b20933b16a4ff5784be&sc_lang=en
 /// https://www.aemo.com.au/-/media/files/electricity/nem/retail_and_metering/metering-procedures/2024/msats-national-metering-identifier-procedure-v73.pdf?rev=aefc0a9f2fcb406aa81df9ba77e9512a&sc_lang=en
-use core::{error::Error, fmt::Display, ops::Mul, str::FromStr};
+use core::{
+    error::Error,
+    fmt::Display,
+    ops::{Bound, Mul},
+    str::FromStr,
+};
 
 extern crate std;
 use std::eprintln;
@@ -78,7 +84,7 @@ impl Nmi {
     pub const fn from_bytes(bytes: &[u8]) -> Result<Self, NmiError> {
         let Ok(input_str) = str::from_utf8(bytes) else {
             return Err(NmiError {
-                input: ArrayString::new_const(),
+                input: FixedString::default(),
                 kind: NmiErrorKind::NonAsciiCharacters,
             });
         };
@@ -116,7 +122,7 @@ impl Nmi {
                     nmi[i] = NmiChar::Numeric(NmiNumeric::new(b));
                 }
                 b'I' | b'O' => {
-                    eprintln!("Danm I/O");
+                    // eprintln!("Danm I/O");
                     return Err(NmiError {
                         input,
                         kind: NmiErrorKind::DisallowedCharacters,
@@ -126,7 +132,7 @@ impl Nmi {
                     nmi[i] = NmiChar::Alpha(NmiAlpha::new(b));
                 }
                 _ => {
-                    eprintln!("Danm {b}");
+                    // eprintln!("Danm {b}");
                     return Err(NmiError {
                         input,
                         kind: NmiErrorKind::DisallowedCharacters,
@@ -251,6 +257,8 @@ impl Nmi {
         //     _ => (),
         // };
 
+        // note that the order here _must not_ be changed
+        // as otherwise if ranges are matched in the wrong order, invalid regions will be returned
         let c = match &prefix_4 {
             _ if bytes[0] == b'A' && bytes[4] == b'W' => {
                 Classification::Electricity(ElectricityRegion::Act(ActNsp::EvoenergyTnsp))
@@ -377,7 +385,7 @@ impl Nmi {
 
 #[derive(Debug)]
 pub struct NmiError {
-    input: ArrayString<20>,
+    input: FixedString<20>,
     kind: NmiErrorKind,
 }
 
@@ -416,12 +424,11 @@ impl Display for NmiError {
 
 impl Error for NmiError {}
 
-const fn input_from_str(s: &str) -> ArrayString<20> {
-    let mut input = ArrayString::new_const();
-    for i in s.chars().take(20) {
-        input.push(i);
+const fn input_from_str(s: &str) -> FixedString<20> {
+    match FixedString::from_str(s) {
+        Ok(x) => x,
+        Err(_) => FixedString::default(),
     }
-    return input;
 }
 
 impl FromStr for Nmi {
@@ -429,19 +436,6 @@ impl FromStr for Nmi {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         Self::from_bytes(s.as_bytes())
-    }
-}
-
-pub struct FixedAsciiStr {
-    data: [u8; 20]
-}
-
-impl FixedAsciiStr {
-    pub fn from_bytes(b: &[u8]) -> FixedAsciiStr {
-
-    }
-      pub fn from_bytes(b: &[u8]) -> FixedAsciiStr {
-        
     }
 }
 

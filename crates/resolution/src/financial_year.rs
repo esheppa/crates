@@ -118,20 +118,22 @@ impl DateResolution for FinancialYear {
     fn start_day(self) -> Day {
         Day::from_date(
             Date::first_on_month(
-                date::Year::new(self.to_monotonic() as i32 - 1).unwrap(),
+                date::Year::new(self.to_monotonic() as i32 - 1),
                 MonthOfYear::Jul,
             )
             .expect("Always valid"),
         )
+        .expect("Always valid")
     }
     fn end_day(self) -> Day {
         Day::from_date(
             Date::last_on_month(
-                date::Year::new(self.to_monotonic() as i32).unwrap(),
+                date::Year::new(self.to_monotonic() as i32),
                 MonthOfYear::Jun,
             )
             .expect("Always valid"),
         )
+        .expect("Always valid")
     }
 }
 

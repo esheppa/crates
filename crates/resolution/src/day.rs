@@ -37,12 +37,12 @@ impl Day {
         // TODO!!!!!!!!!!!!!!!!
         Date::new(self.0 as i32)
     }
-    pub const fn from_date(date: Date) -> Day {
+    pub const fn from_date(date: Date) -> Option<Day> {
         let monotonic = date.inner() as i64;
         // if monotonic < MIN || monotonic > MAX {
         //     panic!("nope")
         // }
-        Day(monotonic)
+        Day::from_monotonic(monotonic)
     }
     pub const fn from_monotonic(idx: i64) -> Option<Self> {
         // TODO: use MIN..=MAX here when it is const
@@ -135,7 +135,7 @@ impl str::FromStr for Day {
         let Some(year) = parts
             .next()
             .and_then(|y| y.parse::<i32>().ok())
-            .and_then(date::Year::new)
+            .map(date::Year::new)
         else {
             return Err(Error::ParseCustom {
                 ty_name: "date",
@@ -169,7 +169,7 @@ impl str::FromStr for Day {
             });
         };
 
-        Ok(Day::from_date(date))
+        Day::from_date(date).ok_or_else(|| Error::DayFromDate(date))
     }
 }
 
@@ -199,13 +199,9 @@ mod tests {
     fn test_parse_fmt() {
         assert_eq!(
             Day::from_date(
-                Date::ymd(
-                    date::Year::new(2025).unwrap(),
-                    MonthOfYear::Aug,
-                    DayOfMonth::D13
-                )
-                .unwrap()
+                Date::ymd(date::Year::new(2025), MonthOfYear::Aug, DayOfMonth::D13).unwrap()
             )
+            .unwrap()
             .to_string()
             .as_str(),
             "2025-08-13"
@@ -249,14 +245,14 @@ mod tests {
     #[test]
 
     fn test_parse_date_syntax() {
-        let year = date::Year::new(2021).unwrap();
+        let year = date::Year::new(2021);
         assert_eq!(
             "2021-01-01".parse::<Day>().unwrap(),
-            Day::from_date(Date::first_on_year(year).unwrap()),
+            Day::from_date(Date::first_on_year(year).unwrap()).unwrap(),
         );
         assert_eq!(
             "2021-01-01".parse::<Day>().unwrap().succ().unwrap(),
-            Day::from_date(Date::ymd(year, MonthOfYear::Jan, DayOfMonth::D2).unwrap()),
+            Day::from_date(Date::ymd(year, MonthOfYear::Jan, DayOfMonth::D2).unwrap()).unwrap(),
         );
         assert_eq!(
             "2021-01-01"
@@ -266,31 +262,25 @@ mod tests {
                 .unwrap()
                 .pred()
                 .unwrap(),
-            Day::from_date(Date::first_on_year(year).unwrap()),
+            Day::from_date(Date::first_on_year(year).unwrap()).unwrap(),
         );
     }
 
     #[test]
     fn test_start() {
-        let year = date::Year::new(0).unwrap();
+        let year = date::Year::new(0);
 
         assert_eq!(
             Day::from_monotonic(2),
-            Some(Day::from_date(
-                Date::ymd(year, MonthOfYear::Jan, DayOfMonth::D3).unwrap()
-            ))
+            Day::from_date(Date::ymd(year, MonthOfYear::Jan, DayOfMonth::D3).unwrap())
         );
         assert_eq!(
             Day::from_monotonic(1),
-            Some(Day::from_date(
-                Date::ymd(year, MonthOfYear::Jan, DayOfMonth::D2).unwrap()
-            ))
+            Day::from_date(Date::ymd(year, MonthOfYear::Jan, DayOfMonth::D2).unwrap())
         );
         assert_eq!(
             Day::from_monotonic(0),
-            Some(Day::from_date(
-                Date::ymd(year, MonthOfYear::Jan, DayOfMonth::D1).unwrap()
-            ))
+            Day::from_date(Date::ymd(year, MonthOfYear::Jan, DayOfMonth::D1).unwrap())
         );
         assert_eq!(Day::from_monotonic(-1), None);
         assert_eq!(Day::from_monotonic(-2), None,);

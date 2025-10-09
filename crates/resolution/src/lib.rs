@@ -184,6 +184,7 @@ pub enum Error {
     ParseInt(num::ParseIntError),
     #[cfg(feature = "chrono")]
     ParseDate(chrono::ParseError),
+    DayFromDate(date::Date),
     ParseCustom {
         ty_name: &'static str,
         input: String,
@@ -224,6 +225,7 @@ impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         use Error::*;
         match self {
+            DayFromDate(date) => write!(f, "Unable to create Day from {date}",),
             GotNonMatchingNewData { point, old, new } => write!(
                 f,
                 "Got new data for {point}: {new} different from data already in the cache {old}"

@@ -716,6 +716,7 @@ name = "nmi"
 version = "0.1.0"
 dependencies = [
  "arrayvec",
+ "const-utils",
 ]
 
 [[package]]

@@ -190,21 +190,23 @@ impl DateResolution for Quarter {
     fn start_day(self) -> Day {
         Day::from_date(
             Date::first_on_month(
-                date::Year::new(self.year().to_monotonic() as i32).unwrap(),
+                date::Year::new(self.year().to_monotonic() as i32),
                 self.quarter_of_year().start_month(),
             )
             .expect("Always valid"),
         )
+        .expect("Always valid")
     }
 
     fn end_day(self) -> Day {
         Day::from_date(
             Date::last_on_month(
-                date::Year::new(self.year().to_monotonic() as i32).unwrap(),
+                date::Year::new(self.year().to_monotonic() as i32),
                 self.quarter_of_year().end_month(),
             )
             .expect("Always valid"),
         )
+        .expect("Always valid")
     }
 }
 

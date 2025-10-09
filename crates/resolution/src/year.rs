@@ -31,7 +31,7 @@ const MAX: i64 = 9999; // TODO
 
 impl Year {
     const fn date_year(self) -> date::Year {
-        date::Year::new(self.to_monotonic() as i32).unwrap()
+        date::Year::new(self.to_monotonic() as i32)
     }
     pub const MIN: Year = Year(MIN);
     pub const MAX: Year = Year(MAX);
@@ -73,10 +73,12 @@ impl Year {
 
     pub const fn start_day(self) -> Day {
         Day::from_date(Date::first_on_year(self.date_year()).expect("Always valid"))
+            .expect("Always valid")
     }
 
     pub const fn end_day(self) -> Day {
         Day::from_date(Date::last_on_year(self.date_year()).expect("Always valid"))
+            .expect("Always valid")
     }
 
     pub const fn q1(self) -> Quarter {
@@ -222,11 +224,11 @@ mod tests {
         assert!(Year::MIN.start_day().pred().is_none());
         assert_eq!(
             Year::MIN.start_day(),
-            Day::from_date(Date::first_on_year(date::Year::new(0).unwrap()).unwrap())
+            Day::from_date(Date::first_on_year(date::Year::new(0)).unwrap()).unwrap()
         );
         assert_eq!(
             Year::MAX.end_day(),
-            Day::from_date(Date::last_on_year(date::Year::new(9999).unwrap()).unwrap())
+            Day::from_date(Date::last_on_year(date::Year::new(9999)).unwrap()).unwrap()
         );
         assert!(Year::MAX.end_day().succ().is_none());
     }

@@ -194,7 +194,12 @@ impl<const N: u16> Minutes<N> {
         else {
             return None;
         };
-        let Some(x) = Day::from_date(local.day()).translate(through_day) else {
+
+        let Some(x) = Day::from_date(local.day()) else {
+            return None;
+        };
+
+        let Some(x) = x.translate(through_day) else {
             return None;
         };
 
@@ -267,9 +272,7 @@ impl<const N: u16> Minutes<N> {
                 + ascii_char_to_numeral(bytes[3]).unwrap() as i32
         };
 
-        let Some(year) = date::Year::new(year) else {
-            return Err(MinutesParseErrorKind::InvalidYear(year));
-        };
+        let year = date::Year::new(year);
 
         let month = {
             ascii_char_to_numeral(bytes[5]).unwrap() as u8 * 10
@@ -331,7 +334,11 @@ impl<const N: u16> Minutes<N> {
             });
         };
 
-        let Some(minutes) = subdivision.on_date(Day::from_date(date)) else {
+        let Some(day) = Day::from_date(date) else {
+            return Err(MinutesParseErrorKind::InvalidDate(date));
+        };
+
+        let Some(minutes) = subdivision.on_date(day) else {
             return Err(MinutesParseErrorKind::CantCreateOnDate {
                 date,
                 length: N,
@@ -482,6 +489,7 @@ pub enum MinutesParseErrorKind {
         day: u16,
     },
     InvalidYear(i32),
+    InvalidDate(Date),
 }
 
 const fn ascii_char_to_numeral(ch: u8) -> Option<u8> {
