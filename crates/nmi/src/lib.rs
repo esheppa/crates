@@ -1,82 +1,71 @@
 #![no_std]
-use arrayvec::ArrayString;
-use const_utils::{FixedArray, FixedAsciiString, FixedString};
+use const_utils::FixedString;
 /// https://www.aemo.com.au/-/media/files/electricity/nem/retail_and_metering/metering-procedures/nmi-allocation-list.pdf?rev=e4c92faff5614b20933b16a4ff5784be&sc_lang=en
 /// https://www.aemo.com.au/-/media/files/electricity/nem/retail_and_metering/metering-procedures/2024/msats-national-metering-identifier-procedure-v73.pdf?rev=aefc0a9f2fcb406aa81df9ba77e9512a&sc_lang=en
-use core::{
-    error::Error,
-    fmt::Display,
-    ops::{Bound, Mul},
-    str::FromStr,
-};
-
-extern crate std;
-use std::eprintln;
+use core::{error::Error, fmt::Display, str::FromStr};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
-pub struct Nmi([NmiChar; 10]);
+pub struct Nmi([u8; 10]);
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
-pub enum NmiChar {
-    Alpha(NmiAlpha),
-    Numeric(NmiNumeric),
+impl Display for Nmi {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.write_str(self.as_str())
+    }
 }
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub struct NmiChar(u8);
 
 impl NmiChar {
+    pub const fn try_new(c: u8) -> Result<NmiChar, NmiErrorKind> {
+        match c {
+            b'I' | b'O' => Err(NmiErrorKind::DisallowedCharacter(c)),
+            b'A'..=b'Z' => Ok(NmiChar(c)),
+            b'0'..=b'9' => Ok(NmiChar(c)),
+            _ => Err(NmiErrorKind::DisallowedCharacter(c)),
+        }
+    }
+    const fn new(c: u8) -> NmiChar {
+        let Ok(x) = Self::try_new(c) else {
+            panic!("attempted to create NmiChar from invalid character")
+        };
+        x
+    }
     pub const fn byte(self) -> u8 {
-        match self {
-            NmiChar::Alpha(nmi_alpha) => nmi_alpha.0,
-            NmiChar::Numeric(nmi_numeric) => nmi_numeric.0,
-        }
+        self.0
     }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
-pub struct NmiAlpha(u8);
-
-impl NmiAlpha {
-    const fn new(c: u8) -> NmiAlpha {
-        match c {
-            b'I' | b'O' => {
-                panic!("Not allowed 'o' or 'i'")
-            }
-            b'A'..=b'Z' => NmiAlpha(c),
-            b'0'..=b'9' => {
-                panic!("Not allowed number character in NMI alpha section")
-            }
-            b'a'..=b'z' => {
-                panic!("Not allowed lowercase character in NMI")
-            }
-            _ => {
-                panic!("Not allowed non-alphabetic character in NMI ")
-            }
-        }
-    }
-}
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
-pub struct NmiNumeric(u8);
-
-impl NmiNumeric {
-    const fn new(c: u8) -> NmiNumeric {
-        match c {
-            b'0'..=b'9' => NmiNumeric(c),
-            b'A'..=b'Z' | b'a'..=b'z' => {
-                panic!("Not allowed alphabetical character in NMI")
-            }
-            _ => {
-                panic!("Not allowed non-alphabetic character in NMI ")
-            }
+    #[allow(
+        non_contiguous_range_endpoints,
+        reason = "We explicitly want to exclude 'O' and 'I'"
+    )]
+    const fn index(self) -> u64 {
+        match self.0 {
+            b'A'..=b'H' => (self.0 as u64) - b'A' as u64 + 10,
+            b'J'..=b'N' => (self.0 as u64) - b'J' as u64 + 18,
+            b'P'..=b'Z' => (self.0 as u64) - b'P' as u64 + 23,
+            b'0'..=b'9' => (self.0 as u64) - b'0' as u64,
+            __ => panic!("Input is pre validated"),
         }
     }
 }
 
 impl Nmi {
+    pub const fn as_str(&self) -> &str {
+        match str::from_utf8(self.as_bytes()) {
+            Ok(s) => s,
+            _ => panic!("Input is pre validated"),
+        }
+    }
+    pub const fn as_bytes(&self) -> &[u8; 10] {
+        &self.0
+    }
+
     pub const fn as_u128(self) -> u128 {
         let mut le_bytes = [0; 16];
 
         let mut i = 0;
         while i < 10 {
-            le_bytes[i + 6] = self.0[i].byte();
+            le_bytes[i + 6] = self.0[i];
             i += 1;
         }
         u128::from_le_bytes(le_bytes)
@@ -94,51 +83,39 @@ impl Nmi {
         if bytes.len() > 11 {
             return Err(NmiError {
                 input,
-                kind: NmiErrorKind::TooLong,
+                kind: NmiErrorKind::TooLong(bytes.len()),
             });
         } else if bytes.len() < 10 {
             return Err(NmiError {
                 input,
-                kind: NmiErrorKind::TooShort,
+                kind: NmiErrorKind::TooShort(bytes.len()),
             });
         }
 
-        for x in bytes.iter() {
-            if !x.is_ascii_alphanumeric() {
+        // we know length is reasonable here
+
+        let mut i = 0;
+        while i < 10 {
+            if !bytes[i].is_ascii_alphanumeric() {
                 return Err(NmiError {
                     input,
                     kind: NmiErrorKind::NonAsciiCharacters,
                 });
             }
+            i += 1;
         }
 
-        let mut nmi = [NmiChar::Numeric(NmiNumeric(0)); 10];
+        let mut nmi = [b'0'; 10];
 
         let mut i = 0;
         while i < 10 {
             let b = bytes[i];
-            match b {
-                b'0'..=b'9' => {
-                    nmi[i] = NmiChar::Numeric(NmiNumeric::new(b));
-                }
-                b'I' | b'O' => {
-                    // eprintln!("Danm I/O");
-                    return Err(NmiError {
-                        input,
-                        kind: NmiErrorKind::DisallowedCharacters,
-                    });
-                }
-                b'A'..=b'Z' => {
-                    nmi[i] = NmiChar::Alpha(NmiAlpha::new(b));
-                }
-                _ => {
-                    // eprintln!("Danm {b}");
-                    return Err(NmiError {
-                        input,
-                        kind: NmiErrorKind::DisallowedCharacters,
-                    });
-                }
-            }
+
+            nmi[i] = match NmiChar::try_new(b) {
+                Ok(_) => b,
+                Err(kind) => return Err(NmiError { input, kind }),
+            };
+
             i += 1;
         }
 
@@ -176,12 +153,15 @@ impl Nmi {
     pub const fn is_numeric(self) -> bool {
         let mut i = 0;
         while i < 10 {
-            if let NmiChar::Alpha(_) = self.0[i] {
+            if self.0[i].is_ascii_alphabetic() {
                 return false;
             }
             i += 1;
         }
         true
+    }
+    pub fn chars(self) -> impl Iterator<Item = NmiChar> {
+        self.0.into_iter().map(NmiChar::new)
     }
     pub const fn checksum(self) -> u8 {
         // https://stripe.com/au/resources/more/how-to-use-the-luhn-algorithm-a-guide-in-applications-for-businesses
@@ -192,13 +172,13 @@ impl Nmi {
             // doubled ascii values up to Z are all less than 200
             // so we only need 0th, 1st and 2nd digits.
 
-            let ascii_val = self.0[i].byte() as u32;
+            let ascii_val = self.0[i] as u32;
 
             // instead of going backwards... we just double odd indexes
             if i % 2 != 0 {
-                checksum_counter += sum_digits(2 * ascii_val);
+                checksum_counter += const_utils::sum_digits(4, 2 * ascii_val).unwrap();
             } else {
-                checksum_counter += sum_digits(ascii_val);
+                checksum_counter += const_utils::sum_digits(4, ascii_val).unwrap();
             }
             i += 1;
         }
@@ -206,7 +186,7 @@ impl Nmi {
         let next_highest_multiple_10 = 10 * (checksum_counter / 10 + 1);
         let diff = next_highest_multiple_10 - checksum_counter;
 
-        match nth_digit::<0>(diff) {
+        match const_utils::nth_digit(0, diff) {
             0 => b'0',
             1 => b'1',
             2 => b'2',
@@ -228,7 +208,7 @@ impl Nmi {
         let mut buf = [0; N];
         let mut i = 0;
         while i < N {
-            buf[i] = self.0[i].byte();
+            buf[i] = self.0[i];
             i += 1;
         }
         buf
@@ -392,9 +372,9 @@ pub struct NmiError {
 #[derive(Debug)]
 pub enum NmiErrorKind {
     NonAsciiCharacters,
-    TooLong,
-    TooShort,
-    DisallowedCharacters,
+    TooLong(usize),
+    TooShort(usize),
+    DisallowedCharacter(u8),
     InvalidChecksum { expected: u8 },
 }
 
@@ -402,9 +382,13 @@ impl Display for NmiErrorKind {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
             NmiErrorKind::NonAsciiCharacters => f.write_str("Non ascii characters"),
-            NmiErrorKind::TooLong => f.write_str("Too long"),
-            NmiErrorKind::TooShort => f.write_str("Too short"),
-            NmiErrorKind::DisallowedCharacters => f.write_str("Disallowed characters"),
+            NmiErrorKind::TooLong(len) => write!(f, "Too long: got {len} but expected 10 or 11"),
+            NmiErrorKind::TooShort(len) => write!(f, "Too short: got {len} but expected 10 or 11"),
+            NmiErrorKind::DisallowedCharacter(c) => write!(
+                f,
+                "Disallowed character: {:?} from byte {c}",
+                str::from_utf8(&[*c])
+            ),
             NmiErrorKind::InvalidChecksum { expected } => {
                 write!(f, "Invalid checksum, expected: {expected}")
             }
@@ -565,157 +549,166 @@ impl Classification {
     }
 }
 
-const fn nth_digit<const N: u32>(n: u32) -> u32 {
-    n % 10u32.pow(N + 1) / 10u32.pow(N)
-}
+const IDX_TO_NMI_CHAR: [NmiChar; 34] = [
+    NmiChar::new(b'0'),
+    NmiChar::new(b'1'),
+    NmiChar::new(b'2'),
+    NmiChar::new(b'3'),
+    NmiChar::new(b'4'),
+    NmiChar::new(b'5'),
+    NmiChar::new(b'6'),
+    NmiChar::new(b'7'),
+    NmiChar::new(b'8'),
+    NmiChar::new(b'9'),
+    NmiChar::new(b'A'),
+    NmiChar::new(b'B'),
+    NmiChar::new(b'C'),
+    NmiChar::new(b'D'),
+    NmiChar::new(b'E'),
+    NmiChar::new(b'F'),
+    NmiChar::new(b'G'),
+    NmiChar::new(b'H'),
+    NmiChar::new(b'J'),
+    NmiChar::new(b'K'),
+    NmiChar::new(b'L'),
+    NmiChar::new(b'M'),
+    NmiChar::new(b'N'),
+    NmiChar::new(b'P'),
+    NmiChar::new(b'Q'),
+    NmiChar::new(b'R'),
+    NmiChar::new(b'S'),
+    NmiChar::new(b'T'),
+    NmiChar::new(b'U'),
+    NmiChar::new(b'V'),
+    NmiChar::new(b'W'),
+    NmiChar::new(b'X'),
+    NmiChar::new(b'Y'),
+    NmiChar::new(b'Z'),
+];
 
-const fn sum_digits(n: u32) -> u32 {
-    if n > 999 {
-        panic!("cannot sum digits for a number greater than 1000");
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub struct PackedNmi(u64);
+
+impl PackedNmi {
+    pub const fn try_from_bytes(by: &[u8]) -> Option<PackedNmi> {
+        let Ok(nmi) = Nmi::from_bytes(by) else {
+            return None;
+        };
+        Some(PackedNmi::pack(nmi))
     }
+    pub const fn try_new(num: u64) -> Option<PackedNmi> {
+        let mut i = 0;
+        while i < 10 {
+            // we have packed using the lowest index as the highest bit, etc.
+            let translation = 4 + (9 - i) * 6;
 
-    nth_digit::<0>(n) + nth_digit::<1>(n) + nth_digit::<2>(n)
+            let bits = (num >> translation) & 0b_111_111;
+
+            if bits > 34 {
+                return None;
+            }
+
+            i += 1;
+        }
+        Some(PackedNmi(num))
+    }
+    pub const fn get(self) -> u64 {
+        self.0
+    }
+    pub const fn pack(nmi: Nmi) -> PackedNmi {
+        let mut packed = 0;
+        let mut i = 0;
+        while i < 10 {
+            // we want to pack the lowest index as the highest bit, etc.
+            let translation = 4 + (9 - i) * 6;
+            let bits = NmiChar::new(nmi.0[i]).index() << translation;
+            packed |= bits;
+            i += 1;
+        }
+        PackedNmi(packed)
+    }
+    pub const fn unpack(self) -> Nmi {
+        let mut nmi = [b'0'; 10];
+
+        let mut i = 0;
+        while i < 10 {
+            // we have packed using the lowest index as the highest bit, etc.
+            let translation = 4 + (9 - i) * 6;
+
+            let bits = (self.0 >> translation) & 0b_111_111;
+
+            assert!(bits < 34);
+
+            nmi[i] = IDX_TO_NMI_CHAR[bits as usize].byte();
+            i += 1;
+        }
+        Nmi(nmi)
+    }
 }
-
-impl Nmi {}
 
 #[cfg(test)]
 mod tests {
     extern crate std;
     use super::*;
+    use std::string::ToString;
 
     #[test]
-    fn test_nth_digit() {
-        assert_eq!(nth_digit::<3>(5269), 5);
-        assert_eq!(nth_digit::<2>(5269), 2);
-        assert_eq!(nth_digit::<1>(5269), 6);
-        assert_eq!(nth_digit::<0>(5269), 9);
-    }
-    #[test]
-    fn test_checksum() {
-        // assert_eq!(
-        //     Nmi::from_bytes("1234C6789A".as_bytes()).unwrap().checksum(),
-        //     b'3'
-        // );
-        assert_eq!(
-            Nmi::from_bytes("2001985732".as_bytes()).unwrap().checksum(),
-            b'8'
+    fn test_nmis() {
+        assert!(
+            PackedNmi::try_from_bytes("4316854005".as_bytes())
+                < PackedNmi::try_from_bytes("QAAAVZZZZZ".as_bytes())
         );
-        assert_eq!(
-            Nmi::from_bytes("QAAAVZZZZZ".as_bytes()).unwrap().checksum(),
-            b'3'
-        );
-        assert_eq!(
-            Nmi::from_bytes("2001985733".as_bytes()).unwrap().checksum(),
-            b'6'
-        );
-        assert_eq!(
-            Nmi::from_bytes("QCDWW00010".as_bytes()).unwrap().checksum(),
-            b'2'
-        );
-        assert_eq!(
-            Nmi::from_bytes("3075621875".as_bytes()).unwrap().checksum(),
-            b'8'
-        );
-        assert_eq!(
-            Nmi::from_bytes("SMVEW00085".as_bytes()).unwrap().checksum(),
-            b'8'
-        );
-        assert_eq!(
-            Nmi::from_bytes("3075621876".as_bytes()).unwrap().checksum(),
-            b'6'
-        );
-        assert_eq!(
-            Nmi::from_bytes("VAAA000065".as_bytes()).unwrap().checksum(),
-            b'7'
-        );
-        assert_eq!(
-            Nmi::from_bytes("4316854005".as_bytes()).unwrap().checksum(),
-            b'9'
-        );
-        assert_eq!(
-            Nmi::from_bytes("VAAA000066".as_bytes()).unwrap().checksum(),
-            b'5'
-        );
-        assert_eq!(
-            Nmi::from_bytes("4316854006".as_bytes()).unwrap().checksum(),
-            b'7'
-        );
-        assert_eq!(
-            Nmi::from_bytes("VAAA000067".as_bytes()).unwrap().checksum(),
-            b'2'
-        );
-        assert_eq!(
-            Nmi::from_bytes("6305888444".as_bytes()).unwrap().checksum(),
-            b'6'
-        );
-        assert_eq!(
-            Nmi::from_bytes("VAAASTY576".as_bytes()).unwrap().checksum(),
-            b'8'
-        );
-        assert_eq!(
-            Nmi::from_bytes("6350888444".as_bytes()).unwrap().checksum(),
-            b'2'
-        );
-        assert_eq!(
-            Nmi::from_bytes("VCCCX00009".as_bytes()).unwrap().checksum(),
-            b'1'
-        );
-        assert_eq!(
-            Nmi::from_bytes("7001888333".as_bytes()).unwrap().checksum(),
-            b'8'
-        );
-        assert_eq!(
-            Nmi::from_bytes("VEEEX00009".as_bytes()).unwrap().checksum(),
-            b'1'
-        );
-        assert_eq!(
-            Nmi::from_bytes("7102000001".as_bytes()).unwrap().checksum(),
-            b'7'
-        );
-        assert_eq!(
-            Nmi::from_bytes("VKTS786150".as_bytes()).unwrap().checksum(),
-            b'2'
-        );
-        assert_eq!(
-            Nmi::from_bytes("NAAAMYS582".as_bytes()).unwrap().checksum(),
-            b'6'
-        );
-        assert_eq!(
-            Nmi::from_bytes("VKTS867150".as_bytes()).unwrap().checksum(),
-            b'5'
-        );
-        assert_eq!(
-            Nmi::from_bytes("NBBBX11110".as_bytes()).unwrap().checksum(),
-            b'0'
-        );
-        assert_eq!(
-            Nmi::from_bytes("VKTS871650".as_bytes()).unwrap().checksum(),
-            b'7'
-        );
-        assert_eq!(
-            Nmi::from_bytes("NBBBX11111".as_bytes()).unwrap().checksum(),
-            b'8'
-        );
-        assert_eq!(
-            Nmi::from_bytes("VKTS876105".as_bytes()).unwrap().checksum(),
-            b'7'
-        );
-        assert_eq!(
-            Nmi::from_bytes("NCCC519495".as_bytes()).unwrap().checksum(),
-            b'5'
-        );
-        assert_eq!(
-            Nmi::from_bytes("VKTS876150".as_bytes()).unwrap().checksum(),
-            b'3'
-        );
-        assert_eq!(
-            Nmi::from_bytes("NGGG000055".as_bytes()).unwrap().checksum(),
-            b'4'
-        );
-        assert_eq!(
-            Nmi::from_bytes("VKTS876510".as_bytes()).unwrap().checksum(),
-            b'8'
-        );
+
+        let nmis = [
+            ("1234C6789A", b'3'),
+            ("2001985732", b'8'),
+            ("QAAAVZZZZZ", b'3'),
+            ("2001985733", b'6'),
+            ("QCDWW00010", b'2'),
+            ("3075621875", b'8'),
+            ("SMVEW00085", b'8'),
+            ("3075621876", b'6'),
+            ("VAAA000065", b'7'),
+            ("4316854005", b'9'),
+            ("VAAA000066", b'5'),
+            ("4316854006", b'7'),
+            ("VAAA000067", b'2'),
+            ("6305888444", b'6'),
+            ("VAAASTY576", b'8'),
+            ("6350888444", b'2'),
+            ("VCCCX00009", b'1'),
+            ("7001888333", b'8'),
+            ("VEEEX00009", b'1'),
+            ("7102000001", b'7'),
+            ("VKTS786150", b'2'),
+            ("NAAAMYS582", b'6'),
+            ("VKTS867150", b'5'),
+            ("NBBBX11110", b'0'),
+            ("VKTS871650", b'7'),
+            ("NBBBX11111", b'8'),
+            ("VKTS876105", b'7'),
+            ("NCCC519495", b'5'),
+            ("VKTS876150", b'3'),
+            ("NGGG000055", b'4'),
+            ("VKTS876510", b'8'),
+        ];
+
+        for (nmi, checksum) in nmis {
+            let parsed = Nmi::from_bytes(nmi.as_bytes()).unwrap();
+
+            // roundtrip
+            assert_eq!(parsed.as_str(), nmi);
+            assert_eq!(parsed.to_string(), nmi);
+
+            // checksum matches
+            assert_eq!(parsed.checksum(), checksum);
+
+            // packing roundtrip
+            assert_eq!(parsed, PackedNmi::pack(parsed).unpack());
+            assert_eq!(
+                PackedNmi::pack(parsed),
+                PackedNmi::try_new(PackedNmi::pack(parsed).get()).unwrap()
+            );
+        }
     }
 }

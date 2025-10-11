@@ -7,11 +7,6 @@ pub const fn nth_digit(d: u32, n: u32) -> u32 {
 }
 
 pub const fn sum_digits(d: u32, n: u32) -> Option<u32> {
-    // can't sum excess digits
-    if 10u32.pow(d) > n {
-        return None;
-    }
-
     let mut nth = Some(0);
 
     let mut sum = 0;
@@ -358,6 +353,7 @@ mod tests {
         assert_eq!(sum_digits(1, 5269), Some(15));
         assert_eq!(sum_digits(2, 5269), Some(17));
         assert_eq!(sum_digits(3, 5269), Some(22));
+        assert_eq!(sum_digits(3, 49), Some(13));
     }
 
     #[test]
