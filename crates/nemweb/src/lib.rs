@@ -76,7 +76,7 @@ impl Display for ParquetName {
                 f,
                 "{}_current_{}.parquet",
                 table.dvd_table_name(),
-                date.chrono_date().format("%Y-%m-%d")
+                date.chrono_date().unwrap().format("%Y-%m-%d")
             ),
             ParquetName::Daily {
                 is_archive: true,
@@ -86,7 +86,7 @@ impl Display for ParquetName {
                 f,
                 "{}_archive_{}.parquet",
                 table.dvd_table_name(),
-                date.chrono_date().format("%Y-%m-%d")
+                date.chrono_date().unwrap().format("%Y-%m-%d")
             ),
             ParquetName::Monthly { month, table } => write!(
                 f,

@@ -327,14 +327,14 @@ pub trait TimeResolution: Monotonic + Copy {
 /// It is named monotonic as it is intended to provide a monotonic (order preserving) function
 /// from a given implementor of `TimeResolution`, to allow converting backwards and forwards
 /// between the values of the `TimeResolution` implementor and `i64`s
-pub trait Monotonic: Copy + Eq + Ord {
+pub trait Monotonic: Eq + Ord {
     // we choose i64 rather than u32
     // as the behaviour on subtraction is nicer!
     fn to_monotonic(self) -> i64;
     fn between(self, other: Self) -> i64;
 }
 
-pub trait FromMonotonic: Monotonic {
+pub trait FromMonotonic: Monotonic + Sized {
     fn from_monotonic(idx: i64) -> Option<Self>;
 }
 

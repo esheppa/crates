@@ -50,6 +50,9 @@ impl NmiChar {
 }
 
 impl Nmi {
+    pub const fn pack(self) -> PackedNmi {
+        PackedNmi::pack(self)
+    }
     pub const fn as_str(&self) -> &str {
         match str::from_utf8(self.as_bytes()) {
             Ok(s) => s,
@@ -363,13 +366,13 @@ impl Nmi {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct NmiError {
     input: FixedString<20>,
     kind: NmiErrorKind,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum NmiErrorKind {
     NonAsciiCharacters,
     TooLong(usize),
@@ -654,6 +657,14 @@ mod tests {
 
     #[test]
     fn test_nmis() {
+        assert_eq!(
+            Nmi::from_str("IOIOIOIOIO"),
+            Err(NmiError {
+                input: FixedString::from_str("IOIOIOIOIO").unwrap(),
+                kind: NmiErrorKind::DisallowedCharacter(b'I'),
+            })
+        );
+
         assert!(
             PackedNmi::try_from_bytes("4316854005".as_bytes())
                 < PackedNmi::try_from_bytes("QAAAVZZZZZ".as_bytes())
