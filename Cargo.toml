@@ -25,7 +25,7 @@ html5ever = { version = "0.35.0", default-features = false }
 futures = { version = "0.3", default-features = false }
 url = { version = "2.5.7", default-features = false }
 calendrical_calculations = { version = "0.2.2",  default-features = false }
-
+const_fn = { version = "0.4.11", default-features = false }
 
 
 

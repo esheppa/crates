@@ -34,15 +34,12 @@ impl Day {
     pub const MIN: Self = Self(MIN);
     pub const MAX: Self = Self(MAX);
     pub const fn date(self) -> Date {
-        // TODO!!!!!!!!!!!!!!!!
-        Date::new(self.0 as i32)
+        Date::new((self.0 - 365) as i32)
     }
     pub const fn from_date(date: Date) -> Option<Day> {
         let monotonic = date.inner() as i64;
-        // if monotonic < MIN || monotonic > MAX {
-        //     panic!("nope")
-        // }
-        Day::from_monotonic(monotonic)
+        // base year for `Date` is 1 rather than 0
+        Day::from_monotonic(monotonic + 365)
     }
     pub const fn from_monotonic(idx: i64) -> Option<Self> {
         // TODO: use MIN..=MAX here when it is const

@@ -72,8 +72,8 @@ impl Year {
     }
 
     pub const fn start_day(self) -> Day {
-        Day::from_date(Date::first_on_year(self.date_year()).expect("Always valid"))
-            .expect("Always valid")
+        let date = Date::first_on_year(self.date_year()).expect("Always valid");
+        Day::from_date(date).expect("Always valid")
     }
 
     pub const fn end_day(self) -> Day {
@@ -207,6 +207,8 @@ impl str::FromStr for Year {
 #[cfg(test)]
 mod tests {
     extern crate std;
+    use std::dbg;
+
     use quarter::QuarterOfYear;
 
     use super::*;
