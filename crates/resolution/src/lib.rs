@@ -414,3 +414,10 @@ pub trait DateResolutionExt: DateResolution {
 }
 
 impl<T> DateResolutionExt for T where T: DateResolution {}
+
+
+#[cfg(kani)]
+#[kani::proof]
+pub fn verify() {
+    
+}
