@@ -343,9 +343,15 @@ pub enum Error {
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Error::NonMatchingLength { range, data }=> write!(f, "Range and data should match but got range length of {range} and data length of {data}"),
+            Error::NonMatchingLength { range, data } => write!(
+                f,
+                "Range and data should match but got range length of {range} and data length of {data}"
+            ),
             Error::Empty => write!(f, "Cannot create a Timeseries from an empty iterator"),
-            Error::NonContigious { prev, next } => write!(f, "Cannot create a Timeseries from non-contigious data, but had a gap from {prev} to {next}"),
+            Error::NonContigious { prev, next } => write!(
+                f,
+                "Cannot create a Timeseries from non-contigious data, but had a gap from {prev} to {next}"
+            ),
             Error::CompressionFailure => write!(f, "Unable to compress timeseries"),
             Error::LengthOverflow => write!(f, "Timeseries was longer than {}", NonZeroU64::MAX),
         }

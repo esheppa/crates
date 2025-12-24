@@ -387,7 +387,10 @@ impl Display for DvdFilePath {
             month: *month,
             table: *name,
         };
-        write!(f, "{DVD}/{year}/MMSDM_{year}_{month_num:02}/MMSDM_Historical_Data_SQLLoader/DATA/{zip_name}")?;
+        write!(
+            f,
+            "{DVD}/{year}/MMSDM_{year}_{month_num:02}/MMSDM_Historical_Data_SQLLoader/DATA/{zip_name}"
+        )?;
 
         Ok(())
     }
