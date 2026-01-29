@@ -1,12 +1,11 @@
 use std::any::Any;
-use std::{future::Future, marker::PhantomData, num::NonZeroUsize};
+use std::{future::Future, num::NonZeroUsize};
 
 use anyhow::bail;
 use frunk::HList;
 use frunk::{HCons, HNil, hlist::HList};
 use futures::FutureExt;
 use futures::future::BoxFuture;
-use futures::task::Spawn;
 use tokio::task::JoinSet;
 
 // struct NonEmptyVec<T> {
@@ -33,7 +32,7 @@ use tokio::task::JoinSet;
 
 // }
 
-// sync + async concurrency managed globally
+//  async concurrency managed globally
 // but each stage has its own capped output queue
 
 struct Stage<In, Out> {
@@ -43,15 +42,15 @@ struct Stage<In, Out> {
 
 enum Transformer<In, Out> {
     Init(Vec<Out>),
-    SyncMany(Box<dyn Fn(In) -> anyhow::Result<Vec<Out>> + Sync + Send + 'static>),
-    SyncOne(Box<dyn Fn(In) -> anyhow::Result<Out> + Sync + Send + 'static>),
-    AsyncMany(Box<dyn Fn(In) -> BoxFuture<'static, anyhow::Result<Vec<Out>>>>),
-    AsyncOne(Box<dyn Fn(In) -> BoxFuture<'static, anyhow::Result<Out>>>),
+    SyncMany(Box<dyn Fn(In) -> anyhow::Result<Vec<Out>> + Send + 'static>),
+    SyncOne(Box<dyn Fn(In) -> anyhow::Result<Out> + Send + 'static>),
+    AsyncMany(Box<dyn Fn(In) -> BoxFuture<'static, anyhow::Result<Vec<Out>>> + Send + 'static>),
+    AsyncOne(Box<dyn Fn(In) -> BoxFuture<'static, anyhow::Result<Out>> + Send + 'static>),
 }
 
 impl<In, Out, Func> From<Func> for Transformer<In, Out>
 where
-    Func: Fn(In) -> anyhow::Result<Out> + 'static,
+    Func: Fn(In) -> anyhow::Result<Out> + Send + 'static,
 {
     fn from(value: Func) -> Self {
         Transformer::SyncOne(Box::new(value))
@@ -73,16 +72,16 @@ enum StageOutput<A, B, C, D, E, F> {
 
 struct Stage1<T>(T)
 where
-    T: Any + Sync + Send + 'static;
+    T: Any + Send + 'static;
 struct Stage2<T>(T)
 where
-    T: Any + Sync + Send + 'static;
+    T: Any + Send + 'static;
 struct Stage3<T>(T)
 where
-    T: Any + Sync + Send + 'static;
+    T: Any + Send + 'static;
 struct Stage4<T>(T)
 where
-    T: Any + Sync + Send + 'static;
+    T: Any + Send + 'static;
 
 struct Spawner<A, B, C, D, E, F> {
     async_tasks: JoinSet<anyhow::Result<Vec<StageOutput<A, B, C, D, E, F>>>>,
@@ -92,46 +91,46 @@ struct Spawner<A, B, C, D, E, F> {
 }
 
 trait SpawnerT {
-    type Output: Sync + Send + 'static;
+    type Output: Send + 'static;
 
     fn spawn_async<I, T, Fut>(
         &mut self,
         i: I,
-        f: impl FnOnce(I) -> Fut + Sync + Send + 'static,
-        mapper: impl Fn(T) -> Self::Output + Sync + Send + 'static,
+        f: impl FnOnce(I) -> Fut + Send + 'static,
+        mapper: impl Fn(T) -> Self::Output + Send + 'static,
     ) -> Option<I>
     where
-        I: Sync + Send + 'static,
-        Fut: Future<Output = anyhow::Result<Vec<T>>> + Sync + Send + 'static;
+        I: Send + 'static,
+        Fut: Future<Output = anyhow::Result<Vec<T>>> + Send + 'static;
     fn spawn_sync<I, T>(
         &mut self,
         i: I,
-        f: impl FnOnce(I) -> anyhow::Result<Vec<T>> + Sync + Send + 'static,
-        mapper: impl Fn(T) -> Self::Output + Sync + Send + 'static,
+        f: impl FnOnce(I) -> anyhow::Result<Vec<T>> + Send + 'static,
+        mapper: impl Fn(T) -> Self::Output + Send + 'static,
     ) -> Option<I>
     where
-        I: Sync + Send + 'static;
+        I: Send + 'static;
 }
 
 impl<A, B, C, D, E, F> SpawnerT for Spawner<A, B, C, D, E, F>
 where
-    A: Sync + Send + 'static,
-    B: Sync + Send + 'static,
-    C: Sync + Send + 'static,
-    D: Sync + Send + 'static,
-    E: Sync + Send + 'static,
-    F: Sync + Send + 'static,
+    A: Send + 'static,
+    B: Send + 'static,
+    C: Send + 'static,
+    D: Send + 'static,
+    E: Send + 'static,
+    F: Send + 'static,
 {
     type Output = StageOutput<A, B, C, D, E, F>;
 
     fn spawn_async<I, T, Fut>(
         &mut self,
         i: I,
-        f: impl FnOnce(I) -> Fut + Sync + Send + 'static,
-        mapper: impl Fn(T) -> Self::Output + Sync + Send + 'static,
+        f: impl FnOnce(I) -> Fut + Send + 'static,
+        mapper: impl Fn(T) -> Self::Output + Send + 'static,
     ) -> Option<I>
     where
-        Fut: Future<Output = anyhow::Result<Vec<T>>> + Sync + Send + 'static,
+        Fut: Future<Output = anyhow::Result<Vec<T>>> + Send + 'static,
     {
         if self.async_tasks.len() >= self.async_concurrency {
             return Some(i);
@@ -146,11 +145,11 @@ where
     fn spawn_sync<I, T>(
         &mut self,
         i: I,
-        f: impl FnOnce(I) -> anyhow::Result<Vec<T>> + Sync + Send + 'static,
-        mapper: impl Fn(T) -> Self::Output + Sync + Send + 'static,
+        f: impl FnOnce(I) -> anyhow::Result<Vec<T>> + Send + 'static,
+        mapper: impl Fn(T) -> Self::Output + Send + 'static,
     ) -> Option<I>
     where
-        I: Sync + Send + 'static,
+        I: Send + 'static,
     {
         if self.sync_tasks.len() >= self.sync_concurrency {
             return Some(i);
@@ -165,12 +164,12 @@ where
 
 impl<A, B, C, D, E, F> Spawner<A, B, C, D, E, F>
 where
-    A: Sync + Send + 'static,
-    B: Sync + Send + 'static,
-    C: Sync + Send + 'static,
-    D: Sync + Send + 'static,
-    E: Sync + Send + 'static,
-    F: Sync + Send + 'static,
+    A: Send + 'static,
+    B: Send + 'static,
+    C: Send + 'static,
+    D: Send + 'static,
+    E: Send + 'static,
+    F: Send + 'static,
 {
     async fn next(&mut self) -> Option<anyhow::Result<Vec<StageOutput<A, B, C, D, E, F>>>> {
         tokio::select! {
@@ -241,10 +240,10 @@ fn try_spawn<A, B, T, U>(
     inputs: &mut Vec<A>,
     tf: Stage<A, B>,
     count: &mut usize,
-    wrapper: impl Fn(B) -> U + Sync + Send + 'static,
+    wrapper: impl Fn(B) -> U + Send + 'static,
 ) where
-    A: Sync + Send + 'static,
-    B: Sync + Send + 'static,
+    A: Send + 'static,
+    B: Send + 'static,
     T: SpawnerT<Output = U>,
 {
     if let Some(max) = tf.output_cap
@@ -271,7 +270,7 @@ fn try_spawn<A, B, T, U>(
             None
         }
         Transformer::AsyncOne(f) => {
-            spawner.spawn_async(proposed, f, wrapper);
+            spawner.spawn_async(proposed, move |i| f(i).map(|x| Ok([x?].into())), wrapper);
             None
         }
         _ => Some(proposed),
@@ -426,7 +425,7 @@ impl<B, C, D, E> Run
 impl Pipeline<HNil> {
     pub fn new<Initial>(inputs: Vec<Initial>) -> Pipeline<HCons<Stage<(), Initial>, HNil>>
     where
-        Initial: 'static + Sync + Send,
+        Initial: 'static + Send,
     {
         Pipeline {
             inner: HNil.prepend(Stage {
@@ -447,7 +446,7 @@ where
         output_cap: Option<NonZeroUsize>,
     ) -> Pipeline<HCons<Stage<In, Out>, HCons<Stage<Prev, In>, Tail>>>
     where
-        Func: Fn(In) -> anyhow::Result<Out> + 'static,
+        Func: Fn(In) -> anyhow::Result<Out> + Send + 'static,
     {
         Pipeline {
             inner: self.inner.prepend(Stage {
@@ -463,7 +462,7 @@ where
         output_cap: Option<NonZeroUsize>,
     ) -> Pipeline<HCons<Stage<In, Out>, HCons<Stage<Prev, In>, Tail>>>
     where
-        Func: Fn(In) -> anyhow::Result<Vec<Out>> + 'static,
+        Func: Fn(In) -> anyhow::Result<Vec<Out>> + Send + 'static,
     {
         Pipeline {
             inner: self.inner.prepend(Stage {
@@ -479,8 +478,8 @@ where
         output_cap: Option<NonZeroUsize>,
     ) -> Pipeline<HCons<Stage<In, Out>, HCons<Stage<Prev, In>, Tail>>>
     where
-        Func: Fn(In) -> Fut + 'static + Sync + Send,
-        Fut: Future<Output = anyhow::Result<Out>> + 'static + Sync + Send,
+        Func: Fn(In) -> Fut + 'static + Send,
+        Fut: Future<Output = anyhow::Result<Out>> + 'static + Send,
     {
         Pipeline {
             inner: self.inner.prepend(Stage {
@@ -496,8 +495,8 @@ where
         output_cap: Option<NonZeroUsize>,
     ) -> Pipeline<HCons<Stage<In, Out>, HCons<Stage<Prev, In>, Tail>>>
     where
-        Func: Fn(In) -> Fut + 'static + Sync + Send,
-        Fut: Future<Output = anyhow::Result<Vec<Out>>> + 'static + Sync + Send,
+        Func: Fn(In) -> Fut + 'static + Send,
+        Fut: Future<Output = anyhow::Result<Vec<Out>>> + 'static + Send,
     {
         Pipeline {
             inner: self.inner.prepend(Stage {
