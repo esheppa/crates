@@ -1,3 +1,5 @@
+use core::marker::PhantomData;
+
 use crate::*;
 // #[cfg(feature = "chrono")]
 // use crate::{FixedTimeZone, Zoned};Vec
@@ -9,6 +11,29 @@ use crate::prelude::*;
 use iter::FusedIterator;
 use num::NonZeroU64;
 
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
+struct RangeSerialize {
+    // todo
+}
+
+impl<P> TryFrom<RangeSerialize> for TimeRange<P> {
+    type Error = String;
+
+    fn try_from(value: RangeSerialize) -> core::result::Result<Self, Self::Error> {
+        todo!()
+    }
+}
+
+impl<P> From<TimeRange<P>> for RangeSerialize {
+    fn from(value: TimeRange<P>) -> Self {
+        todo!()
+    }
+}
+// #[cfg_attr(
+//     feature = "serde",
+//     serde(bound(deserialize = "P: de::DeserializeOwned"))
+// )]
+
 // the `Step` trait may be interesting later
 // https://doc.rust-lang.org/std/iter/trait.Step.html
 /// `TimeRange` stores a contigious sequence of underlying periods of a given `TimeResolution`.
@@ -16,13 +41,29 @@ use num::NonZeroU64;
 /// This is useful to represent the time axis of a timeseries.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
+#[cfg_attr(
+    feature = "serde",
+    serde(
+        bound = "P: Clone",
+        try_from = "RangeSerialize",
+        into = "RangeSerialize"
+    )
+)]
 pub struct TimeRange<P> {
-    // #[cfg_attr(
-    //     feature = "serde",
-    //     serde(bound(deserialize = "P: de::DeserializeOwned"))
-    // )]
-    a: P,
-    b: P,
+    range: LocalRange,
+    ty: PhantomData<P>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct LocalRange {
+    start: i64,
+    end: i64,
+}
+
+impl LocalRange {
+    fn range(self) -> RangeInclusive<i64> {
+        RangeInclusive::new(self.start, self.end)
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -35,13 +76,13 @@ pub enum TimeRangeComparison {
 
 impl<P> TimeRange<P>
 where
-    P: TimeResolution,
+    P: TimeResolution + FromMonotonic,
 {
     pub fn start(self) -> P {
-        self.a.min(self.b)
+        P::from_monotonic(self.range.start).unwrap()
     }
     pub fn end(self) -> P {
-        self.a.max(self.b)
+        P::from_monotonic(self.range.end).unwrap()
     }
 }
 
@@ -103,7 +144,7 @@ impl<P> TimeRange<P> {
 
 impl<P: TimeResolution + Monotonic + FromMonotonic> TimeRange<P> {
     pub fn iter_indexes(&self) -> impl Iterator<Item = i64> {
-        self.iter().map(|p| p.to_monotonic())
+        self.range.range().into_iter()
     }
     pub fn index_of(&self, point: P) -> Option<usize> {
         if point < self.start() || point > self.end() {
@@ -116,7 +157,13 @@ impl<P: TimeResolution + Monotonic + FromMonotonic> TimeRange<P> {
         }
     }
     pub fn from_bounds(a: P, b: P) -> TimeRange<P> {
-        TimeRange { a, b }
+        TimeRange {
+            range: LocalRange {
+                start: a.to_monotonic().min(b.to_monotonic()),
+                end: a.to_monotonic().max(b.to_monotonic()),
+            },
+            ty: PhantomData,
+        }
     }
 
     pub fn len(&self) -> NonZeroU64 {
@@ -132,23 +179,37 @@ impl<P: TimeResolution + Monotonic + FromMonotonic> TimeRange<P> {
     }
 
     pub fn intersection(&self, other: &TimeRange<P>) -> Option<TimeRange<P>> {
-        let max_start = self.start().max(other.start());
-        let min_end = self.end().min(other.end());
+        let max_start = self.range.start.max(other.range.start);
+        let min_end = self.range.end.min(other.range.end);
 
-        if max_start <= min_end {
-            Some(TimeRange::from_bounds(max_start, min_end))
-        } else {
-            None
+        if max_start > min_end {
+            return None;
         }
+
+        Some(TimeRange {
+            range: LocalRange {
+                start: max_start,
+                end: min_end,
+            },
+            ty: PhantomData,
+        })
     }
+
     pub fn union(&self, other: &TimeRange<P>) -> Option<TimeRange<P>> {
-        if self.intersection(other).is_some() {
-            let min_start = self.start().min(other.start());
-            let max_end = self.end().max(other.end());
-            Some(TimeRange::from_bounds(min_start, max_end))
-        } else {
-            None
+        if self.intersection(other).is_none() {
+            return None;
         }
+
+        let min_start = self.range.start.min(other.range.start);
+        let max_end = self.range.end.max(other.range.end);
+
+        Some(TimeRange {
+            range: LocalRange {
+                start: min_start,
+                end: max_end,
+            },
+            ty: PhantomData,
+        })
     }
 
     // pub fn subtract(&self, other: &TimeRange<P>) -> (Option<TimeRange<P>>, Option<TimeRange<P>>) {
@@ -184,10 +245,7 @@ impl<P: TimeResolution + Monotonic + FromMonotonic> TimeRange<P> {
         self.iter().collect()
     }
     pub fn iter(&self) -> TimeRangeIter<P> {
-        TimeRangeIter {
-            start: self.start(),
-            end: self.end(),
-        }
+        TimeRangeIter { iter: self.range.range(), ty: PhantomData }
     }
 
     pub fn rescale<Out>(&self) -> TimeRange<Out>
@@ -206,28 +264,17 @@ impl<P: TimeResolution + Monotonic + FromMonotonic> TimeRange<P> {
 }
 
 pub struct TimeRangeIter<P: TimeResolution> {
-    start: P,
-    end: P,
+    iter: RangeInclusive<i64>,
+    ty: PhantomData<P>,
 }
 
 impl<P: TimeResolution + FromMonotonic> Iterator for TimeRangeIter<P> {
     type Item = P;
     fn next(&mut self) -> Option<Self::Item> {
-        if self.start <= self.end {
-            let ret = self.start;
-            self.start = self.start.succ()?;
-            Some(ret)
-        } else {
-            None
-        }
+        self.iter.next().and_then(P::from_monotonic)
     }
     fn size_hint(&self) -> (usize, Option<usize>) {
-        let range = TimeRange::from_bounds(self.start, self.end);
-
-        match range.len().get().try_into() {
-            Ok(len) => (len, Some(len)),
-            Err(_) => (0, None),
-        }
+        self.iter.size_hint()
     }
 }
 
@@ -237,13 +284,7 @@ impl<P: TimeResolution + FromMonotonic> ExactSizeIterator for TimeRangeIter<P> {
 
 impl<P: TimeResolution + FromMonotonic> DoubleEndedIterator for TimeRangeIter<P> {
     fn next_back(&mut self) -> Option<Self::Item> {
-        if self.start <= self.end {
-            let ret = self.end;
-            self.end = self.end.pred()?;
-            Some(ret)
-        } else {
-            None
-        }
+        self.iter.next_back().and_then(P::from_monotonic)
     }
 }
 

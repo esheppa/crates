@@ -411,6 +411,14 @@ pub trait DateResolutionExt: DateResolution {
     {
         Out::from_day(self.end_day(), self.params())
     }
+
+    fn parent<Out>(self) -> Out
+    where
+        Out: DateResolution<Params = Self::Params, FromDay = Out> + FromMonotonic,
+        Self: ShorterThan<Out>, // TODO: could be LongerThanOrEqual?
+    {
+        Out::from_day(self.start_day(), self.params())
+    }
 }
 
 impl<T> DateResolutionExt for T where T: DateResolution {}

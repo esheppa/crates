@@ -69,6 +69,15 @@ impl Day {
     pub const fn end_minute(self) -> Minute {
         Minutes::<1>::from_monotonic(self.0 * MINUTES_PER_DAY + MINUTES_PER_DAY - 1).expect("nah")
     }
+
+    #[cfg(feature = "chrono")]
+    pub fn from_chrono_date(d: NaiveDate) -> Option<Self> {
+        Day::from_date(Date::from_chrono_date(d))
+    }
+    #[cfg(feature = "chrono")]
+    pub const fn chrono_date(self) -> Option<NaiveDate> {
+        self.date().chrono_date()
+    }
 }
 
 impl TimeResolution for Day {

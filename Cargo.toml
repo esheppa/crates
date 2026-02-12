@@ -30,17 +30,12 @@ tokio = { version = "1", default-features = false }
 
 
 [workspace.dependencies.calendrical_calculations]
-git = "https://github.com/esheppa/icu4x"
-rev = "ec90a9bacc"
+git = "https://github.com/unicode-org/icu4x"
+rev = "fff0c882e3aebb2f450a10a06bab3e126f7ff070"
 
 #calendrical_calculations = { version = "0.2.3",  default-features = false }
 
 
-
-
-# [patch.crates-io.calendrical_calculations]
-# git = "https://github.com/esheppa/icu4x"
-# rev = "ec90a9bacc"
 
 
 
