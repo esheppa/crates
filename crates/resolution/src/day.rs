@@ -1,270 +1,294 @@
-use crate::{DateResolution, Month, TimeResolution};
-use alloc::{
-    fmt, str,
-    string::{String, ToString},
-};
-use chrono::{DateTime, Datelike, NaiveDate, NaiveTime, Utc};
-use core::result;
-#[cfg(feature = "serde")]
-use serde::de;
+use date::Date;
 
-const DATE_FORMAT: &str = "%Y-%m-%d";
+use crate::{minutes::MINUTES_PER_DAY, *};
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct Day(i64);
 
 #[cfg(feature = "serde")]
-impl<'de> de::Deserialize<'de> for Day {
-    fn deserialize<D>(deserializer: D) -> result::Result<Day, D::Error>
+impl<'de> Deserialize<'de> for Day {
+    fn deserialize<D>(deserializer: D) -> core::result::Result<Self, D::Error>
     where
-        D: de::Deserializer<'de>,
+        D: serde::Deserializer<'de>,
     {
         let s = String::deserialize(deserializer)?;
-        let date =
-            chrono::NaiveDate::parse_from_str(&s, DATE_FORMAT).map_err(serde::de::Error::custom)?;
-        Ok(date.into())
+
+        s.parse().map_err(serde::de::Error::custom)
     }
 }
 
 #[cfg(feature = "serde")]
-impl serde::Serialize for Day {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+impl Serialize for Day {
+    fn serialize<S>(&self, serializer: S) -> core::result::Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
     {
-        let s = self.to_string();
-        serializer.serialize_str(&s)
+        serializer.serialize_str(&self.to_string())
     }
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
-pub struct Day(i64);
+const MIN: i64 = 0;
+const MAX: i64 = 3652424; // TODO
 
-pub enum DayOfMonth {
-    D1,
-    D2,
-    D3,
-    D4,
-    D5,
-    D6,
-    D7,
-    D8,
-    D9,
-    D10,
-    D11,
-    D12,
-    D13,
-    D14,
-    D15,
-    D16,
-    D17,
-    D18,
-    D19,
-    D20,
-    D21,
-    D22,
-    D23,
-    D24,
-    D25,
-    D26,
-    D27,
-    D28,
-}
-
-impl DayOfMonth {
-    pub fn number(&self) -> u32 {
-        match self {
-            DayOfMonth::D1 => 1,
-            DayOfMonth::D2 => 2,
-            DayOfMonth::D3 => 3,
-            DayOfMonth::D4 => 4,
-            DayOfMonth::D5 => 5,
-            DayOfMonth::D6 => 6,
-            DayOfMonth::D7 => 7,
-            DayOfMonth::D8 => 8,
-            DayOfMonth::D9 => 9,
-            DayOfMonth::D10 => 10,
-            DayOfMonth::D11 => 11,
-            DayOfMonth::D12 => 12,
-            DayOfMonth::D13 => 13,
-            DayOfMonth::D14 => 14,
-            DayOfMonth::D15 => 15,
-            DayOfMonth::D16 => 16,
-            DayOfMonth::D17 => 17,
-            DayOfMonth::D18 => 18,
-            DayOfMonth::D19 => 19,
-            DayOfMonth::D20 => 20,
-            DayOfMonth::D21 => 21,
-            DayOfMonth::D22 => 22,
-            DayOfMonth::D23 => 23,
-            DayOfMonth::D24 => 24,
-            DayOfMonth::D25 => 25,
-            DayOfMonth::D26 => 26,
-            DayOfMonth::D27 => 27,
-            DayOfMonth::D28 => 28,
+impl Day {
+    pub const MIN: Self = Self(MIN);
+    pub const MAX: Self = Self(MAX);
+    pub const fn date(self) -> Date {
+        Date::new((self.0 - 365) as i32)
+    }
+    pub const fn from_date(date: Date) -> Option<Day> {
+        let monotonic = date.inner() as i64;
+        // base year for `Date` is 1 rather than 0
+        Day::from_monotonic(monotonic + 365)
+    }
+    pub const fn from_monotonic(idx: i64) -> Option<Self> {
+        // TODO: use MIN..=MAX here when it is const
+        if idx >= MIN && idx <= MAX {
+            Some(Day(idx))
+        } else {
+            None
         }
     }
+    pub const fn to_monotonic(self) -> i64 {
+        self.0
+    }
+
+    pub const fn between(self, other: Self) -> i64 {
+        other.0 - self.0
+    }
+    pub const fn translate(self, n: i64) -> Option<Self> {
+        let Some(new) = self.0.checked_add(n) else {
+            return None;
+        };
+        Day::from_monotonic(new)
+    }
+    pub const fn start_minute(self) -> Minute {
+        Minutes::<1>::from_monotonic(self.0 * MINUTES_PER_DAY).expect("")
+    }
+
+    pub const fn end_minute(self) -> Minute {
+        Minutes::<1>::from_monotonic(self.0 * MINUTES_PER_DAY + MINUTES_PER_DAY - 1).expect("nah")
+    }
+
+    #[cfg(feature = "chrono")]
+    pub fn from_chrono_date(d: NaiveDate) -> Option<Self> {
+        Day::from_date(Date::from_chrono_date(d))
+    }
+    #[cfg(feature = "chrono")]
+    pub const fn chrono_date(self) -> Option<NaiveDate> {
+        self.date().chrono_date()
+    }
 }
 
-fn base() -> chrono::NaiveDate {
-    chrono::NaiveDate::from_ymd_opt(0, 1, 1).expect("valid date")
+impl TimeResolution for Day {
+    const NAME: &str = "Day";
+
+    fn translate(self, n: i64) -> Option<Self> {
+        self.translate(n)
+    }
+
+    fn start_minute(self) -> Minute {
+        self.start_minute()
+    }
+
+    fn end_minute(self) -> Minute {
+        self.end_minute()
+    }
+}
+
+impl DateResolution for Day {
+    type Params = ();
+
+    type FromDay = Day;
+
+    fn params(self) -> Self::Params {
+        ()
+    }
+
+    fn from_day(day: Day, _params: Self::Params) -> Self::FromDay {
+        day
+    }
+
+    fn start_day(self) -> Day {
+        self
+    }
+    fn end_day(self) -> Day {
+        self
+    }
+}
+
+impl Monotonic for Day {
+    fn to_monotonic(self) -> i64 {
+        self.to_monotonic()
+    }
+
+    fn between(self, other: Self) -> i64 {
+        self.between(other)
+    }
+}
+
+impl FromMonotonic for Day {
+    fn from_monotonic(idx: i64) -> Option<Self> {
+        Self::from_monotonic(idx)
+    }
 }
 
 impl str::FromStr for Day {
-    type Err = crate::Error;
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let date = chrono::NaiveDate::parse_from_str(s, DATE_FORMAT)?;
-        Ok(date.into())
+    type Err = Error;
+    fn from_str(s: &str) -> core::result::Result<Self, Self::Err> {
+        let mut parts = s.split('-');
+
+        let Some(year) = parts
+            .next()
+            .and_then(|y| y.parse::<i32>().ok())
+            .map(date::Year::new)
+        else {
+            return Err(Error::ParseCustom {
+                ty_name: "date",
+                input: s.to_string(),
+            });
+        };
+
+        let Some(month) = parts
+            .next()
+            .and_then(|m| MonthOfYear::from_number(m.parse::<u8>().ok()?))
+        else {
+            return Err(Error::ParseCustom {
+                ty_name: "date",
+                input: s.to_string(),
+            });
+        };
+
+        let Some(day) = parts.next().and_then(|y| y.parse::<u16>().ok()) else {
+            return Err(Error::ParseCustom {
+                ty_name: "date",
+                input: s.to_string(),
+            });
+        };
+
+        let Some(date) = Date::first_on_month(year, month)
+            .and_then(|d| d.translate(day.saturating_sub(1) as i32))
+        else {
+            return Err(Error::ParseCustom {
+                ty_name: "date",
+                input: s.to_string(),
+            });
+        };
+
+        Day::from_date(date).ok_or_else(|| Error::DayFromDate(date))
     }
 }
 
 impl fmt::Display for Day {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.start())
-    }
-}
-
-impl crate::DateResolution for Day {
-    fn start(&self) -> chrono::NaiveDate {
-        base() + chrono::Duration::days(self.0)
-    }
-
-    type Params = ();
-
-    fn params(&self) -> Self::Params {}
-
-    fn from_date(date: NaiveDate, _params: Self::Params) -> Self {
-        Day((date - base()).num_days())
-    }
-}
-
-// impl From<DateTime<Utc>> for Day {
-//     fn from(d: DateTime<Utc>) -> Self {
-//         d.date_naive().into()
-//     }
-// }
-
-impl<D: Datelike> From<D> for Day {
-    fn from(value: D) -> Day {
-        Day::from_date(
-            chrono::NaiveDate::from_ymd_opt(value.year(), value.month(), value.day()).unwrap(),
-            (),
-        )
-    }
-}
-
-impl crate::TimeResolution for Day {
-    fn succ_n(&self, n: u64) -> Day {
-        Day(self.0 + i64::try_from(n).unwrap())
-    }
-    fn pred_n(&self, n: u64) -> Day {
-        Day(self.0 - i64::try_from(n).unwrap())
-    }
-    fn start_datetime(&self) -> DateTime<Utc> {
-        self.start().and_time(NaiveTime::MIN).and_utc()
-    }
-    fn name(&self) -> String {
-        "Day".to_string()
-    }
-}
-
-impl crate::Monotonic for Day {
-    fn to_monotonic(&self) -> i64 {
-        self.0
-    }
-    fn between(&self, other: Self) -> i64 {
-        other.0 - self.0
-    }
-}
-
-impl crate::FromMonotonic for Day {
-    fn from_monotonic(idx: i64) -> Self {
-        Day(idx)
-    }
-}
-
-impl Day {
-    pub fn with_day(self, d: DayOfMonth) -> Day {
-        self.month().first_day().pred().succ_n(d.number().into())
-    }
-    pub fn year(&self) -> super::Year {
-        self.start().into()
-    }
-    pub fn quarter(&self) -> super::Quarter {
-        self.start().into()
-    }
-    pub fn month(&self) -> super::Month {
-        self.start().into()
-    }
-    pub fn week<D: super::StartDay>(&self) -> super::Week<D> {
-        self.start().into()
-    }
-    pub fn year_num(&self) -> i32 {
-        self.start().year()
-    }
-    pub fn month_num(&self) -> u32 {
-        self.start().month()
-    }
-    pub fn new(date: NaiveDate) -> Self {
-        date.into()
+        let (year, month, day) = self.date().to_ymd();
+        write!(f, "{year:04}-{month:02}-{day:02}")
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{DateResolution, TimeResolution};
+    use date::{DayOfMonth, MonthOfYear};
 
-    #[cfg(feature = "serde")]
     #[test]
-    fn test_roundtrip() {
-        use crate::DateResolutionExt;
-
-        let dt = chrono::NaiveDate::from_ymd_opt(2021, 12, 6).unwrap();
-
-        let wk = Day::from(dt);
-        assert!(wk.start() <= dt && wk.end() >= dt);
-
-        assert_eq!(
-            wk,
-            serde_json::from_str(&serde_json::to_string(&wk).unwrap()).unwrap()
-        )
+    #[cfg(feature = "serde")]
+    fn test_serde_roundtrip() {
+        for i in MIN..=MAX {
+            let y = Day::from_monotonic(i).unwrap();
+            let ser = serde_json::to_string(&y).unwrap();
+            assert_eq!(serde_json::from_str::<Day>(&ser).unwrap(), y);
+        }
     }
 
     #[test]
+    fn test_parse_fmt() {
+        assert_eq!(
+            Day::from_date(
+                Date::ymd(date::Year::new(2025), MonthOfYear::Aug, DayOfMonth::D13).unwrap()
+            )
+            .unwrap()
+            .to_string()
+            .as_str(),
+            "2025-08-13"
+        );
+
+        for x in MIN..=MAX {
+            let d = Day::from_monotonic(x).unwrap();
+            let (y, m, dt) = d.date().to_ymd();
+            assert_eq!(format!("{y:04}-{m:02}-{dt:02}",).parse::<Day>().unwrap(), d,);
+
+            assert_eq!(d.to_string().parse::<Day>().unwrap(), d);
+        }
+    }
+
+    #[test]
+    fn min_max_year_roundtrip_ok() {
+        assert!(Day::MIN.start_day().pred().is_none());
+        assert!(Day::MAX.end_day().succ().is_none());
+        assert!(Year::MIN.start_p::<Day>().pred().is_none());
+        assert!(Year::MAX.end_p::<Day>().succ().is_none());
+        assert_eq!(Day::MIN, Year::MIN.start_p(),);
+        assert_eq!(Day::MAX, Year::MAX.end_p(),);
+    }
+
+    #[test]
+    fn exhaustive() {
+        extern crate std;
+        for i in MAX - 10..=MAX {
+            let y = Day::from_monotonic(i).unwrap();
+            assert_eq!(Day::MIN.translate(i).unwrap(), y);
+
+            assert_eq!(Day::from_day(y.start_day(), ()), y);
+            assert_eq!(Day::from_day(y.end_day(), ()), y);
+            _ = std::dbg!(i, y.start_minute());
+            _ = y.start_day();
+            _ = std::dbg!(i, y.end_minute());
+            _ = y.end_day();
+        }
+    }
+
+    #[test]
+
     fn test_parse_date_syntax() {
+        let year = date::Year::new(2021);
         assert_eq!(
-            "2021-01-01".parse::<Day>().unwrap().start(),
-            chrono::NaiveDate::from_ymd_opt(2021, 1, 1).unwrap(),
+            "2021-01-01".parse::<Day>().unwrap(),
+            Day::from_date(Date::first_on_year(year).unwrap()).unwrap(),
         );
         assert_eq!(
-            "2021-01-01".parse::<Day>().unwrap().succ().start(),
-            chrono::NaiveDate::from_ymd_opt(2021, 1, 2).unwrap(),
+            "2021-01-01".parse::<Day>().unwrap().succ().unwrap(),
+            Day::from_date(Date::ymd(year, MonthOfYear::Jan, DayOfMonth::D2).unwrap()).unwrap(),
         );
         assert_eq!(
-            "2021-01-01".parse::<Day>().unwrap().succ().pred().start(),
-            chrono::NaiveDate::from_ymd_opt(2021, 1, 1).unwrap(),
+            "2021-01-01"
+                .parse::<Day>()
+                .unwrap()
+                .succ()
+                .unwrap()
+                .pred()
+                .unwrap(),
+            Day::from_date(Date::first_on_year(year).unwrap()).unwrap(),
         );
     }
 
     #[test]
     fn test_start() {
+        let year = date::Year::new(0);
+
         assert_eq!(
-            Day(2).start(),
-            chrono::NaiveDate::from_ymd_opt(0, 1, 3).unwrap()
+            Day::from_monotonic(2),
+            Day::from_date(Date::ymd(year, MonthOfYear::Jan, DayOfMonth::D3).unwrap())
         );
         assert_eq!(
-            Day(1).start(),
-            chrono::NaiveDate::from_ymd_opt(0, 1, 2).unwrap()
+            Day::from_monotonic(1),
+            Day::from_date(Date::ymd(year, MonthOfYear::Jan, DayOfMonth::D2).unwrap())
         );
         assert_eq!(
-            Day(0).start(),
-            chrono::NaiveDate::from_ymd_opt(0, 1, 1).unwrap()
+            Day::from_monotonic(0),
+            Day::from_date(Date::ymd(year, MonthOfYear::Jan, DayOfMonth::D1).unwrap())
         );
-        assert_eq!(
-            Day(-1).start(),
-            chrono::NaiveDate::from_ymd_opt(-1, 12, 31).unwrap()
-        );
-        assert_eq!(
-            Day(-2).start(),
-            chrono::NaiveDate::from_ymd_opt(-1, 12, 30).unwrap()
-        );
+        assert_eq!(Day::from_monotonic(-1), None);
+        assert_eq!(Day::from_monotonic(-2), None,);
     }
 }

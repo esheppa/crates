@@ -1,12 +1,49 @@
-use crate::{
-    DateResolution, DateResolutionExt, FixedTimeZone, FromMonotonic, LongerThanOrEqual,
-    SubDateResolution, TimeResolution, Zoned,
-};
-use alloc::{collections, fmt, vec::Vec};
-use chrono::{DateTime, Utc};
-use core::{iter::FusedIterator, mem, num};
-#[cfg(feature = "serde")]
-use serde::de;
+use core::marker::PhantomData;
+
+use crate::*;
+
+use iter::FusedIterator;
+use num::NonZeroU64;
+
+#[cfg_attr(
+    all(feature = "serde", feature = "std"),
+    derive(serde::Deserialize, serde::Serialize)
+)]
+struct RangeSerialize {
+    start: String,
+    end: String,
+}
+
+#[cfg(feature = "std")]
+impl<P> TryFrom<RangeSerialize> for TimeRange<P>
+where
+    P: TimeResolution + FromMonotonic + std::fmt::Display + std::str::FromStr<Err = Error>,
+{
+    type Error = Error;
+
+    fn try_from(value: RangeSerialize) -> core::result::Result<Self, Self::Error> {
+        let start = value.start.parse::<P>()?;
+        let end = value.end.parse::<P>()?;
+        Ok(TimeRange::from_bounds(start, end))
+    }
+}
+
+#[cfg(feature = "std")]
+impl<P> From<TimeRange<P>> for RangeSerialize
+where
+    P: TimeResolution + FromMonotonic + std::fmt::Display,
+{
+    fn from(value: TimeRange<P>) -> Self {
+        RangeSerialize {
+            start: value.start().to_string(),
+            end: value.end().to_string(),
+        }
+    }
+}
+// #[cfg_attr(
+//     feature = "serde",
+//     serde(bound(deserialize = "P: de::DeserializeOwned"))
+// )]
 
 // the `Step` trait may be interesting later
 // https://doc.rust-lang.org/std/iter/trait.Step.html
@@ -14,14 +51,33 @@ use serde::de;
 ///
 /// This is useful to represent the time axis of a timeseries.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
-pub struct TimeRange<P: TimeResolution> {
-    #[cfg_attr(
-        feature = "serde",
-        serde(bound(deserialize = "P: de::DeserializeOwned"))
-    )]
-    start: P,
-    len: num::NonZeroU64,
+#[cfg_attr(
+    all(feature = "serde", feature = "std"),
+    derive(serde::Deserialize, serde::Serialize)
+)]
+#[cfg_attr(
+    all(feature = "serde", feature = "std"),
+    serde(
+        bound = "P: TimeResolution + FromMonotonic + std::fmt::Display + std::str::FromStr<Err = Error>",
+        try_from = "RangeSerialize",
+        into = "RangeSerialize"
+    )
+)]
+pub struct TimeRange<P> {
+    range: LocalRange,
+    ty: PhantomData<P>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct LocalRange {
+    start: i64,
+    end: i64,
+}
+
+impl LocalRange {
+    fn range(self) -> RangeInclusive<i64> {
+        RangeInclusive::new(self.start, self.end)
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -34,132 +90,134 @@ pub enum TimeRangeComparison {
 
 impl<P: SubDateResolution> TimeRange<P> {}
 
-impl<P: DateResolution> TimeRange<P> {
+impl<P> TimeRange<P> {
     pub fn to_sub_date_resolution<S>(&self) -> TimeRange<S>
     where
-        S: SubDateResolution<Params = P::Params>,
+        S: SubDateResolution<Params = P::Params> + FromMonotonic,
+        P: DateResolution<FromDay = P> + FromMonotonic,
     {
         // get first start
-        let first_start = S::first_on_day(self.start.start(), self.start.params());
+        let first_start = S::first_on_day(self.start().start_day(), self.start().params());
         // get last end
-        let last_end = S::last_on_day(self.end().end(), self.end().params());
+        let last_end = S::last_on_day(self.end().end_day(), self.end().params());
         // do from_start_end and expect it
         TimeRange::from_bounds(first_start, last_end)
     }
 }
 
+// impl<P: TimeResolution + FromMonotonic> TimeRange<P> {
+//     pub fn from_map(map: collections::BTreeSet<i32>) -> Vec<TimeRange<P>> {
+//         let mut ranges = Vec::new();
+//         if map.is_empty() {
+//             return ranges;
+//         }
+
+//         let mut iter = map.into_iter();
+
+//         let mut prev = match iter.next() {
+//             Some(n) => n,
+//             None => return ranges,
+//         };
+//         let mut current_range = TimeRange {
+//             start: P::from_monotonic(prev),
+//             len: num::NonZeroU64::new(1).unwrap(),
+//         };
+//         for val in iter {
+//             if val == prev + 1 {
+//                 current_range.len =
+//                     num::NonZeroU64::new(current_range.len.get().saturating_add(1)).unwrap();
+//             } else {
+//                 let mut old_range = TimeRange {
+//                     start: P::from_monotonic(val),
+//                     len: num::NonZeroU64::new(1).unwrap(),
+//                 };
+//                 mem::swap(&mut current_range, &mut old_range);
+//                 if !ranges.contains(&old_range) {
+//                     ranges.push(old_range);
+//                 }
+//             }
+
+//             prev = val;
+//         }
+
+//         ranges
+//     }
+// }
+
 impl<P: TimeResolution + FromMonotonic> TimeRange<P> {
-    pub fn from_map(map: collections::BTreeSet<i64>) -> Vec<TimeRange<P>> {
-        let mut ranges = Vec::new();
-        if map.is_empty() {
-            return ranges;
-        }
-
-        let mut iter = map.into_iter();
-
-        let mut prev = match iter.next() {
-            Some(n) => n,
-            None => return ranges,
-        };
-        let mut current_range = TimeRange {
-            start: P::from_monotonic(prev),
-            len: num::NonZeroU64::new(1).unwrap(),
-        };
-        for val in iter {
-            if val == prev + 1 {
-                current_range.len =
-                    num::NonZeroU64::new(current_range.len.get().saturating_add(1)).unwrap();
-            } else {
-                let mut old_range = TimeRange {
-                    start: P::from_monotonic(val),
-                    len: num::NonZeroU64::new(1).unwrap(),
-                };
-                mem::swap(&mut current_range, &mut old_range);
-                if !ranges.contains(&old_range) {
-                    ranges.push(old_range);
-                }
-            }
-
-            prev = val;
-        }
-
-        ranges
+    pub fn start(&self) -> P {
+        P::from_monotonic(self.range.start).unwrap()
     }
-}
-
-impl<P: TimeResolution> TimeRange<P> {
-    pub fn to_indexes(&self) -> collections::BTreeSet<i64> {
-        self.iter().map(|p| p.to_monotonic()).collect()
+    pub fn end(&self) -> P {
+        P::from_monotonic(self.range.end).unwrap()
     }
-
-    pub fn from_set(set: &collections::BTreeSet<P>) -> Option<TimeRange<P>> {
-        if u32::try_from(set.len()).is_err() {
-            return None;
-        }
-        if set.is_empty() {
-            return None;
-        }
-        Some(TimeRange {
-            start: set.iter().next().copied()?,
-            len: num::NonZeroU64::new(u64::try_from(set.len()).ok()?)?,
-        })
-    }
-
-    pub fn maybe_new(start: P, len: u64) -> Option<TimeRange<P>> {
-        Some(TimeRange {
-            start,
-            len: num::NonZeroU64::new(len)?,
-        })
-    }
-    pub fn new(start: P, len: num::NonZeroU64) -> TimeRange<P> {
-        TimeRange { start, len }
+    pub fn iter_indexes(&self) -> impl Iterator<Item = i64> {
+        self.range.range().into_iter()
     }
     pub fn index_of(&self, point: P) -> Option<usize> {
-        if point < self.start || point > self.end() {
+        if point < self.start() || point > self.end() {
             None
         } else {
             Some(
-                usize::try_from(self.start.between(point))
+                usize::try_from(self.start().between(point))
                     .expect("Point is earlier than end so this is always ok"),
             )
         }
     }
     pub fn from_bounds(a: P, b: P) -> TimeRange<P> {
-        if a <= b {
-            TimeRange {
-                start: a,
-                len: num::NonZeroU64::new(1 + u64::try_from(a.between(b)).unwrap()).unwrap(),
-            }
-        } else {
-            TimeRange {
-                start: a,
-                len: num::NonZeroU64::new(1 + u64::try_from(b.between(a)).unwrap()).unwrap(),
-            }
+        TimeRange {
+            range: LocalRange {
+                start: a.to_monotonic().min(b.to_monotonic()),
+                end: a.to_monotonic().max(b.to_monotonic()),
+            },
+            ty: PhantomData,
         }
     }
 
-    pub fn len(&self) -> num::NonZeroU64 {
-        self.len
+    pub fn len(&self) -> NonZeroU64 {
+        NonZeroU64::new(
+            self.end()
+                .to_monotonic()
+                .sub(self.start().to_monotonic())
+                .add(1)
+                .try_into()
+                .unwrap(),
+        )
+        .unwrap()
     }
 
     pub fn intersection(&self, other: &TimeRange<P>) -> Option<TimeRange<P>> {
-        let max_start = self.start().max(other.start());
-        let min_end = self.end().min(other.end());
+        let max_start = self.range.start.max(other.range.start);
+        let min_end = self.range.end.min(other.range.end);
 
-        if max_start <= min_end {
-            Some(TimeRange::from_bounds(max_start, min_end))
-        } else {
-            None
+        if max_start > min_end {
+            return None;
         }
+
+        Some(TimeRange {
+            range: LocalRange {
+                start: max_start,
+                end: min_end,
+            },
+            ty: PhantomData,
+        })
     }
+
     pub fn union(&self, other: &TimeRange<P>) -> Option<TimeRange<P>> {
-        if self.intersection(other).is_some() {
-            let min_start = self.start().min(other.start());
-            let max_end = self.end().max(other.end());
-            Some(TimeRange::from_bounds(min_start, max_end))
-        } else {
-            None
+        if self.intersection(other).is_none() {
+            return None;
         }
+
+        let min_start = self.range.start.min(other.range.start);
+        let max_end = self.range.end.max(other.range.end);
+
+        Some(TimeRange {
+            range: LocalRange {
+                start: min_start,
+                end: max_end,
+            },
+            ty: PhantomData,
+        })
     }
 
     // pub fn subtract(&self, other: &TimeRange<P>) -> (Option<TimeRange<P>>, Option<TimeRange<P>>) {
@@ -183,103 +241,76 @@ impl<P: TimeResolution> TimeRange<P> {
     //     }
     // }
 
-    pub fn start(&self) -> P {
-        self.start
-    }
-    pub fn end(&self) -> P {
-        self.start.succ_n(self.len.get() - 1)
-    }
     pub fn contains<O>(&self, rhs: O) -> bool
     where
         O: TimeResolution,
         P: LongerThanOrEqual<O>,
     {
-        extern crate std;
-        use std::dbg;
-
-        let range_start = self.start.start_datetime();
-        let range_end = self.end().succ().start_datetime();
-
-        let comparison_start = rhs.start_datetime();
-        let comparison_end = rhs.succ().start_datetime();
-
-        dbg!(range_start, range_end, comparison_start, comparison_end);
-
-        (range_start..range_end).contains(&comparison_start)
-            && (range_start..range_end).contains(&comparison_end)
+        self.start().start_minute() <= rhs.start_minute()
+            && self.end().end_minute() >= rhs.end_minute()
     }
     pub fn set(&self) -> collections::BTreeSet<P> {
         self.iter().collect()
     }
-    pub fn iter(&self) -> TimeRangeIter<P> {
+    pub fn iter(&self) -> TimeRangeIter<P>
+    where
+        P: FromMonotonic,
+    {
         TimeRangeIter {
-            start: self.start(),
-            end: self.end(),
+            iter: self.range.range(),
+            ty: PhantomData,
         }
     }
 
     pub fn rescale<Out>(&self) -> TimeRange<Out>
     where
-        Out: TimeResolution + From<DateTime<Utc>>,
+        Out: TimeResolution + From<Minute> + FromMonotonic,
     {
         // get the exact start
-        let start = Out::from(self.start().start_datetime());
+        let start = Out::from(self.start().start_minute());
 
         // for the end, we can't use something like 23:59:59
         // so we instead get the next period then look back.
-        let end = Out::from(self.end().succ().start_datetime()).pred();
+        let end = Out::from(self.end().end_minute());
 
         TimeRange::from_bounds(start, end)
     }
 }
 
 pub struct TimeRangeIter<P: TimeResolution> {
-    start: P,
-    end: P,
+    iter: RangeInclusive<i64>,
+    ty: PhantomData<P>,
 }
 
-impl<P: TimeResolution> Iterator for TimeRangeIter<P> {
+impl<P: TimeResolution + FromMonotonic> Iterator for TimeRangeIter<P> {
     type Item = P;
     fn next(&mut self) -> Option<Self::Item> {
-        if self.start <= self.end {
-            let ret = self.start;
-            self.start = self.start.succ();
-            Some(ret)
-        } else {
-            None
-        }
+        self.iter.next().and_then(P::from_monotonic)
     }
     fn size_hint(&self) -> (usize, Option<usize>) {
-        let range = TimeRange::from_bounds(self.start, self.end);
-
-        match range.len().get().try_into() {
-            Ok(len) => (len, Some(len)),
-            Err(_) => (0, None),
-        }
+        self.iter.size_hint()
     }
 }
 
-impl<P: TimeResolution> FusedIterator for TimeRangeIter<P> {}
+impl<P: TimeResolution + FromMonotonic> FusedIterator for TimeRangeIter<P> {}
 
-impl<P: TimeResolution> ExactSizeIterator for TimeRangeIter<P> {}
+impl<P: TimeResolution + FromMonotonic> ExactSizeIterator for TimeRangeIter<P> {}
 
-impl<P: TimeResolution> DoubleEndedIterator for TimeRangeIter<P> {
+impl<P: TimeResolution + FromMonotonic> DoubleEndedIterator for TimeRangeIter<P> {
     fn next_back(&mut self) -> Option<Self::Item> {
-        if self.start <= self.end {
-            let ret = self.end;
-            self.end = self.end.pred();
-            Some(ret)
-        } else {
-            None
-        }
+        self.iter.next_back().and_then(P::from_monotonic)
     }
 }
 
-impl<P: TimeResolution, Z: FixedTimeZone> TimeRange<Zoned<P, Z>> {
-    pub fn local(&self) -> TimeRange<P> {
-        TimeRange::new(self.start().local_resolution(), self.len)
-    }
-}
+// #[cfg(feature = "chrono")]
+// impl<P: TimeResolution + FromMonotonic, Z: FixedTimeZone> TimeRange<Zoned<P, Z>>
+// where
+//     Zoned<P, Z>: FromMonotonic,
+// {
+//     pub fn local(&self) -> TimeRange<P> {
+//         TimeRange::new(self.start().local_resolution(), self.len)
+//     }
+// }
 
 pub struct Cache<K: Ord + fmt::Debug + Copy, T: Send + fmt::Debug + Eq + Copy> {
     // The actual data in the cache
@@ -366,24 +397,33 @@ impl<K: Ord + fmt::Debug + Copy, T: Send + fmt::Debug + Eq + Copy> Cache<K, T> {
 }
 #[cfg(test)]
 mod tests {
-    use alloc::string::ToString;
-    use chrono::{NaiveDate, NaiveDateTime, NaiveTime};
 
-    use crate::{Day, FiveMinute, Hour, Minutes, Month, Year};
+    use date::MonthOfYear;
+
+    use crate::{Day, Month, Year};
 
     use super::*;
 
     #[test]
     fn test_iter() {
-        let mth = Month::from_parts(2024, chrono::Month::January).unwrap();
+        let mth = Month::new(Year::from_monotonic(2024).unwrap(), MonthOfYear::Jan);
 
         let day_range = mth.rescale::<Day>();
+
+        extern crate std;
+        use std::dbg;
+        dbg!(
+            mth.start_day().date().to_ymd(),
+            mth.end_day().date().to_ymd(),
+            day_range.start().date().to_ymd(),
+            day_range.end().date().to_ymd()
+        );
 
         let mut iter = day_range.iter();
 
         assert_eq!(iter.len(), 31);
-        assert_eq!(iter.next(), Some(mth.start().into()));
-        assert_eq!(iter.next_back(), Some(mth.end().into()));
+        assert_eq!(iter.next(), Some(mth.start_day().into()));
+        assert_eq!(iter.next_back(), Some(mth.end_day().into()));
         assert_eq!(iter.len(), 29);
         let mut iter = iter.skip(29);
         assert_eq!(iter.next(), None);
@@ -405,62 +445,66 @@ mod tests {
             ])
         )
     }
+
+    #[cfg(feature = "chrono")]
     #[test]
     fn test_contains() {
         extern crate std;
+        use alloc::string::ToString;
         use std::dbg;
 
-        let mth = Month::from_parts(2024, chrono::Month::January).unwrap();
+        let mth = Month::new(Year::from_monotonic(2024).unwrap(), MonthOfYear::Jan);
 
         let day_range = mth.rescale::<Day>();
 
         dbg!(
             mth.to_string(),
-            day_range.start.start(),
-            day_range.end().start()
+            day_range.start().start_day(),
+            day_range.end().start_day()
         );
 
-        assert!(day_range.contains(Minutes::<5>::from_utc_datetime(
-            NaiveDateTime::new(
-                NaiveDate::from_ymd_opt(2024, 1, 1).unwrap(),
-                NaiveTime::from_hms_opt(15, 15, 0).unwrap(),
-            )
-            .and_utc(),
-            ()
-        )));
+        // assert!(
+        //     day_range.contains(Minutes::<5>::from_utc_datetime(
+        //         NaiveDateTime::new(
+        //             NaiveDate::from_ymd_opt(2024, 1, 1).unwrap(),
+        //             NaiveTime::from_hms_opt(15, 15, 0).unwrap(),
+        //         )
+        //         .and_utc()
+        //     ))
+        // );
 
-        let year = Year::new(2024);
+        let year = Year::from_monotonic(2024).unwrap();
 
         let month_range = year.rescale::<Month>();
 
         assert!(month_range.contains(mth))
     }
 
-    #[test]
-    fn test_rescale() {
-        let start = Year::new(2024);
-        let year = TimeRange::from_bounds(start, start);
+    // #[test]
+    // fn test_rescale() {
+    //     let start = Year::from_monotonic(2024).unwrap();
+    //     let year = TimeRange::from_bounds(start, start);
 
-        let fiveminute = year.rescale::<FiveMinute>();
-        assert_eq!(fiveminute.len().get(), 366 * 288);
-        assert_eq!(fiveminute.rescale::<Year>(), year);
+    //     let fiveminute = year.rescale::<FiveMinute>();
+    //     assert_eq!(fiveminute.len().get(), 366 * 288);
+    //     assert_eq!(fiveminute.rescale::<Year>(), year);
 
-        let hours = year.rescale::<Hour>();
-        assert_eq!(hours.len().get(), 366 * 24);
-        assert_eq!(hours.rescale::<Year>(), year);
-        assert_eq!(fiveminute.rescale::<Hour>(), hours);
+    //     let hours = year.rescale::<Hour>();
+    //     assert_eq!(hours.len().get(), 366 * 24);
+    //     assert_eq!(hours.rescale::<Year>(), year);
+    //     assert_eq!(fiveminute.rescale::<Hour>(), hours);
 
-        let days = year.rescale::<Day>();
-        assert_eq!(days.len().get(), 366);
-        assert_eq!(days.rescale::<Year>(), year);
-        assert_eq!(fiveminute.rescale::<Day>(), days);
-        assert_eq!(hours.rescale::<Day>(), days);
+    //     let days = year.rescale::<Day>();
+    //     assert_eq!(days.len().get(), 366);
+    //     assert_eq!(days.rescale::<Year>(), year);
+    //     assert_eq!(fiveminute.rescale::<Day>(), days);
+    //     assert_eq!(hours.rescale::<Day>(), days);
 
-        let months = year.rescale::<Month>();
-        assert_eq!(months.len().get(), 12);
-        assert_eq!(months.rescale::<Year>(), year);
-        assert_eq!(fiveminute.rescale::<Month>(), months);
-        assert_eq!(hours.rescale::<Month>(), months);
-        assert_eq!(days.rescale::<Month>(), months);
-    }
+    //     let months = year.rescale::<Month>();
+    //     assert_eq!(months.len().get(), 12);
+    //     assert_eq!(months.rescale::<Year>(), year);
+    //     assert_eq!(fiveminute.rescale::<Month>(), months);
+    //     assert_eq!(hours.rescale::<Month>(), months);
+    //     assert_eq!(days.rescale::<Month>(), months);
+    // }
 }

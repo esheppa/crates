@@ -1,0 +1,28 @@
+[package]
+name = "pipeline"
+version = "0.1.0"
+edition = "2024"
+
+[lib]
+path = "./pipeline.rs"
+
+[dependencies]
+frunk = "0.4.4"
+
+
+[dependencies.tokio]
+workspace = true
+features = ["full"]
+
+[dependencies.futures]
+workspace = true
+features = ["default"]
+
+[dependencies.anyhow]
+workspace = true
+
+[dependencies.arrayvec]
+workspace = true
+
+[dependencies.const-utils]
+path = "../const-utils"

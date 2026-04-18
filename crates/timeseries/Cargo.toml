@@ -1,7 +1,7 @@
 [package]
 name = "timeseries"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 
 [dependencies.rust_decimal]
 workspace = true
@@ -9,3 +9,7 @@ workspace = true
 [dependencies.resolution]
 path = "../resolution"
 features = []
+
+[features]
+std = ["resolution/std"]
+default = ["std"]

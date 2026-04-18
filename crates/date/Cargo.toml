@@ -1,21 +1,24 @@
 [package]
-name = "resolution"
+name = "date"
 version = "0.1.0"
 edition = "2024"
 
+[[bench]]
+name = "calc-ymd"
+harness = false
+path = "src/calc-ymd.rs"
 
 [dependencies.serde]
 workspace = true
 optional = true
-features = ["derive"]
 
 [dependencies.chrono]
 workspace = true
 default-features = false
 optional = true 
 
-[dependencies.date]
-path = "../date"
+[dependencies.calendrical_calculations]
+workspace = true
 
 [dev-dependencies]
 serde_json = "1.0.115"
@@ -23,11 +26,9 @@ chrono-tz = "0.10.0"
 chrono = "0.4"
 jiff = "0.2.13"
 criterion = "0.5.0"
-rayon = "1.11"
 
 [features]
-serde = ["dep:serde","chrono/serde", "date/serde","std"]
-std = ["chrono/std","date/std","serde/std"]
-chrono = ["dep:chrono", "date/chrono"]
-default = ["std","serde","chrono"]
+serde = ["dep:serde","chrono/serde"]
+std = ["chrono/std"]
+
 

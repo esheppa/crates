@@ -1,301 +1,266 @@
-use crate::{day::DayOfMonth, DateResolution, DateResolutionExt, Day};
-use alloc::{
-    fmt, format, str,
-    string::{String, ToString},
-};
-use chrono::{DateTime, Datelike, NaiveDate, NaiveTime, Utc};
-use core::{convert::TryFrom, result};
-#[cfg(feature = "serde")]
-use serde::de;
+use date::Date;
+
+use crate::{Year, minutes::MINUTES_PER_DAY, *};
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct Month(i64);
 
 #[cfg(feature = "serde")]
-impl<'de> de::Deserialize<'de> for Month {
-    fn deserialize<D>(deserializer: D) -> result::Result<Month, D::Error>
+impl<'de> Deserialize<'de> for Month {
+    fn deserialize<D>(deserializer: D) -> core::result::Result<Self, D::Error>
     where
-        D: de::Deserializer<'de>,
+        D: serde::Deserializer<'de>,
     {
         let s = String::deserialize(deserializer)?;
-        let date = s.parse::<Month>().map_err(serde::de::Error::custom)?;
-        Ok(date)
+
+        s.parse().map_err(serde::de::Error::custom)
     }
 }
 
 #[cfg(feature = "serde")]
-impl serde::Serialize for Month {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+impl Serialize for Month {
+    fn serialize<S>(&self, serializer: S) -> core::result::Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
     {
-        let s = self.to_string();
-        serializer.serialize_str(&s)
+        serializer.serialize_str(&self.to_string())
     }
 }
 
-fn month_num_from_name(name: &str) -> Result<u32, crate::Error> {
-    let num = match name {
-        "Jan" => 1,
-        "Feb" => 2,
-        "Mar" => 3,
-        "Apr" => 4,
-        "May" => 5,
-        "Jun" => 6,
-        "Jul" => 7,
-        "Aug" => 8,
-        "Sep" => 9,
-        "Oct" => 10,
-        "Nov" => 11,
-        "Dec" => 12,
-        n => {
-            return Err(crate::Error::ParseCustom {
-                ty_name: "Month",
-                input: format!("Unknown month name `{}`", n),
-            })
+const MIN: i64 = 0;
+const MAX: i64 = 9999 * 12 + 11; // TODO
+
+impl Month {
+    pub const MIN: Self = Self(MIN);
+    pub const MAX: Self = Self(MAX);
+    pub const fn from_monotonic(idx: i64) -> Option<Self> {
+        // TODO: use MIN..=MAX here when it is const
+        if idx >= MIN && idx <= MAX {
+            Some(Self(idx))
+        } else {
+            None
         }
-    };
-    Ok(num)
+    }
+    pub const fn to_monotonic(self) -> i64 {
+        self.0
+    }
+
+    pub const fn between(self, other: Self) -> i64 {
+        other.0 - self.0
+    }
+    pub const fn translate(self, n: i64) -> Option<Self> {
+        let Some(new) = self.0.checked_add(n) else {
+            return None;
+        };
+        Self::from_monotonic(new)
+    }
+    pub const fn start_minute(self) -> Minute {
+        Minutes::<1>::from_monotonic(self.0 * MINUTES_PER_DAY).expect("")
+    }
+
+    pub const fn end_minute(self) -> Minute {
+        Minutes::<1>::from_monotonic(self.0 * MINUTES_PER_DAY + MINUTES_PER_DAY).expect("")
+    }
+
+    pub const fn month_of_year(self) -> MonthOfYear {
+        match self.0 % 12 + 1 {
+            1 => MonthOfYear::Jan,
+            2 => MonthOfYear::Feb,
+            3 => MonthOfYear::Mar,
+            4 => MonthOfYear::Apr,
+            5 => MonthOfYear::May,
+            6 => MonthOfYear::Jun,
+            7 => MonthOfYear::Jul,
+            8 => MonthOfYear::Aug,
+            9 => MonthOfYear::Sep,
+            10 => MonthOfYear::Oct,
+            11 => MonthOfYear::Nov,
+            12 => MonthOfYear::Dec,
+            _ => panic!("Can't get here, (X % 12 + 1) is always within 1..=12"),
+        }
+    }
+    pub const fn year(self) -> Year {
+        Year::from_monotonic(self.0 / 12).expect("Always valid as year is longer")
+    }
+    pub const fn new(year: Year, month: MonthOfYear) -> Self {
+        Self(year.to_monotonic() * 12 + month.months_from_jan() as i64)
+    }
 }
 
-fn month_name_from_num(month: chrono::Month) -> &'static str {
-    match month {
-        chrono::Month::January => "Jan",
-        chrono::Month::February => "Feb",
-        chrono::Month::March => "Mar",
-        chrono::Month::April => "Apr",
-        chrono::Month::May => "May",
-        chrono::Month::June => "Jun",
-        chrono::Month::July => "Jul",
-        chrono::Month::August => "Aug",
-        chrono::Month::September => "Sep",
-        chrono::Month::October => "Oct",
-        chrono::Month::November => "Nov",
-        chrono::Month::December => "Dec",
+impl TimeResolution for Month {
+    const NAME: &str = "Month";
+
+    fn translate(self, n: i64) -> Option<Self> {
+        self.translate(n)
+    }
+
+    fn start_minute(self) -> Minute {
+        self.start_minute()
+    }
+
+    fn end_minute(self) -> Minute {
+        self.end_minute()
+    }
+}
+
+impl DateResolution for Month {
+    type Params = ();
+
+    type FromDay = Self;
+
+    fn params(self) -> Self::Params {
+        ()
+    }
+
+    fn from_day(day: Day, _params: Self::Params) -> Self::FromDay {
+        let date = day.date();
+        Self::new(
+            Year::from_monotonic(date.year().num() as i64).expect("TODO"),
+            date.month_of_year(),
+        )
+    }
+
+    fn start_day(self) -> Day {
+        Day::from_date(
+            Date::first_on_month(
+                date::Year::new(self.year().to_monotonic() as i32),
+                self.month_of_year(),
+            )
+            .expect("Always valid"),
+        )
+        .expect("Always valid")
+    }
+    fn end_day(self) -> Day {
+        Day::from_date(
+            Date::last_on_month(
+                date::Year::new(self.year().to_monotonic() as i32),
+                self.month_of_year(),
+            )
+            .expect("Always valid"),
+        )
+        .expect("Always valid")
+    }
+}
+
+impl Monotonic for Month {
+    fn to_monotonic(self) -> i64 {
+        self.to_monotonic()
+    }
+
+    fn between(self, other: Self) -> i64 {
+        self.between(other)
+    }
+}
+
+impl FromMonotonic for Month {
+    fn from_monotonic(idx: i64) -> Option<Self> {
+        Self::from_monotonic(idx)
     }
 }
 
 impl str::FromStr for Month {
-    type Err = crate::Error;
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let mut split = s.split('-');
-        let month =
-            month_num_from_name(split.next().ok_or_else(|| crate::Error::ParseCustom {
-                ty_name: "Month",
-                input: s.to_string(),
-            })?)?;
-        let year = split
-            .next()
-            .ok_or_else(|| crate::Error::ParseCustom {
-                ty_name: "Month",
-                input: s.to_string(),
-            })?
-            .parse()?;
-        let date = chrono::NaiveDate::from_ymd_opt(year, month, 1).expect("valid datetime");
-        Ok(date.into())
-    }
-}
-
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
-pub struct Month(i64); // number of months +- since 0AD
-
-impl crate::TimeResolution for Month {
-    fn succ_n(&self, n: u64) -> Self {
-        Month(self.0 + i64::try_from(n).unwrap())
-    }
-    fn pred_n(&self, n: u64) -> Self {
-        Month(self.0 - i64::try_from(n).unwrap())
-    }
-    fn start_datetime(&self) -> DateTime<Utc> {
-        self.start().and_time(NaiveTime::MIN).and_utc()
-    }
-
-    fn name(&self) -> String {
-        "Month".to_string()
-    }
-}
-
-impl crate::Monotonic for Month {
-    fn to_monotonic(&self) -> i64 {
-        self.0
-    }
-    fn between(&self, other: Self) -> i64 {
-        other.0 - self.0
-    }
-}
-
-impl crate::FromMonotonic for Month {
-    fn from_monotonic(idx: i64) -> Self {
-        Month(idx)
-    }
-}
-
-impl crate::DateResolution for Month {
-    fn start(&self) -> chrono::NaiveDate {
-        let years = i32::try_from(self.0.div_euclid(12)).expect("Not pre/post historic");
-        let months = u32::try_from(1 + self.0.rem_euclid(12)).expect("valid datetime");
-        chrono::NaiveDate::from_ymd_opt(years, months, 1).expect("valid datetime")
-    }
-
-    type Params = ();
-
-    fn params(&self) -> Self::Params {}
-
-    fn from_date(d: NaiveDate, _params: Self::Params) -> Self {
-        Month(i64::from(d.month0()) + i64::from(d.year()) * 12)
-    }
-}
-
-impl From<NaiveDate> for Month {
-    fn from(value: NaiveDate) -> Month {
-        Month::from_date(value, ())
-    }
-}
-
-impl From<DateTime<Utc>> for Month {
-    fn from(d: DateTime<Utc>) -> Self {
-        d.date_naive().into()
-    }
-}
-
-impl Month {
-    pub fn first_day(self) -> Day {
-        self.start().into()
-    }
-    pub fn last_day(self) -> Day {
-        self.end().into()
-    }
-    pub fn and_day(self, d: DayOfMonth) -> Day {
-        self.first_day().with_day(d)
-    }
-    pub fn from_year_month(y: i16, month: chrono::Month) -> Self {
-        Month(i64::from(month as u32) + i64::from(y) * 12)
-    }
-    pub fn year(&self) -> super::Year {
-        self.start().into()
-    }
-    pub fn quarter(&self) -> super::Quarter {
-        self.start().into()
-    }
-    pub fn year_num(&self) -> i32 {
-        self.start().year()
-    }
-    pub fn month_num(&self) -> u32 {
-        self.start().month()
-    }
-    pub fn month(&self) -> chrono::Month {
-        match self.month_num() {
-            1 => chrono::Month::January,
-            2 => chrono::Month::February,
-            3 => chrono::Month::March,
-            4 => chrono::Month::April,
-            5 => chrono::Month::May,
-            6 => chrono::Month::June,
-            7 => chrono::Month::July,
-            8 => chrono::Month::August,
-            9 => chrono::Month::September,
-            10 => chrono::Month::October,
-            11 => chrono::Month::November,
-            12 => chrono::Month::December,
-            _ => unreachable!(),
+    type Err = Error;
+    fn from_str(s: &str) -> core::result::Result<Self, Self::Err> {
+        match s.split_once('-') {
+            Some((year, month)) => match (
+                year.parse::<Year>(),
+                month.parse::<u8>().ok().and_then(MonthOfYear::from_number),
+            ) {
+                (Ok(year), Some(month)) => Ok(Month::new(year, month)),
+                _ => Err(Error::ParseCustom {
+                    ty_name: "Month",
+                    input: s.to_string(),
+                }),
+            },
+            None => s.parse::<Day>().map(|d| Month::from_day(d, ())),
         }
-    }
-    pub fn new(date: NaiveDate) -> Self {
-        date.into()
-    }
-    pub fn from_parts(year: i32, month: chrono::Month) -> Option<Self> {
-        NaiveDate::from_ymd_opt(year, month.number_from_month(), 1).map(Into::into)
     }
 }
 
 impl fmt::Display for Month {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "{}-{}",
-            month_name_from_num(self.month()),
-            self.start().year()
-        )
+        write!(f, "{}-{:02}", self.year(), self.month_of_year().number())
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::Month;
-    use crate::{DateResolution, TimeResolution};
+    use date::MonthOfYear;
+
+    use super::*;
+    use crate::{DateResolution, DateResolutionExt, Day, TimeResolution, Year};
+
+    #[test]
+    fn min_max_year_roundtrip_ok() {
+        assert!(Month::MIN.start_day().pred().is_none());
+        assert!(Month::MAX.end_day().succ().is_none());
+        assert!(Year::MIN.start_p::<Month>().pred().is_none());
+        assert!(Year::MAX.end_p::<Month>().succ().is_none());
+        assert_eq!(Month::MIN, Year::MIN.start_p(),);
+        assert_eq!(Month::MAX, Year::MAX.end_p(),);
+    }
+
+    #[test]
+    fn exhaustive() {
+        for i in MIN..=MAX {
+            let y = Month::from_monotonic(i).unwrap();
+            assert_eq!(Month::MIN.translate(i).unwrap(), y);
+
+            assert_eq!(Month::from_day(y.start_day(), ()), y);
+            assert_eq!(Month::from_day(y.end_day(), ()), y);
+            _ = y.start_minute();
+            _ = y.start_day();
+            _ = y.start_p::<Day>();
+            _ = y.end_minute();
+            _ = y.end_day();
+            _ = y.end_p::<Day>();
+        }
+    }
 
     #[test]
     #[cfg(feature = "serde")]
-    fn test_roundtrip() {
-        use crate::DateResolutionExt;
-
-        let dt = chrono::NaiveDate::from_ymd_opt(2021, 12, 6).unwrap();
-
-        let m1 = Month::from(dt);
-        assert!(m1.start() <= dt && m1.end() >= dt);
-
-        let dt = chrono::NaiveDate::from_ymd_opt(2019, 7, 1).unwrap();
-
-        let m2 = Month::from(dt);
-
-        assert!(m2.start() == dt);
-
-        assert_eq!(
-            m1,
-            serde_json::from_str(&serde_json::to_string(&m1).unwrap()).unwrap()
-        )
+    fn test_serde_roundtrip() {
+        for i in MIN..=MAX {
+            let y = Month::from_monotonic(i).unwrap();
+            let ser = serde_json::to_string(&y).unwrap();
+            assert_eq!(serde_json::from_str::<Month>(&ser).unwrap(), y);
+        }
     }
 
     #[test]
-    fn test_parse() {
+    fn test_parse_fmt() {
         assert_eq!(
-            "Jan-2021".parse::<Month>().unwrap().start(),
-            chrono::NaiveDate::from_ymd_opt(2021, 1, 1).unwrap(),
+            Month::new(Year::from_monotonic(2025).unwrap(), MonthOfYear::Aug)
+                .to_string()
+                .as_str(),
+            "2025-08"
         );
-        assert_eq!(
-            "Jan-2021".parse::<Month>().unwrap().succ().start(),
-            chrono::NaiveDate::from_ymd_opt(2021, 2, 1).unwrap(),
-        );
-        assert_eq!(
-            "Jan-2021".parse::<Month>().unwrap().succ().pred().start(),
-            chrono::NaiveDate::from_ymd_opt(2021, 1, 1).unwrap(),
-        );
-    }
 
-    #[test]
-    fn test_start() {
-        assert_eq!(
-            Month(24240).start(),
-            chrono::NaiveDate::from_ymd_opt(2020, 1, 1).unwrap()
-        );
-        assert_eq!(
-            Month(24249).start(),
-            chrono::NaiveDate::from_ymd_opt(2020, 10, 1).unwrap()
-        );
-        assert_eq!(
-            Month(15).start(),
-            chrono::NaiveDate::from_ymd_opt(1, 4, 1).unwrap()
-        );
-        assert_eq!(
-            Month(2).start(),
-            chrono::NaiveDate::from_ymd_opt(0, 3, 1).unwrap()
-        );
-        assert_eq!(
-            Month(1).start(),
-            chrono::NaiveDate::from_ymd_opt(0, 2, 1).unwrap()
-        );
-        assert_eq!(
-            Month(0).start(),
-            chrono::NaiveDate::from_ymd_opt(0, 1, 1).unwrap()
-        );
-        assert_eq!(
-            Month(-1).start(),
-            chrono::NaiveDate::from_ymd_opt(-1, 12, 1).unwrap()
-        );
-        assert_eq!(
-            Month(-2).start(),
-            chrono::NaiveDate::from_ymd_opt(-1, 11, 1).unwrap()
-        );
-        assert_eq!(
-            Month(-15).start(),
-            chrono::NaiveDate::from_ymd_opt(-2, 10, 1).unwrap()
-        );
+        for x in 0..=9999 {
+            for q in [
+                MonthOfYear::Jan,
+                MonthOfYear::Feb,
+                MonthOfYear::Mar,
+                MonthOfYear::Apr,
+                MonthOfYear::May,
+                MonthOfYear::Jun,
+                MonthOfYear::Jul,
+                MonthOfYear::Aug,
+                MonthOfYear::Sep,
+                MonthOfYear::Oct,
+                MonthOfYear::Nov,
+                MonthOfYear::Dec,
+            ] {
+                let qt = Month::new(Year::from_monotonic(x).unwrap(), q);
+                assert_eq!(
+                    format!("{x:04}-{:02}", q.number())
+                        .parse::<Month>()
+                        .unwrap(),
+                    qt,
+                );
+
+                assert_eq!(qt.to_string().parse::<Month>().unwrap(), qt);
+            }
+        }
     }
 }
