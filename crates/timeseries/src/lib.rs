@@ -6,7 +6,7 @@ extern crate std;
 use alloc::{collections::BTreeMap, fmt, string::String, string::ToString, vec::Vec};
 use compressed::Compressed;
 use core::{iter::FusedIterator, num::NonZeroU64};
-use resolution::{TimeRange, TimeRangeIter, TimeResolution};
+use resolution::{FromMonotonic, TimeRange, TimeRangeIter, TimeResolution};
 use rust_decimal::Decimal;
 
 mod compressed;
@@ -50,6 +50,7 @@ impl TimeseriesData {
 
 // consider:
 // - what about integer fields?
+// - what about bool fields?
 // - what about non-numeric fields?
 
 // just the raw data
@@ -73,7 +74,7 @@ where
 
 impl<R> Timeseries<R, Decimal>
 where
-    R: TimeResolution + fmt::Display,
+    R: TimeResolution + FromMonotonic + fmt::Display,
 {
     pub fn new_decimal(iter: impl Iterator<Item = (R, Decimal)>) -> Result<Self> {
         Timeseries::new(iter, |i| i, |i| i)
@@ -94,7 +95,7 @@ where
 
 impl<'data, R, T> Iterator for TimeseriesIterator<'data, R, T>
 where
-    R: TimeResolution + fmt::Display,
+    R: TimeResolution + FromMonotonic + fmt::Display,
     T: Copy,
 {
     type Item = (R, T);
@@ -112,21 +113,21 @@ where
 
 impl<'data, R, T> FusedIterator for TimeseriesIterator<'data, R, T>
 where
-    R: TimeResolution + fmt::Display,
+    R: TimeResolution + FromMonotonic + fmt::Display,
     T: Copy,
 {
 }
 
 impl<'data, R, T> ExactSizeIterator for TimeseriesIterator<'data, R, T>
 where
-    R: TimeResolution + fmt::Display,
+    R: TimeResolution + FromMonotonic + fmt::Display,
     T: Copy,
 {
 }
 
 impl<'data, R, T> DoubleEndedIterator for TimeseriesIterator<'data, R, T>
 where
-    R: TimeResolution + fmt::Display,
+    R: TimeResolution + FromMonotonic + fmt::Display,
     T: Copy,
 {
     fn next_back(&mut self) -> Option<Self::Item> {
@@ -138,7 +139,7 @@ where
 
 impl<R, T> Timeseries<R, T>
 where
-    R: TimeResolution + fmt::Display,
+    R: TimeResolution + FromMonotonic + fmt::Display,
     T: Copy,
 {
     pub fn compress(&mut self) -> Result<()> {
@@ -203,20 +204,31 @@ where
         let mut data = Vec::with_capacity(upper.unwrap_or(lower));
         let (start, data_start) = iter.next().ok_or(Error::Empty)?;
         let mut len = NonZeroU64::MIN;
+        let mut end = start;
         data.push(conv_in(data_start));
         for (time, obs) in iter {
-            if time == start.succ_n(len.get()) {
+            let Ok(translation) = i64::try_from(len.get()) else {
+                todo!()
+            };
+
+            let Some(idx) = start.translate(translation) else {
+                todo!()
+            };
+
+            end = idx;
+
+            if time == idx {
                 len = len.checked_add(1).ok_or(Error::LengthOverflow)?;
                 data.push(conv_in(obs));
             } else {
                 return Err(Error::NonContigious {
-                    prev: start.succ_n(len.get()).to_string(),
+                    prev: idx.to_string(),
                     next: time.to_string(),
                 });
             }
         }
         Ok(Timeseries {
-            range: TimeRange::new(start, len),
+            range: TimeRange::from_bounds(start, end),
             data: TimeseriesData::Plain(data),
             conv_in,
             conv_out,
@@ -376,9 +388,9 @@ mod tests {
     #[test]
     fn test_timeseries_new() {
         let data = [
-            (Year::new(2022), Decimal::new(2, 2)),
-            (Year::new(2023), Decimal::new(456, 2)),
-            (Year::new(2024), Decimal::new(7892, 3)),
+            (Year::from_monotonic(2022).unwrap(), Decimal::new(2, 2)),
+            (Year::from_monotonic(2023).unwrap(), Decimal::new(456, 2)),
+            (Year::from_monotonic(2024).unwrap(), Decimal::new(7892, 3)),
         ];
 
         let series = Timeseries::new(data.into_iter(), |i| i, |i| i).unwrap();
@@ -395,7 +407,10 @@ mod tests {
         ]);
 
         let series = Timeseries::from_parts_decimal(
-            TimeRange::from_bounds(Year::new(2022), Year::new(2024)),
+            TimeRange::from_bounds(
+                Year::from_monotonic(2022).unwrap(),
+                Year::from_monotonic(2024).unwrap(),
+            ),
             data,
         )
         .unwrap();

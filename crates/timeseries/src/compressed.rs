@@ -16,7 +16,7 @@ pub struct Compressed {
     values: ComprssedType,
 }
 #[derive(Clone)]
-
+#[allow(unused)]
 enum StorageType {
     I16,
     I32,
@@ -31,6 +31,7 @@ enum ComprssedType {
 }
 
 impl ComprssedType {
+    #[allow(unused)]
     fn iter(&self) -> Box<dyn Iterator<Item = i128> + '_> {
         match self {
             ComprssedType::I16(vec) => {
@@ -40,6 +41,7 @@ impl ComprssedType {
             ComprssedType::I64(vec) => Box::new(vec.iter().map(|v| (*v).into())),
         }
     }
+
     fn get(&self, idx: usize) -> Option<i128> {
         match self {
             ComprssedType::I16(vec) => vec.get(idx).copied().map(i128::from),
@@ -47,6 +49,8 @@ impl ComprssedType {
             ComprssedType::I64(vec) => vec.get(idx).copied().map(i128::from),
         }
     }
+
+    #[allow(unused)]
     fn storage_type(&self) -> StorageType {
         match self {
             ComprssedType::I16(_) => StorageType::I16,
@@ -141,6 +145,7 @@ impl Compressed {
         }
     }
 
+    #[allow(unused)]
     pub fn iter(&self) -> impl Iterator<Item = Decimal> + '_ {
         self.values
             .iter()

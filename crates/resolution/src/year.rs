@@ -207,7 +207,6 @@ impl str::FromStr for Year {
 #[cfg(test)]
 mod tests {
     extern crate std;
-    use std::dbg;
 
     use quarter::QuarterOfYear;
 

@@ -9,3 +9,7 @@ workspace = true
 [dependencies.resolution]
 path = "../resolution"
 features = []
+
+[features]
+std = ["resolution/std"]
+default = ["std"]

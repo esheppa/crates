@@ -1,5 +1,5 @@
 extern crate std;
-use crate::{Year, date_to_ymd};
+use crate::Year;
 
 use super::{Date, DayOfMonth, MonthOfYear, is_leap_year};
 use calendrical_calculations::{iso::iso_from_fixed, rata_die::RataDie};

@@ -11,7 +11,7 @@ mod prelude {
         vec::Vec,
     };
     #[cfg(feature = "chrono")]
-    pub use chrono::{DateTime, NaiveDate, Utc};
+    pub use chrono::NaiveDate;
     pub use core::{
         any, error, fmt, iter, mem,
         num::{self, ParseIntError},

@@ -1,32 +1,43 @@
 use core::marker::PhantomData;
 
 use crate::*;
-// #[cfg(feature = "chrono")]
-// use crate::{FixedTimeZone, Zoned};Vec
 
-#[cfg(feature = "chrono")]
-use chrono::{DateTime, Utc};
-
-use crate::prelude::*;
 use iter::FusedIterator;
 use num::NonZeroU64;
 
-#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
+#[cfg_attr(
+    all(feature = "serde", feature = "std"),
+    derive(serde::Deserialize, serde::Serialize)
+)]
 struct RangeSerialize {
-    // todo
+    start: String,
+    end: String,
 }
 
-impl<P> TryFrom<RangeSerialize> for TimeRange<P> {
-    type Error = String;
+#[cfg(feature = "std")]
+impl<P> TryFrom<RangeSerialize> for TimeRange<P>
+where
+    P: TimeResolution + FromMonotonic + std::fmt::Display + std::str::FromStr<Err = Error>,
+{
+    type Error = Error;
 
     fn try_from(value: RangeSerialize) -> core::result::Result<Self, Self::Error> {
-        todo!()
+        let start = value.start.parse::<P>()?;
+        let end = value.end.parse::<P>()?;
+        Ok(TimeRange::from_bounds(start, end))
     }
 }
 
-impl<P> From<TimeRange<P>> for RangeSerialize {
+#[cfg(feature = "std")]
+impl<P> From<TimeRange<P>> for RangeSerialize
+where
+    P: TimeResolution + FromMonotonic + std::fmt::Display,
+{
     fn from(value: TimeRange<P>) -> Self {
-        todo!()
+        RangeSerialize {
+            start: value.start().to_string(),
+            end: value.end().to_string(),
+        }
     }
 }
 // #[cfg_attr(
@@ -40,11 +51,14 @@ impl<P> From<TimeRange<P>> for RangeSerialize {
 ///
 /// This is useful to represent the time axis of a timeseries.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(
-    feature = "serde",
+    all(feature = "serde", feature = "std"),
+    derive(serde::Deserialize, serde::Serialize)
+)]
+#[cfg_attr(
+    all(feature = "serde", feature = "std"),
     serde(
-        bound = "P: Clone",
+        bound = "P: TimeResolution + FromMonotonic + std::fmt::Display + std::str::FromStr<Err = Error>",
         try_from = "RangeSerialize",
         into = "RangeSerialize"
     )
@@ -72,18 +86,6 @@ pub enum TimeRangeComparison {
     Subset,
     Earlier,
     Later,
-}
-
-impl<P> TimeRange<P>
-where
-    P: TimeResolution + FromMonotonic,
-{
-    pub fn start(self) -> P {
-        P::from_monotonic(self.range.start).unwrap()
-    }
-    pub fn end(self) -> P {
-        P::from_monotonic(self.range.end).unwrap()
-    }
 }
 
 impl<P: SubDateResolution> TimeRange<P> {}
@@ -142,7 +144,13 @@ impl<P> TimeRange<P> {
 //     }
 // }
 
-impl<P: TimeResolution + Monotonic + FromMonotonic> TimeRange<P> {
+impl<P: TimeResolution + FromMonotonic> TimeRange<P> {
+    pub fn start(&self) -> P {
+        P::from_monotonic(self.range.start).unwrap()
+    }
+    pub fn end(&self) -> P {
+        P::from_monotonic(self.range.end).unwrap()
+    }
     pub fn iter_indexes(&self) -> impl Iterator<Item = i64> {
         self.range.range().into_iter()
     }
@@ -244,8 +252,14 @@ impl<P: TimeResolution + Monotonic + FromMonotonic> TimeRange<P> {
     pub fn set(&self) -> collections::BTreeSet<P> {
         self.iter().collect()
     }
-    pub fn iter(&self) -> TimeRangeIter<P> {
-        TimeRangeIter { iter: self.range.range(), ty: PhantomData }
+    pub fn iter(&self) -> TimeRangeIter<P>
+    where
+        P: FromMonotonic,
+    {
+        TimeRangeIter {
+            iter: self.range.range(),
+            ty: PhantomData,
+        }
     }
 
     pub fn rescale<Out>(&self) -> TimeRange<Out>
@@ -386,7 +400,7 @@ mod tests {
 
     use date::MonthOfYear;
 
-    use crate::{Day, FiveMinute, Hour, Month, Year};
+    use crate::{Day, Month, Year};
 
     use super::*;
 
@@ -436,9 +450,7 @@ mod tests {
     #[test]
     fn test_contains() {
         extern crate std;
-        use crate::Minutes;
         use alloc::string::ToString;
-        use chrono::{NaiveDate, NaiveDateTime, NaiveTime};
         use std::dbg;
 
         let mth = Month::new(Year::from_monotonic(2024).unwrap(), MonthOfYear::Jan);

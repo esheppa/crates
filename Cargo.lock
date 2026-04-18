@@ -64,8 +64,9 @@ checksum = "5dd9dc738b7a8311c7ade152424974d8115f2cdad61e8dab8dac9f2362298510"
 
 [[package]]
 name = "calendrical_calculations"
-version = "0.2.3"
-source = "git+https://github.com/unicode-org/icu4x?rev=fff0c882e3aebb2f450a10a06bab3e126f7ff070#fff0c882e3aebb2f450a10a06bab3e126f7ff070"
+version = "0.2.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5abbd6eeda6885048d357edc66748eea6e0268e3dd11f326fff5bd248d779c26"
 dependencies = [
  "core_maths",
  "displaydoc",

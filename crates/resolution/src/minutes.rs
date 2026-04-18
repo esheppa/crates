@@ -15,7 +15,6 @@ pub type Hour = Minutes<60>;
 const MIN: i64 = 0;
 const MAX: i64 = 5_259_491_999; // TODO
 // leap seconds are ignored here
-const NUM_SECS: i32 = 60;
 
 /// Note that for sensible behaviour, the N chosen should be a number that either:
 /// 1. divides into an hour with no remainder (1, 2, 3, 4, 5, 6, 10, 12, 15, 20, 30, 60)
@@ -217,15 +216,15 @@ impl<const N: u16> Minutes<N> {
         Some(LocalDateTime::new(self.day().date(), x))
     }
 
-    // TODO...
-    const fn to_str(self) -> [u8; 20] {
-        let base = [
-            b'0', b'0', b'0', b'0', b'-', b'0', b'0', b'-', b'0', b'0', b'P', b'0', b'0', b'0',
-            b'0', b'/', b'0', b'0', b'0', b'0',
-        ];
+    // // TODO...
+    // const fn to_str(self) -> [u8; 20] {
+    //     let base = [
+    //         b'0', b'0', b'0', b'0', b'-', b'0', b'0', b'-', b'0', b'0', b'P', b'0', b'0', b'0',
+    //         b'0', b'/', b'0', b'0', b'0', b'0',
+    //     ];
 
-        base
-    }
+    //     base
+    // }
     const fn parse(s: &str) -> core::result::Result<Self, MinutesParseErrorKind> {
         if !s.is_ascii() {
             return Err(MinutesParseErrorKind::NonAscii);

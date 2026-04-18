@@ -35,7 +35,7 @@ pub const fn slice_to_array_exact<const N: usize>(sl: &[u8]) -> Option<[u8; N]> 
     Some(data)
 }
 
-const fn ascii_char_to_digit(c: u8) -> Option<u8> {
+pub const fn ascii_char_to_digit(c: u8) -> Option<u8> {
     Some(match c {
         b'0' => 0,
         b'1' => 1,
@@ -51,7 +51,7 @@ const fn ascii_char_to_digit(c: u8) -> Option<u8> {
     })
 }
 
-const fn digit_to_ascii_char(d: u8) -> Option<u8> {
+pub const fn digit_to_ascii_char(d: u8) -> Option<u8> {
     Some(match d {
         0 => b'0',
         1 => b'1',
