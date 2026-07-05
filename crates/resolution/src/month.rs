@@ -48,18 +48,48 @@ impl Month {
     pub const fn between(self, other: Self) -> i64 {
         other.0 - self.0
     }
+
     pub const fn translate(self, n: i64) -> Option<Self> {
         let Some(new) = self.0.checked_add(n) else {
             return None;
         };
         Self::from_monotonic(new)
     }
+
     pub const fn start_minute(self) -> Minute {
-        Minutes::<1>::from_monotonic(self.0 * MINUTES_PER_DAY).expect("")
+        self.start_day().start_minute()
     }
 
     pub const fn end_minute(self) -> Minute {
-        Minutes::<1>::from_monotonic(self.0 * MINUTES_PER_DAY + MINUTES_PER_DAY).expect("")
+        self.end_day().end_minute()
+    }
+
+    pub const fn start_day(self) -> Day {
+        Day::from_date(
+            Date::first_on_month(
+                date::Year::new(self.year().to_monotonic() as i32),
+                self.month_of_year(),
+            )
+            .expect("Always valid"),
+        )
+        .expect("Always valid")
+    }
+    pub const fn end_day(self) -> Day {
+        Day::from_date(
+            Date::last_on_month(
+                date::Year::new(self.year().to_monotonic() as i32),
+                self.month_of_year(),
+            )
+            .expect("Always valid"),
+        )
+        .expect("Always valid")
+    }
+    pub const fn from_day(day: Day) -> Self {
+        let date = day.date();
+        Self::new(
+            Year::from_monotonic(date.year().num() as i64).expect("TODO"),
+            date.month_of_year(),
+        )
     }
 
     pub const fn month_of_year(self) -> MonthOfYear {
@@ -113,32 +143,14 @@ impl DateResolution for Month {
     }
 
     fn from_day(day: Day, _params: Self::Params) -> Self::FromDay {
-        let date = day.date();
-        Self::new(
-            Year::from_monotonic(date.year().num() as i64).expect("TODO"),
-            date.month_of_year(),
-        )
+        Month::from_day(day)
     }
 
     fn start_day(self) -> Day {
-        Day::from_date(
-            Date::first_on_month(
-                date::Year::new(self.year().to_monotonic() as i32),
-                self.month_of_year(),
-            )
-            .expect("Always valid"),
-        )
-        .expect("Always valid")
+        self.start_day()
     }
     fn end_day(self) -> Day {
-        Day::from_date(
-            Date::last_on_month(
-                date::Year::new(self.year().to_monotonic() as i32),
-                self.month_of_year(),
-            )
-            .expect("Always valid"),
-        )
-        .expect("Always valid")
+        self.end_day()
     }
 }
 
@@ -172,7 +184,7 @@ impl str::FromStr for Month {
                     input: s.to_string(),
                 }),
             },
-            None => s.parse::<Day>().map(|d| Month::from_day(d, ())),
+            None => s.parse::<Day>().map(|d| Month::from_day(d)),
         }
     }
 }
@@ -188,7 +200,7 @@ mod tests {
     use date::MonthOfYear;
 
     use super::*;
-    use crate::{DateResolution, DateResolutionExt, Day, TimeResolution, Year};
+    use crate::{DateResolutionExt, Day, TimeResolution, Year};
 
     #[test]
     fn min_max_year_roundtrip_ok() {
@@ -206,8 +218,8 @@ mod tests {
             let y = Month::from_monotonic(i).unwrap();
             assert_eq!(Month::MIN.translate(i).unwrap(), y);
 
-            assert_eq!(Month::from_day(y.start_day(), ()), y);
-            assert_eq!(Month::from_day(y.end_day(), ()), y);
+            assert_eq!(Month::from_day(y.start_day()), y);
+            assert_eq!(Month::from_day(y.end_day()), y);
             _ = y.start_minute();
             _ = y.start_day();
             _ = y.start_p::<Day>();

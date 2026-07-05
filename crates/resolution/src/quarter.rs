@@ -107,14 +107,44 @@ impl Quarter {
         };
         Self::from_monotonic(new)
     }
+
     pub const fn start_minute(self) -> Minute {
-        Minutes::<1>::from_monotonic(self.0 * MINUTES_PER_DAY).expect("")
+        self.start_day().start_minute()
     }
 
     pub const fn end_minute(self) -> Minute {
-        Minutes::<1>::from_monotonic(self.0 * MINUTES_PER_DAY + MINUTES_PER_DAY).expect("")
+        self.end_day().end_minute()
     }
 
+    pub const fn start_day(self) -> Day {
+        Day::from_date(
+            Date::first_on_month(
+                date::Year::new(self.year().to_monotonic() as i32),
+                self.quarter_of_year().start_month(),
+            )
+            .expect("Always valid"),
+        )
+        .expect("Always valid")
+    }
+
+    pub const fn end_day(self) -> Day {
+        Day::from_date(
+            Date::last_on_month(
+                date::Year::new(self.year().to_monotonic() as i32),
+                self.quarter_of_year().end_month(),
+            )
+            .expect("Always valid"),
+        )
+        .expect("Always valid")
+    }
+
+    pub const fn  from_day(day: Day) -> Self {
+        let date = day.date();
+        Self::new(
+            Year::from_monotonic(date.year().num() as i64).expect("TODO"),
+            QuarterOfYear::from_month(date.month_of_year()),
+        )
+    }
     pub const fn first_month(self) -> month::Month {
         match self.quarter_of_year() {
             QuarterOfYear::Q1 => self.year().jan(),
@@ -179,34 +209,15 @@ impl DateResolution for Quarter {
     }
 
     fn from_day(day: Day, _params: Self::Params) -> Self::FromDay {
-        extern crate std;
-        let date = day.date();
-        Self::new(
-            Year::from_monotonic(date.year().num() as i64).expect("TODO"),
-            QuarterOfYear::from_month(date.month_of_year()),
-        )
+        Self::from_day(day)
     }
 
     fn start_day(self) -> Day {
-        Day::from_date(
-            Date::first_on_month(
-                date::Year::new(self.year().to_monotonic() as i32),
-                self.quarter_of_year().start_month(),
-            )
-            .expect("Always valid"),
-        )
-        .expect("Always valid")
+        self.start_day()
     }
 
     fn end_day(self) -> Day {
-        Day::from_date(
-            Date::last_on_month(
-                date::Year::new(self.year().to_monotonic() as i32),
-                self.quarter_of_year().end_month(),
-            )
-            .expect("Always valid"),
-        )
-        .expect("Always valid")
+        self.end_day()
     }
 }
 
@@ -288,8 +299,8 @@ mod tests {
         for i in MIN..=MAX {
             let y = Quarter::from_monotonic(i).unwrap();
             assert_eq!(Quarter::MIN.translate(i).unwrap(), y);
-            assert_eq!(Quarter::from_day(y.start_day(), ()), y);
-            assert_eq!(Quarter::from_day(y.end_day(), ()), y);
+            assert_eq!(Quarter::from_day(y.start_day()), y);
+            assert_eq!(Quarter::from_day(y.end_day()), y);
             _ = y.start_minute();
             _ = y.start_day();
             _ = y.start_p::<Month>();

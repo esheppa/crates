@@ -46,6 +46,12 @@ impl<const N: u16> Serialize for Minutes<N> {
     }
 }
 
+impl<const N: u16> FromMinute for Minutes<N> {
+    fn from_minute(minute: Minute) -> Self {
+        Minutes(minute.0 / Self::PERIODS_PER_DAY)
+    }
+}
+
 impl<const N: u16> Minutes<N> {
     pub const MIN: Self = Self(MIN);
     pub const MAX: Self = Self(MAX / N as i64);
@@ -72,39 +78,10 @@ impl<const N: u16> Minutes<N> {
             idx += 1;
         }
     };
-    // TODO: test?
-    const fn change_resolution<const N2: u16>(self) -> Minutes<N2> {
-        // ensures that both N and N2 are sensible...
-        const {
-            _ = Self::SENSIBLE;
-            _ = Minutes::<N2>::SENSIBLE;
-        }
 
-        if N2 == N {
-            // can't just return self, because compiler doesn't know that N2 == N ...
-            Minutes(self.0)
-        } else if N2 > N {
-            // long day subdivions to short
-            // clean scaling
-            if N2 % N == 0 {
-                Minutes {
-                    0: self.0 / Self::PERIODS_PER_DAY * (MINUTES_PER_DAY / N2 as i64),
-                }
-            } else {
-                panic!("Incompatible minutes when changing resolution")
-            }
-        } else {
-            // short day subdivision to long
-            if N % N2 == 0 {
-                Minutes {
-                    0: self.0 / (MINUTES_PER_DAY / N2 as i64) * Self::PERIODS_PER_DAY,
-                }
-            } else {
-                panic!("Incompatible minutes when changing resolution")
-            }
-        }
+    pub const fn from_minute(minute: Minute) -> Self {
+        Minutes(minute.0 / (N as i64))
     }
-
     // pub const fn occurs_on_day(self) -> Day {
     //     Day::new(self.index / Self::PERIODS_PER_DAY)
     // }
@@ -172,7 +149,9 @@ impl<const N: u16> Minutes<N> {
     pub const fn relative(self) -> DaySubdivison<N> {
         let idx = Minutes::<N>::first_on_day(self.occurs_on_day()).between(self);
 
-        _ = Self::SENSIBLE;
+        const {
+            _ = Self::SENSIBLE;
+        }
 
         debug_assert!(idx >= 0 && idx <= 1440);
 
@@ -202,7 +181,7 @@ impl<const N: u16> Minutes<N> {
             return None;
         };
 
-        Some(Minute::first_on_day(x).change_resolution())
+        Some(Self::from_minute(Minute::first_on_day(x)))
     }
 
     pub const fn local_time(self) -> Option<LocalDateTime> {
@@ -393,7 +372,7 @@ impl<const N: u16> SubDateResolution for Minutes<N> {
     }
 
     fn from_minute(minute: Minute, _params: Self::Params) -> Self {
-        minute.change_resolution()
+        Self::from_minute(minute)
     }
 
     fn first_on_day(day: Day, _params: Self::Params) -> Self {

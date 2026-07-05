@@ -307,9 +307,9 @@ pub trait TimeResolution: Monotonic + Copy {
 
     fn convert<Out>(self) -> Out
     where
-        Out: TimeResolution + From<Minute>,
+        Out: TimeResolution + FromMinute,
     {
-        Out::from(self.start_minute())
+        Out::from_minute(self.start_minute())
     }
 
     // handy functions.... to avoid turbofishing when it's a pain
@@ -318,6 +318,10 @@ pub trait TimeResolution: Monotonic + Copy {
     // fn quarter(self) -> Month;
     // fn year(self) -> Year;
     // no week/finyear becuase they don't fill the period
+}
+
+pub trait FromMinute {
+    fn from_minute(minute: Minute) -> Self;
 }
 
 // we may decide later to use i64 or even i128 instead

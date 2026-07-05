@@ -58,12 +58,10 @@ impl Year {
     }
     pub const fn start_minute(self) -> Minute {
         self.start_day().start_minute()
-        // Minutes::<1>::from_monotonic(self.0 * MINUTES_PER_DAY).expect("")
     }
 
     pub const fn end_minute(self) -> Minute {
         self.end_day().end_minute()
-        // Minutes::<1>::from_monotonic(self.0 * MINUTES_PER_DAY + MINUTES_PER_DAY).expect("")
     }
 
     pub const fn from_day(day: Day) -> Year {
