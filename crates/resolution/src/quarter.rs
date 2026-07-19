@@ -138,7 +138,7 @@ impl Quarter {
         .expect("Always valid")
     }
 
-    pub const fn  from_day(day: Day) -> Self {
+    pub const fn from_day(day: Day) -> Self {
         let date = day.date();
         Self::new(
             Year::from_monotonic(date.year().num() as i64).expect("TODO"),

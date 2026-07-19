@@ -59,89 +59,70 @@ pub use financial_year::FinancialYear;
 
 // TODO: log warnings for when close to edge of range - should likely never be used
 
-pub trait LongerThan<T>: LongerThanOrEqual<T> {}
+pub trait Divides<T> {}
 
-pub trait LongerThanOrEqual<T> {}
+pub trait DividedBy<T> {}
 
-impl<T> LongerThanOrEqual<T> for T {}
+impl<T, U> DividedBy<T> for U where U: Divides<T> {}
 
-pub trait ShorterThan<T>: ShorterThanOrEqual<T> {}
+macro_rules! impl_minutes {
+    // basic impl, takes the const and impls for the shorter version
+    ($long:literal, $($short:literal),+ $(,)*) => {
+        impl Divides<Minutes<$long>> for Minutes<$long> {}
 
-impl<Long, Short> ShorterThan<Long> for Short where
-    Long: LongerThanOrEqual<Short> + LongerThan<Short>
-{
+        $(
+            impl Divides<Minutes<$long>> for Minutes<$short> {}
+        )+
+    };
 }
 
-pub trait ShorterThanOrEqual<T> {}
+macro_rules! triangle_minutes {
+    // recursive case, with a long and at least one properly dividing shorts
+    // impl divides for all the shorts
+    // and then call triangle without the head
+    ($head:literal, $($tail:literal),+ $(,)*) => {
+        impl_minutes!($head, $($tail,)+);
+        triangle_minutes!($($tail),+);
+    };
+    // base case, do nothing!
+    ($head:literal) => {};
+}
 
-impl<Long, Short> ShorterThanOrEqual<Long> for Short where Long: LongerThan<Short> {}
+macro_rules! impl_divides {
+    // same as impl minutes, but for longer things
+    ($long:ty, $($short:ty),+ $(,)*) => {
+        impl Divides<$long> for $long {}
 
-// TODO: use macro for this
+        $(
+            impl Divides<$long> for $short {}
+        )+
+    };
+}
 
-impl LongerThanOrEqual<Minute> for FiveMinute {}
-impl LongerThanOrEqual<Minute> for HalfHour {}
-impl LongerThanOrEqual<Minute> for Hour {}
+triangle_minutes!(
+    720, 480, 360, 240, 180, 120, 60, 30, 20, 15, 10, 6, 5, 4, 3, 2, 1
+);
 
-impl LongerThan<Minute> for FiveMinute {}
-impl LongerThan<Minute> for HalfHour {}
-impl LongerThan<Minute> for Hour {}
+// impl_divides!(IsoWeek, Day);
+impl_divides!(Month, Day);
+impl_divides!(Quarter, Month, Day);
+impl_divides!(FinancialYear, Quarter, Month, Day);
+impl_divides!(Year, Quarter, Month, Day);
 
-impl LongerThanOrEqual<FiveMinute> for HalfHour {}
-impl LongerThanOrEqual<FiveMinute> for Hour {}
+impl<const N: u16> Divides<Day> for Minutes<N> {}
+// impl<const N: u16> Divides<IsoWeek> for Minutes<N> {}
+impl<const N: u16> Divides<Month> for Minutes<N> {}
+impl<const N: u16> Divides<Quarter> for Minutes<N> {}
+impl<const N: u16> Divides<FinancialYear> for Minutes<N> {}
+impl<const N: u16> Divides<Year> for Minutes<N> {}
 
-impl LongerThan<FiveMinute> for HalfHour {}
-impl LongerThan<FiveMinute> for Hour {}
-
-impl LongerThanOrEqual<HalfHour> for Hour {}
-
-impl LongerThan<HalfHour> for Hour {}
-
-impl<const N: u16> LongerThanOrEqual<Minutes<N>> for Day {}
-// impl<const N: u16> LongerThanOrEqual<Minutes<N>> for IsoWeek {}
-impl<const N: u16> LongerThanOrEqual<Minutes<N>> for Month {}
-impl<const N: u16> LongerThanOrEqual<Minutes<N>> for Quarter {}
-impl<const N: u16> LongerThanOrEqual<Minutes<N>> for Year {}
-impl<const N: u16> LongerThanOrEqual<Minutes<N>> for FinancialYear {}
-
-impl<const N: u16> LongerThan<Minutes<N>> for Day {}
-// impl<const N: u16> LongerThan<Minutes<N>> for IsoWeek {}
-impl<const N: u16> LongerThan<Minutes<N>> for Month {}
-impl<const N: u16> LongerThan<Minutes<N>> for Quarter {}
-impl<const N: u16> LongerThan<Minutes<N>> for Year {}
-impl<const N: u16> LongerThan<Minutes<N>> for FinancialYear {}
-
-// impl LongerThanOrEqual<Day> for IsoWeek {}
-impl LongerThanOrEqual<Day> for Month {}
-impl LongerThanOrEqual<Day> for Quarter {}
-impl LongerThanOrEqual<Day> for Year {}
-impl LongerThanOrEqual<Day> for FinancialYear {}
-
-// impl LongerThan<Day> for IsoWeek {}
-impl LongerThan<Day> for Month {}
-impl LongerThan<Day> for Quarter {}
-impl LongerThan<Day> for Year {}
-impl LongerThan<Day> for FinancialYear {}
-
-// impl LongerThanOrEqual<IsoWeek> for Quarter {}
-// impl LongerThanOrEqual<IsoWeek> for Month {}
-// impl LongerThanOrEqual<IsoWeek> for Year {}
-
-// impl LongerThan<IsoWeek> for Month {}
-// impl LongerThan<IsoWeek> for Quarter {}
-// impl LongerThan<IsoWeek> for Year {}
-
-impl LongerThanOrEqual<Month> for Quarter {}
-impl LongerThanOrEqual<Month> for Year {}
-impl LongerThanOrEqual<Month> for FinancialYear {}
-
-impl LongerThan<Month> for Quarter {}
-impl LongerThan<Month> for Year {}
-impl LongerThan<Month> for FinancialYear {}
-
-impl LongerThanOrEqual<Quarter> for Year {}
-impl LongerThanOrEqual<Quarter> for FinancialYear {}
-
-impl LongerThan<Quarter> for Year {}
+// TODO, bring these in when needed
+// impl<const N: u16, Tz> Divides<Zoned<Day, Tz>> for Zoned<Minutes<N>, Tz> {}
+// impl<const N: u16, Tz> Divides<Zoned<IsoWeek, Tz>> for Zoned<Minutes<N>, Tz> {}
+// impl<const N: u16, Tz> Divides<Zoned<Month, Tz>> for Zoned<Minutes<N>, Tz> {}
+// impl<const N: u16, Tz> Divides<Zoned<Quarter, Tz>> for Zoned<Minutes<N>, Tz> {}
+// impl<const N: u16, Tz> Divides<Zoned<FinancialYear, Tz>> for Zoned<Minutes<N>, Tz> {}
+// impl<const N: u16, Tz> Divides<Zoned<Year, Tz>> for Zoned<Minutes<N>, Tz> {}
 
 /// This function is useful for formatting types implementing `Monotonic` when they are stored
 /// in their `i64` form instead of their `TimeResolution` form. Provided you have the `TypeId` handy
@@ -396,7 +377,7 @@ pub trait DateResolutionExt: DateResolution {
     fn rescale<Out>(self) -> range::TimeRange<Out>
     where
         Out: DateResolution<Params = Self::Params, FromDay = Out> + FromMonotonic,
-        Self: LongerThan<Out>, // TODO: could be LongerThanOrEqual?
+        Self: DividedBy<Out>,
     {
         range::TimeRange::from_bounds(self.start_p(), self.end_p())
     }
@@ -404,14 +385,14 @@ pub trait DateResolutionExt: DateResolution {
     fn start_p<Out>(self) -> Out
     where
         Out: DateResolution<Params = Self::Params, FromDay = Out> + FromMonotonic,
-        Self: LongerThan<Out>, // TODO: could be LongerThanOrEqual?
+        Self: DividedBy<Out>,
     {
         Out::from_day(self.start_day(), self.params())
     }
     fn end_p<Out>(self) -> Out
     where
         Out: DateResolution<Params = Self::Params, FromDay = Out> + FromMonotonic,
-        Self: LongerThan<Out>, // TODO: could be LongerThanOrEqual?
+        Self: DividedBy<Out>,
     {
         Out::from_day(self.end_day(), self.params())
     }
@@ -419,7 +400,7 @@ pub trait DateResolutionExt: DateResolution {
     fn parent<Out>(self) -> Out
     where
         Out: DateResolution<Params = Self::Params, FromDay = Out> + FromMonotonic,
-        Self: ShorterThan<Out>, // TODO: could be LongerThanOrEqual?
+        Self: Divides<Out>,
     {
         Out::from_day(self.start_day(), self.params())
     }
