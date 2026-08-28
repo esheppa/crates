@@ -3,7 +3,8 @@ use std::ops::{Add, Div, Mul};
 use std::{i128, ops::Sub};
 
 use typenum::{
-    B0, B1, Bit, Diff, Integer, IsGreater, IsGreaterOrEqual, IsLess, Max, Maximum, Prod, Sub1, Sum, UInt, Unsigned, Z0,
+    B0, B1, Bit, Diff, Integer, IsGreater, IsGreaterOrEqual, IsLess, Max, Maximum, Prod, Sub1, Sum,
+    UInt, Unsigned, Z0,
 };
 
 // based on i128 for now. consider i64 later...
