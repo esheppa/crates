@@ -27,12 +27,7 @@ futures = { version = "0.3", default-features = false }
 url = { version = "2.5.7", default-features = false }
 const_fn = { version = "0.4.11", default-features = false }
 tokio = { version = "1", default-features = false }
-
-
-# [workspace.dependencies.calendrical_calculations]
-# git = "https://github.com/unicode-org/icu4x"
-# rev = "fff0c882e3aebb2f450a10a06bab3e126f7ff070"
-
+typenum = { version = "1.20.1", default-features = false }
 calendrical_calculations = { version = "0.2.4",  default-features = false }
 
 

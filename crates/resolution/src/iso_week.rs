@@ -8,7 +8,7 @@ const MIN: i64 = -521722;
 const MAX: i64 = 521722; // TODO
 
 impl IsoWeek {
-       pub const MIN: Self = Self(MIN);
+    pub const MIN: Self = Self(MIN);
     pub const MAX: Self = Self(MAX);
     pub const fn from_monotonic(idx: i64) -> Option<Self> {
         // TODO: use MIN..=MAX here when it is const
@@ -32,11 +32,11 @@ impl IsoWeek {
         Self::from_monotonic(new)
     }
     pub const fn start_minute(self) -> Minute {
-        Minutes::<1>::from_monotonic(self.0 * MINUTES_PER_DAY).expect("")
+        self.start_day().start_minute()
     }
 
     pub const fn end_minute(self) -> Minute {
-        Minutes::<1>::from_monotonic(self.0 * MINUTES_PER_DAY + MINUTES_PER_DAY).expect("")
+        self.end_day().end_minute()
     }
 }
 
@@ -70,7 +70,7 @@ impl DateResolution for IsoWeek {
     }
 
     fn start_day(self) -> Day {
-       todo!()
+        todo!()
     }
     fn end_day(self) -> Day {
         todo!()
@@ -92,7 +92,6 @@ impl FromMonotonic for IsoWeek {
         Self::from_monotonic(idx)
     }
 }
-
 
 // #[cfg(test)]
 // mod tests {

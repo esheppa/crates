@@ -1,0 +1,18 @@
+[package]
+name = "fixed"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies.serde]
+workspace = true
+optional = true
+features = ["derive"]
+
+[dependencies.typenum]
+workspace = true
+features = ["const-generics","i128","strict"]
+
+[features]
+serde = ["dep:serde","std"]
+std = ["serde/std"]
+default = ["std","serde"]

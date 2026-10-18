@@ -55,11 +55,67 @@ impl FinancialYear {
         Self::from_monotonic(new)
     }
     pub const fn start_minute(self) -> Minute {
-        Minutes::<1>::from_monotonic(self.0 * MINUTES_PER_DAY).expect("")
+        self.start_day().start_minute()
     }
 
     pub const fn end_minute(self) -> Minute {
-        Minutes::<1>::from_monotonic(self.0 * MINUTES_PER_DAY + MINUTES_PER_DAY).expect("")
+        self.end_day().end_minute()
+    }
+
+    pub const fn start_day(self) -> Day {
+        Day::from_date(
+            Date::first_on_month(
+                date::Year::new(self.to_monotonic() as i32 - 1),
+                MonthOfYear::Jul,
+            )
+            .expect("Always valid"),
+        )
+        .expect("Always valid")
+    }
+
+    pub const fn end_day(self) -> Day {
+        Day::from_date(
+            Date::last_on_month(
+                date::Year::new(self.to_monotonic() as i32),
+                MonthOfYear::Jun,
+            )
+            .expect("Always valid"),
+        )
+        .expect("Always valid")
+    }
+
+    pub const fn from_day(day: Day) -> Option<Self> {
+        let date = day.date();
+        let year = Year::from_monotonic(date.year().num() as i64).expect("TODO");
+
+        // we know year is at least 0.
+        // must not have a month earlier than 7
+        // day is valid by construction of `date`
+        let (y, m, _) = date.to_ymd();
+        if y <= 0 && m < 7 {
+            return None;
+        }
+
+        match date.month_of_year() {
+            MonthOfYear::Jan
+            | MonthOfYear::Feb
+            | MonthOfYear::Mar
+            | MonthOfYear::Apr
+            | MonthOfYear::May
+            | MonthOfYear::Jun => Some(FinancialYear(year.to_monotonic())),
+            MonthOfYear::Jul
+            | MonthOfYear::Aug
+            | MonthOfYear::Sep
+            | MonthOfYear::Oct
+            | MonthOfYear::Nov
+            | MonthOfYear::Dec => Some({
+                let Some(y) = year.translate(1) else {
+                    return None;
+                };
+
+                FinancialYear(y.to_monotonic())
+            }),
+        }
     }
 }
 
@@ -89,51 +145,14 @@ impl DateResolution for FinancialYear {
     }
 
     fn from_day(day: Day, _params: Self::Params) -> Self::FromDay {
-        let date = day.date();
-        let year = Year::from_monotonic(date.year().num() as i64).expect("TODO");
-        std::dbg!(date.to_ymd(), year);
-
-        if date.to_ymd() < (0, 7, 1) {
-            return None;
-        }
-
-        extern crate std;
-
-        match date.month_of_year() {
-            MonthOfYear::Jan
-            | MonthOfYear::Feb
-            | MonthOfYear::Mar
-            | MonthOfYear::Apr
-            | MonthOfYear::May
-            | MonthOfYear::Jun => Some(FinancialYear(year.to_monotonic())),
-            MonthOfYear::Jul
-            | MonthOfYear::Aug
-            | MonthOfYear::Sep
-            | MonthOfYear::Oct
-            | MonthOfYear::Nov
-            | MonthOfYear::Dec => Some(FinancialYear(year.succ()?.to_monotonic())),
-        }
+        FinancialYear::from_day(day)
     }
 
     fn start_day(self) -> Day {
-        Day::from_date(
-            Date::first_on_month(
-                date::Year::new(self.to_monotonic() as i32 - 1),
-                MonthOfYear::Jul,
-            )
-            .expect("Always valid"),
-        )
-        .expect("Always valid")
+        self.start_day()
     }
     fn end_day(self) -> Day {
-        Day::from_date(
-            Date::last_on_month(
-                date::Year::new(self.to_monotonic() as i32),
-                MonthOfYear::Jun,
-            )
-            .expect("Always valid"),
-        )
-        .expect("Always valid")
+        self.end_day()
     }
 }
 
@@ -182,7 +201,6 @@ impl str::FromStr for FinancialYear {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::DateResolution;
     use crate::DateResolutionExt;
 
     #[test]
@@ -197,8 +215,8 @@ mod tests {
                 y,
                 i
             );
-            assert_eq!(FinancialYear::from_day(y.start_day(), ()), Some(y));
-            assert_eq!(FinancialYear::from_day(y.end_day(), ()), Some(y));
+            assert_eq!(FinancialYear::from_day(y.start_day()), Some(y));
+            assert_eq!(FinancialYear::from_day(y.end_day()), Some(y));
             _ = y.start_minute();
             _ = y.start_day();
             _ = y.start_p::<Month>();
