@@ -7,8 +7,8 @@ use typenum::{
     UInt, Unsigned, Z0,
 };
 
-// based on i128 for now. consider i64 later...
-//
+// TODO: based on i128 for now. consider i64 later...
+// TODO: consider nonzero/nonmax for niche use with options?
 
 #[derive(Debug, Clone, Copy)]
 struct Dec<S> {
@@ -88,6 +88,7 @@ where
     }
 }
 
+/// rounding required prior to check if the scale is different
 impl<U> PartialEq for Dec<U>
 where
     U: Integer,
@@ -97,8 +98,10 @@ where
     }
 }
 
+/// rounding required prior to check if the scale is different
 impl<U> Eq for Dec<U> where U: Integer {}
 
+/// rounding required prior to check if the scale is different
 impl<U> PartialOrd for Dec<U>
 where
     U: Integer,
@@ -108,6 +111,7 @@ where
     }
 }
 
+/// rounding required prior to check if the scale is different
 impl<U> Ord for Dec<U>
 where
     U: Integer,
@@ -139,6 +143,7 @@ where
     // }
 }
 
+/// rounding required prior to op if the scale is different
 impl<U> Add for Dec<U>
 where
     U: Integer,
@@ -153,6 +158,7 @@ where
     }
 }
 
+/// rounding required prior to op if the scale is different
 impl<U> Sub for Dec<U>
 where
     U: Integer,
@@ -167,6 +173,10 @@ where
     }
 }
 
+/// multiplication explicitly changes the scale to make the operation cheap
+/// normally the value will then be rounded. There are no restrictions 
+/// on the rounding, but there will be data loss if the scale is too
+/// restrictive
 impl<U, V> Mul<Dec<V>> for Dec<U>
 where
     U: Integer + Add<V>,
@@ -182,6 +192,10 @@ where
     }
 }
 
+/// division returns a new "ratio" type which preserves the operand mantissas.
+/// this can then be roudned back to a decimal.
+/// when rounding the scale chosen will need to be at least as large
+/// as the maximum scale of the operands
 impl<U, V> Div<Dec<V>> for Dec<U>
 where
     U: Integer + Sub<V> + Max<V>,
@@ -237,40 +251,3 @@ mod tests {
         assert_eq!(three.div(one_point_five).dec::<P1>(), two.dec::<P1>());
     }
 }
-
-// // rescales may imply rounding
-// // add cannot change scale - rescale if want to add different scales
-// impl<U: Unsigned> Add for Dec<U> {
-//     type Output = Dec<U>;
-
-//     fn add(self, rhs: Dec<U>) -> Self::Output {
-//         Dec {
-//             mantissa: self.mantissa + rhs.mantissa,
-//             scale: PhantomData,
-//         }
-//     }
-// }
-
-// impl<U: Unsigned> Sub for Dec<U> {
-//     type Output = Dec<U>;
-
-//     fn sub(self, rhs: Dec<U>) -> Self::Output {
-//         Dec {
-//             mantissa: self.mantissa - rhs.mantissa,
-//             scale: PhantomData,
-//         }
-//     }
-// }
-
-// impl<U, V, W> Div<Dec<V>> for Dec<U>
-// where
-//     U: Unsigned,
-//     V: Unsigned,
-//     W: Unsigned,
-// {
-//     type Output = Rat<W>;
-
-//     fn div(self, rhs: Dec<U>) -> Self::Output {
-//         todo!()
-//     }
-// }
